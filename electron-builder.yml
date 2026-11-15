@@ -1,0 +1,33 @@
+# Installer für den Kanzlei-Helfer (Vorlage: Machbar).
+# appId und productName bleiben fest: Sie bestimmen Installationsort und Datenordner.
+appId: de.echoblend.kanzlei-helfer
+productName: Kanzlei-Helfer
+copyright: Timo Bergmann
+
+directories:
+  output: paket
+  buildResources: public
+
+# Nur das Gebaute und die Hülle. Alle Pakete stecken gebündelt in dist (devDependencies).
+files:
+  - dist/**
+  - electron/**
+  - public/icon.png
+  - package.json
+
+win:
+  target: nsis
+  icon: public/icon.png
+  # Ohne gekaufte Code-Signatur warnt Windows beim ersten Start („Weitere Informationen → Trotzdem ausführen“).
+
+nsis:
+  oneClick: false
+  perMachine: false          # pro Benutzer, keine Adminrechte nötig
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Kanzlei-Helfer
+  artifactName: Kanzlei-Helfer-Setup-${version}.exe
+  deleteAppDataOnUninstall: false   # Vorlagen und Protokoll bleiben bei Neuinstallation erhalten
+
+publish: null

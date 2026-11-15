@@ -1,0 +1,39 @@
+{
+  "name": "kanzlei-helfer",
+  "private": true,
+  "version": "1.2.0",
+  "description": "Prüft Mandanten-Stammdaten aus DATEV und schreibt Mandanten per Vorlage an.",
+  "author": "Timo Bergmann",
+  "type": "module",
+  "main": "electron/haupt.cjs",
+  "scripts": {
+    "bau": "tsc --noEmit && vite build",
+    "app": "vite build && electron .",
+    "pruefe": "node --test \"tests/*.test.cjs\"",
+    "pruefe:app": "vite build && node tests/app.e2e.mjs",
+    "installer": "vite build && electron-builder"
+  },
+  "devDependencies": {
+    "@fontsource/ibm-plex-mono": "^5.2.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "26.4.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "@vitejs/plugin-react": "5.2.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "electron": "44.1.0",
+    "electron-builder": "26.15.3",
+    "lucide-react": "1.45.0",
+    "playwright-core": "1.58.2",
+    "radix-ui": "^1.4.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sonner": "^2.0.0",
+    "tailwind-merge": "3.7.0",
+    "tailwindcss": "4.3.3",
+    "tw-animate-css": "^1.3.0",
+    "typescript": "5.8.3",
+    "vite": "6.4.3"
+  }
+}

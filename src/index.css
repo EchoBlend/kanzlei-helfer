@@ -1,0 +1,177 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Kanzlei-Helfer · Gestaltungssystem
+ * Farbe: Bauart A (leiser Grund, ein Akzent). Leitfarbe Petrol H 186, Neutrale kühl H 212–222,
+ *        Tönung steigt mit der Dunkelheit. Gemessen mit colors/pruef.py (WCAG + APCA), Werte unten.
+ * Schrift: Systemschrift Segoe UI Variable (Windows-Gegenstück zu SF, optische Größen Text/Display,
+ *        Timo 15.11.: Apple-Look) + IBM Plex Mono nur für Kennungen (IBAN, Steuer-ID, Nr.): trennt 0/O und 1/l/I.
+ * Dunkel: über prefers-color-scheme, das Electron per nativeTheme aus den Einstellungen setzt.
+ */
+
+:root {
+  --bg:          oklch(0.993 0.003 215);  /* #FCFEFE */
+  --surface:     oklch(0.966 0.006 215);  /* #F1F6F7 */
+  --surface-2:   oklch(0.938 0.009 212);  /* #E4ECEE */
+  --line:        oklch(0.898 0.011 212);  /* Trenner, kein Kontrastziel */
+  --line-strong: oklch(0.620 0.020 212);  /* Eingabefeld-Rand 3.53:1 */
+  --text-muted:  oklch(0.495 0.024 215);  /* 5.92:1 auf bg */
+  --text:        oklch(0.235 0.030 220);  /* 16.29:1 auf bg */
+  --brand:       oklch(0.460 0.081 186);  /* #00665E Petrol, 6.71:1, trägt weißen Text */
+  --brand-hover: oklch(0.400 0.074 188);
+  --brand-ink:   oklch(0.993 0.003 215);
+  --brand-soft:  oklch(0.955 0.022 188);  /* Auswahl; brand darauf 6.05:1 */
+  --ok:          oklch(0.500 0.125 148);  /* 5.54:1 */
+  --warn:        oklch(0.530 0.115 68);   /* 5.30:1 */
+  --err:         oklch(0.500 0.170 27);   /* 6.39:1 */
+  --ok-soft:     oklch(0.962 0.030 148);  /* ok darauf 5.10:1 */
+  --warn-soft:   oklch(0.965 0.035 80);   /* warn darauf 4.85:1 */
+  --err-soft:    oklch(0.960 0.025 25);   /* err darauf 5.72:1 */
+
+  --radius: 0.625rem;
+
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--bg);
+  --card-foreground: var(--text);
+  --popover: var(--bg);
+  --popover-foreground: var(--text);
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-ink);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--text);
+  --destructive: var(--err);
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--brand);
+
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-ink);
+  --sidebar-accent: var(--surface-2);
+  --sidebar-accent-foreground: var(--text);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--brand);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:          oklch(0.168 0.012 222);  /* #0B1316 */
+    --surface:     oklch(0.205 0.014 222);
+    --surface-2:   oklch(0.245 0.016 220);
+    --line:        oklch(0.300 0.016 220);
+    --line-strong: oklch(0.500 0.020 218);  /* 3.21:1 */
+    --text-muted:  oklch(0.735 0.018 215);  /* 8.18:1, Lc 55 */
+    --text:        oklch(0.945 0.008 215);  /* 16.33:1 */
+    --brand:       oklch(0.720 0.095 184);  /* 8.06:1, trägt dunklen Text */
+    --brand-hover: oklch(0.780 0.090 184);
+    --brand-ink:   oklch(0.168 0.012 222);
+    --brand-soft:  oklch(0.270 0.035 186);
+    --ok:          oklch(0.760 0.140 148);  /* 9.41:1 */
+    --warn:        oklch(0.800 0.120 75);   /* 10.10:1 */
+    --err:         oklch(0.720 0.150 25);   /* 7.24:1 */
+    --ok-soft:     oklch(0.280 0.045 148);
+    --warn-soft:   oklch(0.290 0.045 75);
+    --err-soft:    oklch(0.280 0.050 25);
+  }
+}
+
+@theme inline {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+
+  /* Fünf Grade, Tailwind-Namen umgedeutet, damit die shadcn-Bauteile sie übernehmen:
+     xs 12.5 Meta/Kopfzeilen · sm 14 Bedienung und Tabelle · base 16 Lesetext · lg 19 Abschnitt · 2xl 26 Titel.
+     Laufweite je Größe (Apple): klein leicht offen, groß enger. */
+  --text-xs: 0.78125rem;  --text-xs--line-height: 1.35;  --text-xs--letter-spacing: 0.005em;
+  --text-sm: 0.875rem;    --text-sm--line-height: 1.43;
+  --text-base: 1rem;      --text-base--line-height: 1.55;
+  --text-lg: 1.1875rem;   --text-lg--line-height: 1.3;   --text-lg--letter-spacing: -0.01em;
+  --text-2xl: 1.625rem;   --text-2xl--line-height: 1.15; --text-2xl--letter-spacing: -0.02em;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-err: var(--err);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn-soft: var(--warn-soft);
+  --color-err-soft: var(--err-soft);
+  --color-line: var(--line);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+
+  --radius-sm: calc(var(--radius) - 3px);
+  --radius-md: calc(var(--radius) - 1px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html { color-scheme: light dark; }
+  body {
+    @apply bg-background text-foreground font-sans text-sm antialiased;
+    font-optical-sizing: auto;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
+  :lang(de) { quotes: "„" "“" "‚" "‘"; }
+  h1, h2, h3 { text-wrap: balance; }
+  table, .zahl { font-variant-numeric: lining-nums tabular-nums; }
+  ::selection { background: color-mix(in oklab, var(--brand) 22%, transparent); }
+}
+
+/* Fenster wie macOS: Werkzeugleisten sind die Titelleiste (ziehen), Bedienelemente darin nicht. */
+.ziehen { -webkit-app-region: drag; app-region: drag; user-select: none; }
+.ziehen :is(button, input, select, textarea, a, label, [role="button"], [role="combobox"], [role="radio"]) { -webkit-app-region: no-drag; app-region: no-drag; }
+
+/* Windows 11: Seitenleiste auf dem Material „Mica“, Inhalt als ruhige deckende Fläche */
+html[data-mica] body { background: transparent; }
+html[data-mica] { --sidebar: color-mix(in oklab, var(--surface) 30%, transparent); }
+html[data-mica] .inhalt { border-top-left-radius: 12px; border-left: 1px solid var(--line); }
+html:not([data-mica]) .inhalt { border-left: 1px solid var(--line); }
+@media (prefers-reduced-transparency: reduce) {
+  html[data-mica] { --sidebar: var(--surface); }
+  .backdrop-blur-xl { backdrop-filter: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+}
+
+/* Lesetext (Mail-Vorschau): Silbentrennung, Absätze ohne Hurenkinder, Satzbreite gemessen */
+.lesetext { font-size: var(--text-base); line-height: 1.55; hyphens: auto; text-wrap: pretty; max-width: 68ch; white-space: pre-wrap; }
+.kennung { font-family: var(--font-mono); font-size: 0.8125rem; letter-spacing: 0; }

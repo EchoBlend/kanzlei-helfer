@@ -1,0 +1,3516 @@
+{
+  "_hinweis": "Erfundene Testdaten im DATEVconnect-Format. Keine echten Mandanten.",
+  "master-data": {
+    "/clients": [
+      {
+        "id": "c-10001",
+        "number": 10001,
+        "name": "Muster, Anna",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-1"
+      },
+      {
+        "id": "c-10002",
+        "number": 10002,
+        "name": "Bäckerei Krümel GmbH",
+        "status": "active",
+        "type": "legal_person",
+        "legal_person_id": "l-2"
+      },
+      {
+        "id": "c-10003",
+        "number": 10003,
+        "name": "Beispiel, Jürgen",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-3"
+      },
+      {
+        "id": "c-10004",
+        "number": 10004,
+        "name": "Malerbetrieb Test e.K.",
+        "status": "active",
+        "type": "individual_enterprise",
+        "natural_person_id": "p-4",
+        "legal_person_id": "l-4"
+      },
+      {
+        "id": "c-10005",
+        "number": 10005,
+        "name": "Alt, Otto (inaktiv)",
+        "status": "inactive",
+        "type": "natural_person",
+        "natural_person_id": "p-5"
+      },
+      {
+        "id": "c-10006",
+        "number": 10006,
+        "name": "Leer, Sabine",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-6"
+      },
+      {
+        "id": "c-10007",
+        "number": 10007,
+        "name": "Fehlt, Adressat",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-gibt-es-nicht"
+      },
+      {
+        "id": "c-10010",
+        "number": 10010,
+        "name": "Hartmann, Katrin",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-10010",
+        "client_since": "2019-04-13"
+      },
+      {
+        "id": "c-10011",
+        "number": 10011,
+        "name": "Schulze, Thomas",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-10011",
+        "client_since": "2010-05-13"
+      },
+      {
+        "id": "c-10012",
+        "number": 10012,
+        "name": "Berger, Sandra",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-10012",
+        "client_since": "2012-06-25"
+      },
+      {
+        "id": "c-10013",
+        "number": 10013,
+        "name": "Zimmermann, Michael",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-10013",
+        "client_since": "2024-10-19"
+      },
+      {
+        "id": "c-10014",
+        "number": 10014,
+        "name": "Kühn, Nicole",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-10014",
+        "client_since": "2020-09-21"
+      },
+      {
+        "id": "c-10015",
+        "number": 10015,
+        "name": "Roth, Andreas",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-10015",
+        "client_since": "2019-10-11"
+      },
+      {
+        "id": "c-10016",
+        "number": 10016,
+        "name": "Engel, Claudia",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-10016",
+        "client_since": "2010-06-01"
+      },
+      {
+        "id": "c-10017",
+        "number": 10017,
+        "name": "Pohl, Stefan",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-10017",
+        "client_since": "2021-02-03"
+      },
+      {
+        "id": "c-10018",
+        "number": 10018,
+        "name": "Winkler, Franziska",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-10018",
+        "client_since": "2006-02-26"
+      },
+      {
+        "id": "c-10019",
+        "number": 10019,
+        "name": "Wagner, Frank",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-10019",
+        "client_since": "2010-12-18"
+      },
+      {
+        "id": "c-10020",
+        "number": 10020,
+        "name": "Gruber, Heike",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-10020",
+        "client_since": "2005-11-03"
+      },
+      {
+        "id": "c-10021",
+        "number": 10021,
+        "name": "Otto, Jens",
+        "status": "active",
+        "type": "natural_person",
+        "natural_person_id": "p-10021",
+        "client_since": "2008-11-07"
+      },
+      {
+        "id": "c-10022",
+        "number": 10022,
+        "name": "Tischlerei Lindner e.K.",
+        "status": "active",
+        "type": "individual_enterprise",
+        "natural_person_id": "p-10022",
+        "legal_person_id": "l-10022",
+        "client_since": "2007-05-08"
+      },
+      {
+        "id": "c-10023",
+        "number": 10023,
+        "name": "Friseursalon Vogt e.K.",
+        "status": "active",
+        "type": "individual_enterprise",
+        "natural_person_id": "p-10023",
+        "legal_person_id": "l-10023",
+        "client_since": "2005-02-21"
+      },
+      {
+        "id": "c-10024",
+        "number": 10024,
+        "name": "Elektro Keller e.K.",
+        "status": "active",
+        "type": "individual_enterprise",
+        "natural_person_id": "p-10024",
+        "legal_person_id": "l-10024",
+        "client_since": "2021-12-05"
+      },
+      {
+        "id": "c-10025",
+        "number": 10025,
+        "name": "Gartenbau Brandt e.K.",
+        "status": "active",
+        "type": "individual_enterprise",
+        "natural_person_id": "p-10025",
+        "legal_person_id": "l-10025",
+        "client_since": "2009-12-26"
+      },
+      {
+        "id": "c-10026",
+        "number": 10026,
+        "name": "Nowak Maschinenbau GmbH",
+        "status": "active",
+        "type": "legal_person",
+        "legal_person_id": "l-10026",
+        "client_since": "2005-07-26"
+      },
+      {
+        "id": "c-10027",
+        "number": 10027,
+        "name": "Peters Logistik UG (haftungsbeschränkt)",
+        "status": "active",
+        "type": "legal_person",
+        "legal_person_id": "l-10027",
+        "client_since": "2009-05-22"
+      },
+      {
+        "id": "c-10028",
+        "number": 10028,
+        "name": "Fischer & Söhne GmbH & Co. KG",
+        "status": "active",
+        "type": "legal_person",
+        "legal_person_id": "l-10028",
+        "client_since": "2024-10-16"
+      },
+      {
+        "id": "c-10029",
+        "number": 10029,
+        "name": "Heinrich Ingenieurbüro AG",
+        "status": "inactive",
+        "type": "legal_person",
+        "legal_person_id": "l-10029",
+        "client_since": "2011-11-16"
+      }
+    ],
+    "/responsibilities": [
+      {
+        "id": 1,
+        "area_of_responsibility_id": "EST",
+        "area_of_responsibility_name": "Einkommensteuer",
+        "employee_id": 101,
+        "employee_display_name": "Weber, Lena",
+        "employee_number": 101,
+        "employee_status": "active",
+        "client_id": "c-10001",
+        "client_name": "Muster, Anna",
+        "client_number": 10001,
+        "client_status": "active"
+      },
+      {
+        "id": 2,
+        "area_of_responsibility_id": "FIBU",
+        "area_of_responsibility_name": "Finanzbuchführung",
+        "employee_id": 102,
+        "employee_display_name": "Hartmann, Jan",
+        "employee_number": 102,
+        "employee_status": "active",
+        "client_id": "c-10002",
+        "client_name": "Bäckerei Krümel GmbH",
+        "client_number": 10002,
+        "client_status": "active"
+      },
+      {
+        "id": 3,
+        "area_of_responsibility_id": "LOHN",
+        "area_of_responsibility_name": "Lohn und Gehalt",
+        "employee_id": 103,
+        "employee_display_name": "Schulze, Miriam",
+        "employee_number": 103,
+        "employee_status": "active",
+        "client_id": "c-10002",
+        "client_name": "Bäckerei Krümel GmbH",
+        "client_number": 10002,
+        "client_status": "active"
+      },
+      {
+        "id": 4,
+        "area_of_responsibility_id": "JA",
+        "area_of_responsibility_name": "Jahresabschluss",
+        "employee_id": 104,
+        "employee_display_name": "Richter, Stefan",
+        "employee_number": 104,
+        "employee_status": "active",
+        "client_id": "c-10002",
+        "client_name": "Bäckerei Krümel GmbH",
+        "client_number": 10002,
+        "client_status": "active"
+      },
+      {
+        "id": 5,
+        "area_of_responsibility_id": "EST",
+        "area_of_responsibility_name": "Einkommensteuer",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10003",
+        "client_name": "Beispiel, Jürgen",
+        "client_number": 10003,
+        "client_status": "active"
+      },
+      {
+        "id": 6,
+        "area_of_responsibility_id": "FIBU",
+        "area_of_responsibility_name": "Finanzbuchführung",
+        "employee_id": null,
+        "employee_display_name": null,
+        "employee_number": null,
+        "employee_status": null,
+        "client_id": "c-10004",
+        "client_name": "Malerbetrieb Test e.K.",
+        "client_number": 10004,
+        "client_status": "active"
+      },
+      {
+        "id": 7,
+        "area_of_responsibility_id": "LOHN",
+        "area_of_responsibility_name": "Lohn und Gehalt",
+        "employee_id": null,
+        "employee_display_name": null,
+        "employee_number": null,
+        "employee_status": null,
+        "client_id": "c-10010",
+        "client_name": "Hartmann, Katrin",
+        "client_number": 10010,
+        "client_status": "active"
+      },
+      {
+        "id": 8,
+        "area_of_responsibility_id": "FIBU",
+        "area_of_responsibility_name": "Finanzbuchführung",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10011",
+        "client_name": "Schulze, Thomas",
+        "client_number": 10011,
+        "client_status": "active"
+      },
+      {
+        "id": 9,
+        "area_of_responsibility_id": "LOHN",
+        "area_of_responsibility_name": "Lohn und Gehalt",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10011",
+        "client_name": "Schulze, Thomas",
+        "client_number": 10011,
+        "client_status": "active"
+      },
+      {
+        "id": 10,
+        "area_of_responsibility_id": "JA",
+        "area_of_responsibility_name": "Jahresabschluss",
+        "employee_id": 103,
+        "employee_display_name": "Schulze, Miriam",
+        "employee_number": 103,
+        "employee_status": "active",
+        "client_id": "c-10012",
+        "client_name": "Berger, Sandra",
+        "client_number": 10012,
+        "client_status": "active"
+      },
+      {
+        "id": 11,
+        "area_of_responsibility_id": "LOHN",
+        "area_of_responsibility_name": "Lohn und Gehalt",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10013",
+        "client_name": "Zimmermann, Michael",
+        "client_number": 10013,
+        "client_status": "active"
+      },
+      {
+        "id": 12,
+        "area_of_responsibility_id": "BER",
+        "area_of_responsibility_name": "Beratung",
+        "employee_id": 103,
+        "employee_display_name": "Schulze, Miriam",
+        "employee_number": 103,
+        "employee_status": "active",
+        "client_id": "c-10013",
+        "client_name": "Zimmermann, Michael",
+        "client_number": 10013,
+        "client_status": "active"
+      },
+      {
+        "id": 13,
+        "area_of_responsibility_id": "FIBU",
+        "area_of_responsibility_name": "Finanzbuchführung",
+        "employee_id": 102,
+        "employee_display_name": "Hartmann, Jan",
+        "employee_number": 102,
+        "employee_status": "active",
+        "client_id": "c-10013",
+        "client_name": "Zimmermann, Michael",
+        "client_number": 10013,
+        "client_status": "active"
+      },
+      {
+        "id": 14,
+        "area_of_responsibility_id": "BER",
+        "area_of_responsibility_name": "Beratung",
+        "employee_id": 104,
+        "employee_display_name": "Richter, Stefan",
+        "employee_number": 104,
+        "employee_status": "active",
+        "client_id": "c-10014",
+        "client_name": "Kühn, Nicole",
+        "client_number": 10014,
+        "client_status": "active"
+      },
+      {
+        "id": 15,
+        "area_of_responsibility_id": "JA",
+        "area_of_responsibility_name": "Jahresabschluss",
+        "employee_id": 103,
+        "employee_display_name": "Schulze, Miriam",
+        "employee_number": 103,
+        "employee_status": "active",
+        "client_id": "c-10015",
+        "client_name": "Roth, Andreas",
+        "client_number": 10015,
+        "client_status": "active"
+      },
+      {
+        "id": 16,
+        "area_of_responsibility_id": "BER",
+        "area_of_responsibility_name": "Beratung",
+        "employee_id": 104,
+        "employee_display_name": "Richter, Stefan",
+        "employee_number": 104,
+        "employee_status": "active",
+        "client_id": "c-10015",
+        "client_name": "Roth, Andreas",
+        "client_number": 10015,
+        "client_status": "active"
+      },
+      {
+        "id": 17,
+        "area_of_responsibility_id": "LOHN",
+        "area_of_responsibility_name": "Lohn und Gehalt",
+        "employee_id": 103,
+        "employee_display_name": "Schulze, Miriam",
+        "employee_number": 103,
+        "employee_status": "active",
+        "client_id": "c-10015",
+        "client_name": "Roth, Andreas",
+        "client_number": 10015,
+        "client_status": "active"
+      },
+      {
+        "id": 18,
+        "area_of_responsibility_id": "FIBU",
+        "area_of_responsibility_name": "Finanzbuchführung",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10016",
+        "client_name": "Engel, Claudia",
+        "client_number": 10016,
+        "client_status": "active"
+      },
+      {
+        "id": 19,
+        "area_of_responsibility_id": "LOHN",
+        "area_of_responsibility_name": "Lohn und Gehalt",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10016",
+        "client_name": "Engel, Claudia",
+        "client_number": 10016,
+        "client_status": "active"
+      },
+      {
+        "id": 20,
+        "area_of_responsibility_id": "FIBU",
+        "area_of_responsibility_name": "Finanzbuchführung",
+        "employee_id": 104,
+        "employee_display_name": "Richter, Stefan",
+        "employee_number": 104,
+        "employee_status": "active",
+        "client_id": "c-10017",
+        "client_name": "Pohl, Stefan",
+        "client_number": 10017,
+        "client_status": "active"
+      },
+      {
+        "id": 21,
+        "area_of_responsibility_id": "UST",
+        "area_of_responsibility_name": "Umsatzsteuer",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10017",
+        "client_name": "Pohl, Stefan",
+        "client_number": 10017,
+        "client_status": "active"
+      },
+      {
+        "id": 22,
+        "area_of_responsibility_id": "BER",
+        "area_of_responsibility_name": "Beratung",
+        "employee_id": 104,
+        "employee_display_name": "Richter, Stefan",
+        "employee_number": 104,
+        "employee_status": "active",
+        "client_id": "c-10017",
+        "client_name": "Pohl, Stefan",
+        "client_number": 10017,
+        "client_status": "active"
+      },
+      {
+        "id": 23,
+        "area_of_responsibility_id": "JA",
+        "area_of_responsibility_name": "Jahresabschluss",
+        "employee_id": 102,
+        "employee_display_name": "Hartmann, Jan",
+        "employee_number": 102,
+        "employee_status": "active",
+        "client_id": "c-10018",
+        "client_name": "Winkler, Franziska",
+        "client_number": 10018,
+        "client_status": "active"
+      },
+      {
+        "id": 24,
+        "area_of_responsibility_id": "JA",
+        "area_of_responsibility_name": "Jahresabschluss",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10019",
+        "client_name": "Wagner, Frank",
+        "client_number": 10019,
+        "client_status": "active"
+      },
+      {
+        "id": 25,
+        "area_of_responsibility_id": "FIBU",
+        "area_of_responsibility_name": "Finanzbuchführung",
+        "employee_id": 103,
+        "employee_display_name": "Schulze, Miriam",
+        "employee_number": 103,
+        "employee_status": "active",
+        "client_id": "c-10019",
+        "client_name": "Wagner, Frank",
+        "client_number": 10019,
+        "client_status": "active"
+      },
+      {
+        "id": 26,
+        "area_of_responsibility_id": "BER",
+        "area_of_responsibility_name": "Beratung",
+        "employee_id": 103,
+        "employee_display_name": "Schulze, Miriam",
+        "employee_number": 103,
+        "employee_status": "active",
+        "client_id": "c-10020",
+        "client_name": "Gruber, Heike",
+        "client_number": 10020,
+        "client_status": "active"
+      },
+      {
+        "id": 27,
+        "area_of_responsibility_id": "LOHN",
+        "area_of_responsibility_name": "Lohn und Gehalt",
+        "employee_id": 101,
+        "employee_display_name": "Weber, Lena",
+        "employee_number": 101,
+        "employee_status": "active",
+        "client_id": "c-10020",
+        "client_name": "Gruber, Heike",
+        "client_number": 10020,
+        "client_status": "active"
+      },
+      {
+        "id": 28,
+        "area_of_responsibility_id": "UST",
+        "area_of_responsibility_name": "Umsatzsteuer",
+        "employee_id": 104,
+        "employee_display_name": "Richter, Stefan",
+        "employee_number": 104,
+        "employee_status": "active",
+        "client_id": "c-10020",
+        "client_name": "Gruber, Heike",
+        "client_number": 10020,
+        "client_status": "active"
+      },
+      {
+        "id": 29,
+        "area_of_responsibility_id": "BER",
+        "area_of_responsibility_name": "Beratung",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10021",
+        "client_name": "Otto, Jens",
+        "client_number": 10021,
+        "client_status": "active"
+      },
+      {
+        "id": 30,
+        "area_of_responsibility_id": "EST",
+        "area_of_responsibility_name": "Einkommensteuer",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10022",
+        "client_name": "Tischlerei Lindner e.K.",
+        "client_number": 10022,
+        "client_status": "active"
+      },
+      {
+        "id": 31,
+        "area_of_responsibility_id": "FIBU",
+        "area_of_responsibility_name": "Finanzbuchführung",
+        "employee_id": 102,
+        "employee_display_name": "Hartmann, Jan",
+        "employee_number": 102,
+        "employee_status": "active",
+        "client_id": "c-10022",
+        "client_name": "Tischlerei Lindner e.K.",
+        "client_number": 10022,
+        "client_status": "active"
+      },
+      {
+        "id": 32,
+        "area_of_responsibility_id": "LOHN",
+        "area_of_responsibility_name": "Lohn und Gehalt",
+        "employee_id": 101,
+        "employee_display_name": "Weber, Lena",
+        "employee_number": 101,
+        "employee_status": "active",
+        "client_id": "c-10022",
+        "client_name": "Tischlerei Lindner e.K.",
+        "client_number": 10022,
+        "client_status": "active"
+      },
+      {
+        "id": 33,
+        "area_of_responsibility_id": "LOHN",
+        "area_of_responsibility_name": "Lohn und Gehalt",
+        "employee_id": 101,
+        "employee_display_name": "Weber, Lena",
+        "employee_number": 101,
+        "employee_status": "active",
+        "client_id": "c-10024",
+        "client_name": "Elektro Keller e.K.",
+        "client_number": 10024,
+        "client_status": "active"
+      },
+      {
+        "id": 34,
+        "area_of_responsibility_id": "UST",
+        "area_of_responsibility_name": "Umsatzsteuer",
+        "employee_id": 101,
+        "employee_display_name": "Weber, Lena",
+        "employee_number": 101,
+        "employee_status": "active",
+        "client_id": "c-10024",
+        "client_name": "Elektro Keller e.K.",
+        "client_number": 10024,
+        "client_status": "active"
+      },
+      {
+        "id": 35,
+        "area_of_responsibility_id": "BER",
+        "area_of_responsibility_name": "Beratung",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10025",
+        "client_name": "Gartenbau Brandt e.K.",
+        "client_number": 10025,
+        "client_status": "active"
+      },
+      {
+        "id": 36,
+        "area_of_responsibility_id": "JA",
+        "area_of_responsibility_name": "Jahresabschluss",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10025",
+        "client_name": "Gartenbau Brandt e.K.",
+        "client_number": 10025,
+        "client_status": "active"
+      },
+      {
+        "id": 37,
+        "area_of_responsibility_id": "LOHN",
+        "area_of_responsibility_name": "Lohn und Gehalt",
+        "employee_id": 101,
+        "employee_display_name": "Weber, Lena",
+        "employee_number": 101,
+        "employee_status": "active",
+        "client_id": "c-10026",
+        "client_name": "Nowak Maschinenbau GmbH",
+        "client_number": 10026,
+        "client_status": "active"
+      },
+      {
+        "id": 38,
+        "area_of_responsibility_id": "JA",
+        "area_of_responsibility_name": "Jahresabschluss",
+        "employee_id": 104,
+        "employee_display_name": "Richter, Stefan",
+        "employee_number": 104,
+        "employee_status": "active",
+        "client_id": "c-10026",
+        "client_name": "Nowak Maschinenbau GmbH",
+        "client_number": 10026,
+        "client_status": "active"
+      },
+      {
+        "id": 39,
+        "area_of_responsibility_id": "BER",
+        "area_of_responsibility_name": "Beratung",
+        "employee_id": 104,
+        "employee_display_name": "Richter, Stefan",
+        "employee_number": 104,
+        "employee_status": "active",
+        "client_id": "c-10026",
+        "client_name": "Nowak Maschinenbau GmbH",
+        "client_number": 10026,
+        "client_status": "active"
+      },
+      {
+        "id": 40,
+        "area_of_responsibility_id": "FIBU",
+        "area_of_responsibility_name": "Finanzbuchführung",
+        "employee_id": 101,
+        "employee_display_name": "Weber, Lena",
+        "employee_number": 101,
+        "employee_status": "active",
+        "client_id": "c-10027",
+        "client_name": "Peters Logistik UG (haftungsbeschränkt)",
+        "client_number": 10027,
+        "client_status": "active"
+      },
+      {
+        "id": 41,
+        "area_of_responsibility_id": "LOHN",
+        "area_of_responsibility_name": "Lohn und Gehalt",
+        "employee_id": 104,
+        "employee_display_name": "Richter, Stefan",
+        "employee_number": 104,
+        "employee_status": "active",
+        "client_id": "c-10027",
+        "client_name": "Peters Logistik UG (haftungsbeschränkt)",
+        "client_number": 10027,
+        "client_status": "active"
+      },
+      {
+        "id": 42,
+        "area_of_responsibility_id": "EST",
+        "area_of_responsibility_name": "Einkommensteuer",
+        "employee_id": 103,
+        "employee_display_name": "Schulze, Miriam",
+        "employee_number": 103,
+        "employee_status": "active",
+        "client_id": "c-10027",
+        "client_name": "Peters Logistik UG (haftungsbeschränkt)",
+        "client_number": 10027,
+        "client_status": "active"
+      },
+      {
+        "id": 43,
+        "area_of_responsibility_id": "EST",
+        "area_of_responsibility_name": "Einkommensteuer",
+        "employee_id": 105,
+        "employee_display_name": "Lange, Marie",
+        "employee_number": 105,
+        "employee_status": "active",
+        "client_id": "c-10028",
+        "client_name": "Fischer & Söhne GmbH & Co. KG",
+        "client_number": 10028,
+        "client_status": "active"
+      },
+      {
+        "id": 44,
+        "area_of_responsibility_id": "BER",
+        "area_of_responsibility_name": "Beratung",
+        "employee_id": null,
+        "employee_display_name": null,
+        "employee_number": null,
+        "employee_status": null,
+        "client_id": "c-10029",
+        "client_name": "Heinrich Ingenieurbüro AG",
+        "client_number": 10029,
+        "client_status": "inactive"
+      },
+      {
+        "id": 45,
+        "area_of_responsibility_id": "LOHN",
+        "area_of_responsibility_name": "Lohn und Gehalt",
+        "employee_id": 101,
+        "employee_display_name": "Weber, Lena",
+        "employee_number": 101,
+        "employee_status": "active",
+        "client_id": "c-10029",
+        "client_name": "Heinrich Ingenieurbüro AG",
+        "client_number": 10029,
+        "client_status": "inactive"
+      }
+    ],
+    "/client-groups": [
+      {
+        "id": 1,
+        "client_group_type_id": "g-a",
+        "client_group_type_short_name": "A-Mandant",
+        "client_id": "c-10001",
+        "client_name": "Muster, Anna",
+        "client_number": 10001,
+        "client_status": "active"
+      },
+      {
+        "id": 2,
+        "client_group_type_id": "g-a",
+        "client_group_type_short_name": "A-Mandant",
+        "client_id": "c-10002",
+        "client_name": "Bäckerei Krümel GmbH",
+        "client_number": 10002,
+        "client_status": "active"
+      },
+      {
+        "id": 3,
+        "client_group_type_id": "g-lohn",
+        "client_group_type_short_name": "Lohnkunde",
+        "client_id": "c-10002",
+        "client_name": "Bäckerei Krümel GmbH",
+        "client_number": 10002,
+        "client_status": "active"
+      },
+      {
+        "id": 4,
+        "client_group_type_id": "g-neu",
+        "client_group_type_short_name": "Neu 2026",
+        "client_id": "c-10003",
+        "client_name": "Beispiel, Jürgen",
+        "client_number": 10003,
+        "client_status": "active"
+      },
+      {
+        "id": 5,
+        "client_group_type_id": "g-a",
+        "client_group_type_short_name": "A-Mandant",
+        "client_id": "c-10004",
+        "client_name": "Malerbetrieb Test e.K.",
+        "client_number": 10004,
+        "client_status": "active"
+      },
+      {
+        "id": 6,
+        "client_group_type_id": "g-neu",
+        "client_group_type_short_name": "Neu 2026",
+        "client_id": "c-10013",
+        "client_name": "Zimmermann, Michael",
+        "client_number": 10013,
+        "client_status": "active"
+      },
+      {
+        "id": 7,
+        "client_group_type_id": "g-a",
+        "client_group_type_short_name": "A-Mandant",
+        "client_id": "c-10025",
+        "client_name": "Gartenbau Brandt e.K.",
+        "client_number": 10025,
+        "client_status": "active"
+      },
+      {
+        "id": 8,
+        "client_group_type_id": "g-a",
+        "client_group_type_short_name": "A-Mandant",
+        "client_id": "c-10021",
+        "client_name": "Otto, Jens",
+        "client_number": 10021,
+        "client_status": "active"
+      },
+      {
+        "id": 9,
+        "client_group_type_id": "g-neu",
+        "client_group_type_short_name": "Neu 2026",
+        "client_id": "c-10012",
+        "client_name": "Berger, Sandra",
+        "client_number": 10012,
+        "client_status": "active"
+      },
+      {
+        "id": 10,
+        "client_group_type_id": "g-lohn",
+        "client_group_type_short_name": "Lohnkunde",
+        "client_id": "c-10014",
+        "client_name": "Kühn, Nicole",
+        "client_number": 10014,
+        "client_status": "active"
+      },
+      {
+        "id": 11,
+        "client_group_type_id": "g-a",
+        "client_group_type_short_name": "A-Mandant",
+        "client_id": "c-10027",
+        "client_name": "Peters Logistik UG (haftungsbeschränkt)",
+        "client_number": 10027,
+        "client_status": "active"
+      },
+      {
+        "id": 12,
+        "client_group_type_id": "g-lohn",
+        "client_group_type_short_name": "Lohnkunde",
+        "client_id": "c-10018",
+        "client_name": "Winkler, Franziska",
+        "client_number": 10018,
+        "client_status": "active"
+      },
+      {
+        "id": 13,
+        "client_group_type_id": "g-lohn",
+        "client_group_type_short_name": "Lohnkunde",
+        "client_id": "c-10015",
+        "client_name": "Roth, Andreas",
+        "client_number": 10015,
+        "client_status": "active"
+      }
+    ],
+    "/client-group-types": [
+      {
+        "id": "g-a",
+        "short_name": "A-Mandant",
+        "name": "A-Mandanten"
+      },
+      {
+        "id": "g-lohn",
+        "short_name": "Lohnkunde",
+        "name": "Lohnkunden"
+      },
+      {
+        "id": "g-neu",
+        "short_name": "Neu 2026",
+        "name": "Neumandanten 2026"
+      }
+    ],
+    "/client-categories": [
+      {
+        "id": 1,
+        "client_category_type_id": "k-heil",
+        "client_category_type_short_name": "Heilberufe",
+        "client_id": "c-10001",
+        "client_name": "Muster, Anna",
+        "client_number": 10001,
+        "client_status": "active"
+      },
+      {
+        "id": 2,
+        "client_category_type_id": "k-gast",
+        "client_category_type_short_name": "Gastronomie",
+        "client_id": "c-10002",
+        "client_name": "Bäckerei Krümel GmbH",
+        "client_number": 10002,
+        "client_status": "active"
+      },
+      {
+        "id": 3,
+        "client_category_type_id": "k-frei",
+        "client_category_type_short_name": "Freiberufler",
+        "client_id": "c-10003",
+        "client_name": "Beispiel, Jürgen",
+        "client_number": 10003,
+        "client_status": "active"
+      },
+      {
+        "id": 4,
+        "client_category_type_id": "k-hand",
+        "client_category_type_short_name": "Handwerk",
+        "client_id": "c-10004",
+        "client_name": "Malerbetrieb Test e.K.",
+        "client_number": 10004,
+        "client_status": "active"
+      },
+      {
+        "id": 5,
+        "client_category_type_id": "k-gast",
+        "client_category_type_short_name": "Gastronomie",
+        "client_id": "c-10024",
+        "client_name": "Elektro Keller e.K.",
+        "client_number": 10024,
+        "client_status": "active"
+      },
+      {
+        "id": 6,
+        "client_category_type_id": "k-gast",
+        "client_category_type_short_name": "Gastronomie",
+        "client_id": "c-10017",
+        "client_name": "Pohl, Stefan",
+        "client_number": 10017,
+        "client_status": "active"
+      },
+      {
+        "id": 7,
+        "client_category_type_id": "k-heil",
+        "client_category_type_short_name": "Heilberufe",
+        "client_id": "c-10012",
+        "client_name": "Berger, Sandra",
+        "client_number": 10012,
+        "client_status": "active"
+      },
+      {
+        "id": 8,
+        "client_category_type_id": "k-hand",
+        "client_category_type_short_name": "Handwerk",
+        "client_id": "c-10027",
+        "client_name": "Peters Logistik UG (haftungsbeschränkt)",
+        "client_number": 10027,
+        "client_status": "active"
+      },
+      {
+        "id": 9,
+        "client_category_type_id": "k-frei",
+        "client_category_type_short_name": "Freiberufler",
+        "client_id": "c-10022",
+        "client_name": "Tischlerei Lindner e.K.",
+        "client_number": 10022,
+        "client_status": "active"
+      },
+      {
+        "id": 10,
+        "client_category_type_id": "k-frei",
+        "client_category_type_short_name": "Freiberufler",
+        "client_id": "c-10029",
+        "client_name": "Heinrich Ingenieurbüro AG",
+        "client_number": 10029,
+        "client_status": "inactive"
+      },
+      {
+        "id": 11,
+        "client_category_type_id": "k-hand",
+        "client_category_type_short_name": "Handwerk",
+        "client_id": "c-10021",
+        "client_name": "Otto, Jens",
+        "client_number": 10021,
+        "client_status": "active"
+      },
+      {
+        "id": 12,
+        "client_category_type_id": "k-gast",
+        "client_category_type_short_name": "Gastronomie",
+        "client_id": "c-10011",
+        "client_name": "Schulze, Thomas",
+        "client_number": 10011,
+        "client_status": "active"
+      }
+    ],
+    "/client-category-types": [
+      {
+        "id": "k-hand",
+        "short_name": "Handwerk",
+        "name": "Handwerk"
+      },
+      {
+        "id": "k-heil",
+        "short_name": "Heilberufe",
+        "name": "Heilberufe"
+      },
+      {
+        "id": "k-gast",
+        "short_name": "Gastronomie",
+        "name": "Gastronomie"
+      },
+      {
+        "id": "k-frei",
+        "short_name": "Freiberufler",
+        "name": "Freiberufler"
+      }
+    ],
+    "/legal-forms": [
+      {
+        "id": "GMBH",
+        "short_name": "GmbH",
+        "long_name": "Gesellschaft mit beschränkter Haftung",
+        "display_name": "GmbH"
+      },
+      {
+        "id": "UG",
+        "short_name": "UG",
+        "long_name": "Unternehmergesellschaft (haftungsbeschränkt)",
+        "display_name": "UG (haftungsbeschränkt)"
+      },
+      {
+        "id": "KG",
+        "short_name": "KG",
+        "long_name": "Kommanditgesellschaft",
+        "display_name": "KG"
+      },
+      {
+        "id": "GMBHCOKG",
+        "short_name": "GmbH & Co. KG",
+        "long_name": "GmbH & Co. Kommanditgesellschaft",
+        "display_name": "GmbH & Co. KG"
+      },
+      {
+        "id": "EK",
+        "short_name": "e. K.",
+        "long_name": "eingetragene Kauffrau/eingetragener Kaufmann",
+        "display_name": "e. K."
+      },
+      {
+        "id": "GBR",
+        "short_name": "GbR",
+        "long_name": "Gesellschaft bürgerlichen Rechts",
+        "display_name": "GbR"
+      },
+      {
+        "id": "AG",
+        "short_name": "AG",
+        "long_name": "Aktiengesellschaft",
+        "display_name": "AG"
+      }
+    ],
+    "/relationships": [
+      {
+        "id": "rel-1",
+        "abbreviation": "GES",
+        "name": "Gesellschafter",
+        "standard": true,
+        "type_id": "r-ges",
+        "has_addressee_id": "l-2",
+        "has_addressee_display_name": "Bäckerei Krümel GmbH",
+        "has_addressee_type": "legal_person",
+        "is_addressee_id": "p-1",
+        "is_addressee_display_name": "Muster, Anna",
+        "is_addressee_type": "natural_person"
+      },
+      {
+        "id": "rel-2",
+        "abbreviation": "GES",
+        "name": "Gesellschafter",
+        "standard": true,
+        "type_id": "r-ges",
+        "has_addressee_id": "l-2",
+        "has_addressee_display_name": "Bäckerei Krümel GmbH",
+        "has_addressee_type": "legal_person",
+        "is_addressee_id": "p-10010",
+        "is_addressee_display_name": "Hartmann, Katrin",
+        "is_addressee_type": "natural_person"
+      },
+      {
+        "id": "rel-3",
+        "abbreviation": "GF",
+        "name": "Geschäftsführer",
+        "standard": true,
+        "type_id": "r-gf",
+        "has_addressee_id": "l-2",
+        "has_addressee_display_name": "Bäckerei Krümel GmbH",
+        "has_addressee_type": "legal_person",
+        "is_addressee_id": "p-1",
+        "is_addressee_display_name": "Muster, Anna",
+        "is_addressee_type": "natural_person"
+      },
+      {
+        "id": "rel-4",
+        "abbreviation": "GES",
+        "name": "Gesellschafter",
+        "standard": true,
+        "type_id": "r-ges",
+        "has_addressee_id": "l-10026",
+        "has_addressee_display_name": "Nowak Maschinenbau GmbH",
+        "has_addressee_type": "legal_person",
+        "is_addressee_id": "p-g-1",
+        "is_addressee_display_name": "Nowak, Ralf",
+        "is_addressee_type": "natural_person"
+      },
+      {
+        "id": "rel-5",
+        "abbreviation": "GES",
+        "name": "Gesellschafter",
+        "standard": true,
+        "type_id": "r-ges",
+        "has_addressee_id": "l-10026",
+        "has_addressee_display_name": "Nowak Maschinenbau GmbH",
+        "has_addressee_type": "legal_person",
+        "is_addressee_id": "p-g-2",
+        "is_addressee_display_name": "Nowak, Petra",
+        "is_addressee_type": "natural_person"
+      },
+      {
+        "id": "rel-6",
+        "abbreviation": "GF",
+        "name": "Geschäftsführer",
+        "standard": true,
+        "type_id": "r-gf",
+        "has_addressee_id": "l-10026",
+        "has_addressee_display_name": "Nowak Maschinenbau GmbH",
+        "has_addressee_type": "legal_person",
+        "is_addressee_id": "p-g-1",
+        "is_addressee_display_name": "Nowak, Ralf",
+        "is_addressee_type": "natural_person"
+      },
+      {
+        "id": "rel-7",
+        "abbreviation": "GES",
+        "name": "Gesellschafter",
+        "standard": true,
+        "type_id": "r-ges",
+        "has_addressee_id": "l-10027",
+        "has_addressee_display_name": "Peters Logistik UG (haftungsbeschränkt)",
+        "has_addressee_type": "legal_person",
+        "is_addressee_id": "p-g-3",
+        "is_addressee_display_name": "Peters, Carmen",
+        "is_addressee_type": "natural_person"
+      },
+      {
+        "id": "rel-8",
+        "abbreviation": "GF",
+        "name": "Geschäftsführer",
+        "standard": true,
+        "type_id": "r-gf",
+        "has_addressee_id": "l-10027",
+        "has_addressee_display_name": "Peters Logistik UG (haftungsbeschränkt)",
+        "has_addressee_type": "legal_person",
+        "is_addressee_id": "p-g-3",
+        "is_addressee_display_name": "Peters, Carmen",
+        "is_addressee_type": "natural_person"
+      },
+      {
+        "id": "rel-9",
+        "abbreviation": "EHE",
+        "name": "Ehegatte",
+        "standard": true,
+        "type_id": "r-ehe",
+        "has_addressee_id": "p-10010",
+        "has_addressee_display_name": "Hartmann, Katrin",
+        "has_addressee_type": "natural_person",
+        "is_addressee_id": "p-10011",
+        "is_addressee_display_name": "Schulze, Thomas",
+        "is_addressee_type": "natural_person"
+      },
+      {
+        "id": "rel-10",
+        "abbreviation": "KIND",
+        "name": "Kind",
+        "standard": true,
+        "type_id": "r-kind",
+        "has_addressee_id": "p-10010",
+        "has_addressee_display_name": "Hartmann, Katrin",
+        "has_addressee_type": "natural_person",
+        "is_addressee_id": "p-g-4",
+        "is_addressee_display_name": "Hartmann, Lena",
+        "is_addressee_type": "natural_person"
+      }
+    ],
+    "/relationship-types": [
+      {
+        "id": "r-ges",
+        "abbreviation": "GES",
+        "name": "Gesellschafter",
+        "standard": true,
+        "type": 2
+      },
+      {
+        "id": "r-gf",
+        "abbreviation": "GF",
+        "name": "Geschäftsführer",
+        "standard": true,
+        "type": 2
+      },
+      {
+        "id": "r-ehe",
+        "abbreviation": "EHE",
+        "name": "Ehegatte",
+        "standard": true,
+        "type": 2
+      },
+      {
+        "id": "r-kind",
+        "abbreviation": "KIND",
+        "name": "Kind",
+        "standard": true,
+        "type": 2
+      }
+    ]
+  },
+  "addressees": {
+    "p-1": {
+      "id": "p-1",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Anna",
+      "current_surname": "Muster",
+      "date_of_birth": "1985-04-12",
+      "tax_identification_number": "86095742719",
+      "detail": {
+        "salutation": "Sehr geehrte Frau Muster,"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Hauptstraße 1",
+          "postal_code": "04109",
+          "city": "Leipzig",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "anna.muster@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0341 123456",
+          "is_main_communication": true
+        },
+        {
+          "type": "email",
+          "data_content": "praxis@muster-physio.example",
+          "note": "geschäftlich (Praxis)"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE89370400440532013000",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "231/123/45678",
+          "tax_office_number": 3231,
+          "tax_office_name": "Leipzig I",
+          "currently_valid": true
+        }
+      ]
+    },
+    "l-2": {
+      "id": "l-2",
+      "type": "legal_person",
+      "status": "active",
+      "current_company_name": "Bäckerei Krümel GmbH",
+      "current_legal_form_id": "GMBH",
+      "eu_vat_id_country_code": "DE",
+      "eu_vat_id_number": "123456789",
+      "detail": {
+        "salutation": "Sehr geehrte Damen und Herren,",
+        "current_registration_number": "HRB 12345",
+        "current_name_of_register_court": "Amtsgericht Dresden"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Brötchenweg 7",
+          "postal_code": "01067",
+          "city": "Dresden"
+        }
+      ],
+      "communications": [
+        {
+          "type": "phone",
+          "data_content": "0351 987654"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE12500105170648489890",
+          "currently_valid": false
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "202/111/22222",
+          "tax_office_number": 3202,
+          "tax_office_name": "Dresden-Nord"
+        }
+      ]
+    },
+    "p-3": {
+      "id": "p-3",
+      "type": "natural_person",
+      "status": "active",
+      "current_surname": "Beispiel",
+      "tax_identification_number": "86095742718",
+      "detail": {
+        "salutation": "Sehr geehrter Herr Beispiel,"
+      },
+      "addresses": [
+        {
+          "type": "post_office_box",
+          "post_office_box": "100 200",
+          "postal_code": "04001",
+          "city": "Leipzig"
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "juergen.beispiel(at)example.com"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE89370400440532013001"
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "231/999/00001",
+          "tax_office_name": "Leipzig II"
+        }
+      ]
+    },
+    "p-4": {
+      "id": "p-4",
+      "type": "natural_person",
+      "status": "active",
+      "current_surname": "Pinsel",
+      "date_of_birth": "1971-09-30",
+      "tax_identification_number": "47258361908",
+      "detail": {
+        "salutation": "Sehr geehrter Herr Pinsel,"
+      },
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "pinsel.privat@example.com",
+          "note": "privat"
+        }
+      ]
+    },
+    "l-4": {
+      "id": "l-4",
+      "type": "legal_person",
+      "status": "active",
+      "current_company_name": "Malerbetrieb Test e.K.",
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Farbgasse 3",
+          "postal_code": "04103",
+          "city": "Leipzig"
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "info@malerbetrieb-test.example",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0341 555000"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE02120300000000202051"
+        }
+      ]
+    },
+    "p-5": {
+      "id": "p-5",
+      "type": "natural_person",
+      "status": "inactive",
+      "current_surname": "Alt"
+    },
+    "p-6": {
+      "id": "p-6",
+      "type": "natural_person",
+      "status": "active",
+      "current_surname": "Leer",
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "sabine.leer@example.com"
+        }
+      ]
+    },
+    "p-10010": {
+      "id": "p-10010",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Katrin",
+      "current_surname": "Hartmann",
+      "date_of_birth": "1983-12-25",
+      "tax_identification_number": "45216379044",
+      "detail": {
+        "salutation": "Sehr geehrte Frau Hartmann,",
+        "current_job_title": "Controlling"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Schillerstraße 11",
+          "postal_code": "01975",
+          "city": "Dresden",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "katrin.hartmann@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0351 176241"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE23326837318307689264",
+          "bic": "PROBDE81CHE",
+          "bank_name": "Probe-Volksbank Chemnitz",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "202/107/72230",
+          "tax_office_number": 3202,
+          "tax_office_name": "Dresden-Nord",
+          "currently_valid": true
+        }
+      ]
+    },
+    "p-10011": {
+      "id": "p-10011",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Thomas",
+      "current_surname": "Schulze",
+      "date_of_birth": "1982-05-10",
+      "tax_identification_number": "93465523237",
+      "detail": {
+        "salutation": "Sehr geehrter Herr Schulze,",
+        "current_job_title": "Einkauf"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Kastanienallee 18",
+          "postal_code": "09252",
+          "city": "Chemnitz",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "thomas.schulze@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0371 631305"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE94437984185884168235",
+          "bic": "MUSTDE81LEI",
+          "bank_name": "Musterbank Leipzig eG",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "211/948/87001",
+          "tax_office_number": 3211,
+          "tax_office_name": "Chemnitz-Süd",
+          "currently_valid": true
+        }
+      ]
+    },
+    "p-10012": {
+      "id": "p-10012",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Sandra",
+      "current_surname": "Berger",
+      "date_of_birth": "1965-12-18",
+      "tax_identification_number": "38130067989",
+      "detail": {
+        "salutation": "Sehr geehrte Frau Berger,",
+        "current_job_title": "Redaktion"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Gartenweg 57",
+          "postal_code": "09230",
+          "city": "Chemnitz",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "sandra.berger@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0371 210245"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE32771654444331525564",
+          "bic": "PROBDE81CHE",
+          "bank_name": "Probe-Volksbank Chemnitz",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "211/101/90845",
+          "tax_office_number": 3211,
+          "tax_office_name": "Chemnitz-Süd",
+          "currently_valid": true
+        }
+      ]
+    },
+    "p-10013": {
+      "id": "p-10013",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Michael",
+      "current_surname": "Zimmermann",
+      "date_of_birth": "1975-10-15",
+      "tax_identification_number": "20002665908",
+      "detail": {
+        "salutation": "Sehr geehrter Herr Zimmermann,",
+        "current_job_title": "Bauleitung"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Gartenweg 28",
+          "postal_code": "04355",
+          "city": "Leipzig",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "phone",
+          "data_content": "0341 852992"
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "231/838/38435",
+          "tax_office_number": 3232,
+          "tax_office_name": "Leipzig II",
+          "currently_valid": true
+        }
+      ]
+    },
+    "p-10014": {
+      "id": "p-10014",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Nicole",
+      "current_surname": "Kühn",
+      "date_of_birth": "1991-11-16",
+      "tax_identification_number": "50486446757",
+      "detail": {
+        "salutation": "Sehr geehrte Frau Kühn,",
+        "current_job_title": "Sachbearbeitung"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Hauptstraße 14",
+          "postal_code": "09187",
+          "city": "Chemnitz",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "nicole.kuehn@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0371 138860"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE06272869830624227545",
+          "bic": "MUSTDE81LEI",
+          "bank_name": "Musterbank Leipzig eG",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "211/176/91003",
+          "tax_office_number": 3211,
+          "tax_office_name": "Chemnitz-Süd",
+          "currently_valid": true
+        }
+      ]
+    },
+    "p-10015": {
+      "id": "p-10015",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Andreas",
+      "current_surname": "Roth",
+      "date_of_birth": "1988-07-04",
+      "tax_identification_number": "17487491150",
+      "detail": {
+        "salutation": "Sehr geehrter Herr Roth,",
+        "current_job_title": "Technische Leitung"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Kastanienallee 17",
+          "postal_code": "04793",
+          "city": "Leipzig",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "andreas.roth@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0341 216652"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE75570952037728416518",
+          "bic": "TESTDE81HAL",
+          "bank_name": "Testsparkasse Halle",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "231/019/24564",
+          "tax_office_number": 3232,
+          "tax_office_name": "Leipzig II",
+          "currently_valid": true
+        }
+      ]
+    },
+    "p-10016": {
+      "id": "p-10016",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Claudia",
+      "current_surname": "Engel",
+      "date_of_birth": "1966-06-08",
+      "tax_identification_number": "50609768059",
+      "detail": {
+        "salutation": "Sehr geehrte Frau Engel,",
+        "current_job_title": "Controlling"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Ringstraße 39",
+          "postal_code": "01561",
+          "city": "Dresden",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "claudia.engel@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0351 445070"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE83137926940544471759",
+          "bic": "PROBDE81CHE",
+          "bank_name": "Probe-Volksbank Chemnitz",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "202/840/90546",
+          "tax_office_number": 3202,
+          "tax_office_name": "Dresden-Nord",
+          "currently_valid": true
+        }
+      ]
+    },
+    "p-10017": {
+      "id": "p-10017",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Stefan",
+      "current_surname": "Pohl",
+      "date_of_birth": "1949-06-25",
+      "tax_identification_number": "77384962137",
+      "detail": {
+        "current_job_title": "Personalreferat"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Kastanienallee 5",
+          "postal_code": "06224",
+          "city": "Halle",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "stefan.pohl@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0345 263694"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE63706825843863459150",
+          "bic": "TESTDE81HAL",
+          "bank_name": "Testsparkasse Halle",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "251/674/58351",
+          "tax_office_number": 3251,
+          "tax_office_name": "Halle-Nord",
+          "currently_valid": true
+        }
+      ]
+    },
+    "p-10018": {
+      "id": "p-10018",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Franziska",
+      "current_surname": "Winkler",
+      "date_of_birth": "1949-07-02",
+      "tax_identification_number": "76048317600",
+      "detail": {
+        "salutation": "Sehr geehrte Frau Winkler,",
+        "current_job_title": "Projektleitung"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Kastanienallee 48",
+          "postal_code": "04865",
+          "city": "Leipzig",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "franziska.winkler@example.com",
+          "is_main_communication": true
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE71772994536986395921",
+          "bic": "MUSTDE81LEI",
+          "bank_name": "Musterbank Leipzig eG",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": []
+    },
+    "p-10019": {
+      "id": "p-10019",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Frank",
+      "current_surname": "Wagner",
+      "date_of_birth": "1974-05-13",
+      "tax_identification_number": "25865858469",
+      "detail": {
+        "salutation": "Sehr geehrter Herr Wagner,",
+        "current_job_title": "Vertrieb"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Gartenweg 48",
+          "postal_code": "04694",
+          "city": "Leipzig",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "frank.wagner@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0341 641073"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE65016204617226336480",
+          "bic": "BEISDE81DRE",
+          "bank_name": "Beispielbank Dresden",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "231/138/89416",
+          "tax_office_number": 3232,
+          "tax_office_name": "Leipzig II",
+          "currently_valid": true
+        }
+      ]
+    },
+    "p-10020": {
+      "id": "p-10020",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Heike",
+      "current_surname": "Gruber",
+      "date_of_birth": "1974-08-28",
+      "tax_identification_number": "56598029374",
+      "detail": {
+        "salutation": "Sehr geehrte Frau Gruber,",
+        "current_job_title": "Pflegedienstleitung"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Ringstraße 36",
+          "postal_code": "04392",
+          "city": "Leipzig",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "heike.gruber@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0341 336882"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE32457549240101375439",
+          "bic": "PROBDE81CHE",
+          "bank_name": "Probe-Volksbank Chemnitz",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "231/743/72521",
+          "tax_office_number": 3232,
+          "tax_office_name": "Leipzig II",
+          "currently_valid": true
+        }
+      ]
+    },
+    "p-10021": {
+      "id": "p-10021",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Jens",
+      "current_surname": "Otto",
+      "date_of_birth": "1971-06-01",
+      "tax_identification_number": "40344097210",
+      "detail": {
+        "salutation": "Sehr geehrter Herr Otto,",
+        "current_job_title": "Personalreferat"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Lindenweg 56",
+          "postal_code": "06813",
+          "city": "Halle",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [],
+      "bank_accounts": [
+        {
+          "iban": "DE42208992109660667082",
+          "bic": "TESTDE81HAL",
+          "bank_name": "Testsparkasse Halle",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "251/530/29952",
+          "tax_office_number": 3251,
+          "tax_office_name": "Halle-Nord",
+          "currently_valid": true
+        }
+      ]
+    },
+    "p-10022": {
+      "id": "p-10022",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Matthias",
+      "current_surname": "Lindner",
+      "date_of_birth": "1951-08-16",
+      "tax_identification_number": "66508664827",
+      "detail": {
+        "salutation": "Sehr geehrter Herr Lindner,",
+        "current_job_title": "Inhaber"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Gartenweg 9",
+          "postal_code": "06944",
+          "city": "Halle",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "matthias.lindner@example.com",
+          "is_main_communication": true
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE37347066688471464199",
+          "bic": "BEISDE81DRE",
+          "bank_name": "Beispielbank Dresden",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "251/499/04824",
+          "tax_office_number": 3251,
+          "tax_office_name": "Halle-Nord",
+          "currently_valid": true
+        }
+      ]
+    },
+    "l-10022": {
+      "id": "l-10022",
+      "type": "legal_person",
+      "status": "active",
+      "current_company_name": "Tischlerei Lindner e.K.",
+      "current_legal_form_id": "EK",
+      "eu_vat_id_country_code": "DE",
+      "eu_vat_id_number": "737390974",
+      "detail": {
+        "salutation": "Sehr geehrte Damen und Herren,",
+        "current_registration_number": "HRA 36707",
+        "current_name_of_register_court": "Amtsgericht Halle (Saale)"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Bahnhofstraße 30",
+          "postal_code": "06342",
+          "city": "Halle",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "info.tischlerei-lindner@example.com",
+          "is_main_communication": true
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE54075436537876435924",
+          "bic": "TESTDE81HAL",
+          "bank_name": "Testsparkasse Halle",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "251/426/31675",
+          "tax_office_number": 3251,
+          "tax_office_name": "Halle-Nord",
+          "currently_valid": true
+        }
+      ],
+      "contact_persons": [
+        {
+          "display_name": "Lindner, Matthias",
+          "function": "Inhaber"
+        }
+      ]
+    },
+    "p-10023": {
+      "id": "p-10023",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Yvonne",
+      "current_surname": "Vogt",
+      "date_of_birth": "1956-03-05",
+      "tax_identification_number": "49478828322",
+      "detail": {
+        "salutation": "Sehr geehrte Frau Vogt,",
+        "current_job_title": "Inhaber"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Hauptstraße 58",
+          "postal_code": "09777",
+          "city": "Chemnitz",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "yvonne.vogt@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0371 842662"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE33766594980878218358",
+          "bic": "TESTDE81HAL",
+          "bank_name": "Testsparkasse Halle",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "211/435/02995",
+          "tax_office_number": 3211,
+          "tax_office_name": "Chemnitz-Süd",
+          "currently_valid": true
+        }
+      ]
+    },
+    "l-10023": {
+      "id": "l-10023",
+      "type": "legal_person",
+      "status": "active",
+      "current_company_name": "Friseursalon Vogt e.K.",
+      "current_legal_form_id": "EK",
+      "eu_vat_id_country_code": "DE",
+      "eu_vat_id_number": "510822962",
+      "detail": {
+        "salutation": "Sehr geehrte Damen und Herren,",
+        "current_registration_number": "HRA 37409",
+        "current_name_of_register_court": "Amtsgericht Chemnitz"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Lindenweg 19",
+          "postal_code": "09905",
+          "city": "Chemnitz",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "info.friseur-vogt@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0371 963715"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE75534446268613180572",
+          "bic": "BEISDE81DRE",
+          "bank_name": "Beispielbank Dresden",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "211/040/74265",
+          "tax_office_number": 3211,
+          "tax_office_name": "Chemnitz-Süd",
+          "currently_valid": true
+        }
+      ],
+      "contact_persons": [
+        {
+          "display_name": "Vogt, Yvonne",
+          "function": "Inhaber"
+        }
+      ]
+    },
+    "p-10024": {
+      "id": "p-10024",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Robert",
+      "current_surname": "Keller",
+      "date_of_birth": "1948-10-23",
+      "tax_identification_number": "50228412671",
+      "detail": {
+        "salutation": "Sehr geehrter Herr Keller,",
+        "current_job_title": "Inhaber"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Kastanienallee 78",
+          "postal_code": "09544",
+          "city": "Chemnitz",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "robert.keller@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0371 897831"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE09562997927035697789",
+          "bic": "MUSTDE81LEI",
+          "bank_name": "Musterbank Leipzig eG",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": []
+    },
+    "l-10024": {
+      "id": "l-10024",
+      "type": "legal_person",
+      "status": "active",
+      "current_company_name": "Elektro Keller e.K.",
+      "current_legal_form_id": "EK",
+      "detail": {
+        "salutation": "Sehr geehrte Damen und Herren,",
+        "current_registration_number": "HRA 27071",
+        "current_name_of_register_court": "Amtsgericht Chemnitz"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Am Markt 78",
+          "postal_code": "09408",
+          "city": "Chemnitz",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "info.elektro-keller@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0371 387231"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE45878867224291583997",
+          "bic": "PROBDE81CHE",
+          "bank_name": "Probe-Volksbank Chemnitz",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [],
+      "contact_persons": [
+        {
+          "display_name": "Keller, Robert",
+          "function": "Inhaber"
+        }
+      ]
+    },
+    "p-10025": {
+      "id": "p-10025",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Ina",
+      "current_surname": "Brandt",
+      "date_of_birth": "1968-06-10",
+      "tax_identification_number": "52264495089",
+      "detail": {
+        "salutation": "Sehr geehrte Frau Brandt,",
+        "current_job_title": "Inhaber"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Ringstraße 53",
+          "postal_code": "04205",
+          "city": "Leipzig",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "ina.brandt@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0341 159322"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE90435404710224986462",
+          "bic": "BEISDE81DRE",
+          "bank_name": "Beispielbank Dresden",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "231/916/85636",
+          "tax_office_number": 3232,
+          "tax_office_name": "Leipzig II",
+          "currently_valid": true
+        }
+      ]
+    },
+    "l-10025": {
+      "id": "l-10025",
+      "type": "legal_person",
+      "status": "active",
+      "current_company_name": "Gartenbau Brandt e.K.",
+      "current_legal_form_id": "EK",
+      "eu_vat_id_country_code": "DE",
+      "eu_vat_id_number": "524234143",
+      "detail": {
+        "salutation": "Sehr geehrte Damen und Herren,",
+        "current_registration_number": "HRA 31505",
+        "current_name_of_register_court": "Amtsgericht Leipzig"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Bahnhofstraße 26",
+          "postal_code": "04318",
+          "city": "Leipzig",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "info.gartenbau-brandt@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0341 704864"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE08511825475486326997",
+          "bic": "MUSTDE81LEI",
+          "bank_name": "Musterbank Leipzig eG",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "231/861/11974",
+          "tax_office_number": 3232,
+          "tax_office_name": "Leipzig II",
+          "currently_valid": true
+        }
+      ],
+      "contact_persons": [
+        {
+          "display_name": "Brandt, Ina",
+          "function": "Inhaber"
+        }
+      ]
+    },
+    "l-10026": {
+      "id": "l-10026",
+      "type": "legal_person",
+      "status": "active",
+      "current_company_name": "Nowak Maschinenbau GmbH",
+      "current_legal_form_id": "GMBH",
+      "eu_vat_id_country_code": "DE",
+      "eu_vat_id_number": "210428860",
+      "detail": {
+        "salutation": "Sehr geehrte Damen und Herren,",
+        "current_registration_number": "HRB 94061",
+        "current_name_of_register_court": "Amtsgericht Chemnitz"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Bahnhofstraße 49",
+          "postal_code": "09398",
+          "city": "Chemnitz",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "info.nowak-maschinenbau@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "email",
+          "data_content": "buchhaltung.nowak-maschinenbau@example.com",
+          "note": "Buchhaltung"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE44427569672100700024",
+          "bic": "MUSTDE81LEI",
+          "bank_name": "Musterbank Leipzig eG",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "211/407/94430",
+          "tax_office_number": 3211,
+          "tax_office_name": "Chemnitz-Süd",
+          "currently_valid": true
+        }
+      ],
+      "contact_persons": [
+        {
+          "display_name": "Nowak, Ralf",
+          "function": "Geschäftsführer",
+          "addressee_id": "p-g-1"
+        }
+      ]
+    },
+    "l-10027": {
+      "id": "l-10027",
+      "type": "legal_person",
+      "status": "active",
+      "current_company_name": "Peters Logistik UG (haftungsbeschränkt)",
+      "current_legal_form_id": "UG",
+      "eu_vat_id_country_code": "DE",
+      "eu_vat_id_number": "114940195",
+      "detail": {
+        "salutation": "Sehr geehrte Damen und Herren,",
+        "current_registration_number": "HRB 99941",
+        "current_name_of_register_court": "Amtsgericht Dresden"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Gartenweg 34",
+          "postal_code": "01472",
+          "city": "Dresden",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "info.peters-logistik@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0351 176199"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE20426216939193333597",
+          "bic": "PROBDE81CHE",
+          "bank_name": "Probe-Volksbank Chemnitz",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "202/401/08507",
+          "tax_office_number": 3202,
+          "tax_office_name": "Dresden-Nord",
+          "currently_valid": true
+        }
+      ],
+      "contact_persons": [
+        {
+          "display_name": "Peters, Carmen",
+          "function": "Geschäftsführerin"
+        }
+      ]
+    },
+    "l-10028": {
+      "id": "l-10028",
+      "type": "legal_person",
+      "status": "active",
+      "current_company_name": "Fischer & Söhne GmbH & Co. KG",
+      "current_legal_form_id": "GMBHCOKG",
+      "eu_vat_id_country_code": "DE",
+      "eu_vat_id_number": "141895921",
+      "detail": {
+        "salutation": "Sehr geehrte Damen und Herren,",
+        "current_registration_number": "HRB 75031",
+        "current_name_of_register_court": "Amtsgericht Chemnitz"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Ringstraße 8",
+          "postal_code": "09241",
+          "city": "Chemnitz",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "info.fischer-soehne@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0371 519953"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE92422219140194569475",
+          "bic": "BEISDE81DRE",
+          "bank_name": "Beispielbank Dresden",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "211/402/19775",
+          "tax_office_number": 3211,
+          "tax_office_name": "Chemnitz-Süd",
+          "currently_valid": true
+        }
+      ],
+      "contact_persons": [
+        {
+          "display_name": "Fischer, Oliver",
+          "function": "Geschäftsführer"
+        }
+      ]
+    },
+    "l-10029": {
+      "id": "l-10029",
+      "type": "legal_person",
+      "status": "inactive",
+      "current_company_name": "Heinrich Ingenieurbüro AG",
+      "current_legal_form_id": "AG",
+      "eu_vat_id_country_code": "DE",
+      "eu_vat_id_number": "208971332",
+      "detail": {
+        "salutation": "Sehr geehrte Damen und Herren,",
+        "current_registration_number": "HRB 34037",
+        "current_name_of_register_court": "Amtsgericht Leipzig"
+      },
+      "addresses": [
+        {
+          "type": "street",
+          "street": "Am Markt 8",
+          "postal_code": "04429",
+          "city": "Leipzig",
+          "country_code": "DE",
+          "currently_valid": true,
+          "is_correspondence_address": true
+        }
+      ],
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "info.heinrich-ingenieure@example.com",
+          "is_main_communication": true
+        },
+        {
+          "type": "phone",
+          "data_content": "0341 111292"
+        }
+      ],
+      "bank_accounts": [
+        {
+          "iban": "DE84728561851760009637",
+          "bic": "BEISDE81DRE",
+          "bank_name": "Beispielbank Dresden",
+          "currently_valid": true,
+          "is_main_bank_account": true
+        }
+      ],
+      "tax_offices": [
+        {
+          "tax_number": "231/131/83364",
+          "tax_office_number": 3232,
+          "tax_office_name": "Leipzig II",
+          "currently_valid": true
+        }
+      ],
+      "contact_persons": [
+        {
+          "display_name": "Heinrich, Dagmar",
+          "function": "Vorstand"
+        }
+      ]
+    },
+    "p-g-1": {
+      "id": "p-g-1",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Ralf",
+      "current_surname": "Nowak",
+      "detail": {
+        "salutation": "Sehr geehrter Herr Nowak,"
+      },
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "ralf.nowak@example.com",
+          "is_main_communication": true,
+          "note": "privat"
+        }
+      ]
+    },
+    "p-g-2": {
+      "id": "p-g-2",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Petra",
+      "current_surname": "Nowak",
+      "detail": {
+        "salutation": "Sehr geehrte Frau Nowak,"
+      },
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "petra.nowak@example.com",
+          "is_main_communication": true,
+          "note": "privat"
+        }
+      ]
+    },
+    "p-g-3": {
+      "id": "p-g-3",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Carmen",
+      "current_surname": "Peters",
+      "detail": {
+        "salutation": "Sehr geehrte Frau Peters,"
+      },
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "c.peters@peters-logistik.example",
+          "is_main_communication": true,
+          "note": "geschäftlich"
+        }
+      ]
+    },
+    "p-g-4": {
+      "id": "p-g-4",
+      "type": "natural_person",
+      "status": "active",
+      "firstname": "Lena",
+      "current_surname": "Hartmann",
+      "detail": {
+        "salutation": "Sehr geehrte Frau Hartmann,"
+      },
+      "communications": [
+        {
+          "type": "email",
+          "data_content": "lena.hartmann@example.com",
+          "is_main_communication": true,
+          "note": null
+        }
+      ]
+    }
+  },
+  "order-management": {
+    "/orders": [
+      {
+        "id": "o-1001",
+        "order_id": 1001,
+        "creation_year": 2025,
+        "order_number": "2025-0001",
+        "order_name": "Einkommensteuererklärung 2025",
+        "ordertype": "EST",
+        "assessment_year": 2025,
+        "client_id": "c-10001",
+        "completion_status": "in work",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1002",
+        "order_id": 1002,
+        "creation_year": 2025,
+        "order_number": "2025-0002",
+        "order_name": "Jahresabschluss 2025",
+        "ordertype": "JA",
+        "assessment_year": 2025,
+        "client_id": "c-10001",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1003",
+        "order_id": 1003,
+        "creation_year": 2024,
+        "order_number": "2024-0003",
+        "order_name": "Einkommensteuererklärung 2024",
+        "ordertype": "EST",
+        "assessment_year": 2024,
+        "client_id": "c-10002",
+        "completion_status": "created/planned",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1004",
+        "order_id": 1004,
+        "creation_year": 2024,
+        "order_number": "2024-0004",
+        "order_name": "Jahresabschluss 2024",
+        "ordertype": "JA",
+        "assessment_year": 2024,
+        "client_id": "c-10002",
+        "completion_status": "in work",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1005",
+        "order_id": 1005,
+        "creation_year": 2024,
+        "order_number": "2024-0005",
+        "order_name": "Einkommensteuererklärung 2024",
+        "ordertype": "EST",
+        "assessment_year": 2024,
+        "client_id": "c-10003",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1006",
+        "order_id": 1006,
+        "creation_year": 2024,
+        "order_number": "2024-0006",
+        "order_name": "Einkommensteuererklärung 2024",
+        "ordertype": "EST",
+        "assessment_year": 2024,
+        "client_id": "c-10004",
+        "completion_status": "created/planned",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1007",
+        "order_id": 1007,
+        "creation_year": 2025,
+        "order_number": "2025-0007",
+        "order_name": "Jahresabschluss 2025",
+        "ordertype": "JA",
+        "assessment_year": 2025,
+        "client_id": "c-10005",
+        "completion_status": "completed",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1008",
+        "order_id": 1008,
+        "creation_year": 2025,
+        "order_number": "2025-0008",
+        "order_name": "Lohn und Gehalt 2025",
+        "ordertype": "LOHN",
+        "assessment_year": 2025,
+        "client_id": "c-10005",
+        "completion_status": "in work",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1009",
+        "order_id": 1009,
+        "creation_year": 2024,
+        "order_number": "2024-0009",
+        "order_name": "Umsatzsteuererklärung 2024",
+        "ordertype": "UST",
+        "assessment_year": 2024,
+        "client_id": "c-10007",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1010",
+        "order_id": 1010,
+        "creation_year": 2024,
+        "order_number": "2024-0010",
+        "order_name": "Umsatzsteuererklärung 2024",
+        "ordertype": "UST",
+        "assessment_year": 2024,
+        "client_id": "c-10007",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1011",
+        "order_id": 1011,
+        "creation_year": 2025,
+        "order_number": "2025-0011",
+        "order_name": "Jahresabschluss 2025",
+        "ordertype": "JA",
+        "assessment_year": 2025,
+        "client_id": "c-10010",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1012",
+        "order_id": 1012,
+        "creation_year": 2024,
+        "order_number": "2024-0012",
+        "order_name": "Jahresabschluss 2024",
+        "ordertype": "JA",
+        "assessment_year": 2024,
+        "client_id": "c-10010",
+        "completion_status": "completed",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1013",
+        "order_id": 1013,
+        "creation_year": 2025,
+        "order_number": "2025-0013",
+        "order_name": "Einkommensteuererklärung 2025",
+        "ordertype": "EST",
+        "assessment_year": 2025,
+        "client_id": "c-10010",
+        "completion_status": "in work",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1014",
+        "order_id": 1014,
+        "creation_year": 2025,
+        "order_number": "2025-0014",
+        "order_name": "Lohn und Gehalt 2025",
+        "ordertype": "LOHN",
+        "assessment_year": 2025,
+        "client_id": "c-10011",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1015",
+        "order_id": 1015,
+        "creation_year": 2024,
+        "order_number": "2024-0015",
+        "order_name": "Einkommensteuererklärung 2024",
+        "ordertype": "EST",
+        "assessment_year": 2024,
+        "client_id": "c-10012",
+        "completion_status": "completed",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1016",
+        "order_id": 1016,
+        "creation_year": 2025,
+        "order_number": "2025-0016",
+        "order_name": "Umsatzsteuererklärung 2025",
+        "ordertype": "UST",
+        "assessment_year": 2025,
+        "client_id": "c-10012",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1017",
+        "order_id": 1017,
+        "creation_year": 2024,
+        "order_number": "2024-0017",
+        "order_name": "Jahresabschluss 2024",
+        "ordertype": "JA",
+        "assessment_year": 2024,
+        "client_id": "c-10012",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1018",
+        "order_id": 1018,
+        "creation_year": 2025,
+        "order_number": "2025-0018",
+        "order_name": "Lohn und Gehalt 2025",
+        "ordertype": "LOHN",
+        "assessment_year": 2025,
+        "client_id": "c-10013",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1019",
+        "order_id": 1019,
+        "creation_year": 2024,
+        "order_number": "2024-0019",
+        "order_name": "Finanzbuchführung 2024",
+        "ordertype": "FIBU",
+        "assessment_year": 2024,
+        "client_id": "c-10013",
+        "completion_status": "in work",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1020",
+        "order_id": 1020,
+        "creation_year": 2024,
+        "order_number": "2024-0020",
+        "order_name": "Finanzbuchführung 2024",
+        "ordertype": "FIBU",
+        "assessment_year": 2024,
+        "client_id": "c-10013",
+        "completion_status": "completed",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1021",
+        "order_id": 1021,
+        "creation_year": 2024,
+        "order_number": "2024-0021",
+        "order_name": "Einkommensteuererklärung 2024",
+        "ordertype": "EST",
+        "assessment_year": 2024,
+        "client_id": "c-10014",
+        "completion_status": "created/planned",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1022",
+        "order_id": 1022,
+        "creation_year": 2025,
+        "order_number": "2025-0022",
+        "order_name": "Einkommensteuererklärung 2025",
+        "ordertype": "EST",
+        "assessment_year": 2025,
+        "client_id": "c-10015",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1023",
+        "order_id": 1023,
+        "creation_year": 2024,
+        "order_number": "2024-0023",
+        "order_name": "Umsatzsteuererklärung 2024",
+        "ordertype": "UST",
+        "assessment_year": 2024,
+        "client_id": "c-10015",
+        "completion_status": "completed",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1024",
+        "order_id": 1024,
+        "creation_year": 2025,
+        "order_number": "2025-0024",
+        "order_name": "Lohn und Gehalt 2025",
+        "ordertype": "LOHN",
+        "assessment_year": 2025,
+        "client_id": "c-10016",
+        "completion_status": "created/planned",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1025",
+        "order_id": 1025,
+        "creation_year": 2024,
+        "order_number": "2024-0025",
+        "order_name": "Jahresabschluss 2024",
+        "ordertype": "JA",
+        "assessment_year": 2024,
+        "client_id": "c-10016",
+        "completion_status": "completed",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1026",
+        "order_id": 1026,
+        "creation_year": 2025,
+        "order_number": "2025-0026",
+        "order_name": "Einkommensteuererklärung 2025",
+        "ordertype": "EST",
+        "assessment_year": 2025,
+        "client_id": "c-10017",
+        "completion_status": "in work",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1027",
+        "order_id": 1027,
+        "creation_year": 2024,
+        "order_number": "2024-0027",
+        "order_name": "Einkommensteuererklärung 2024",
+        "ordertype": "EST",
+        "assessment_year": 2024,
+        "client_id": "c-10017",
+        "completion_status": "completed",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1028",
+        "order_id": 1028,
+        "creation_year": 2024,
+        "order_number": "2024-0028",
+        "order_name": "Finanzbuchführung 2024",
+        "ordertype": "FIBU",
+        "assessment_year": 2024,
+        "client_id": "c-10017",
+        "completion_status": "completed",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1029",
+        "order_id": 1029,
+        "creation_year": 2024,
+        "order_number": "2024-0029",
+        "order_name": "Jahresabschluss 2024",
+        "ordertype": "JA",
+        "assessment_year": 2024,
+        "client_id": "c-10018",
+        "completion_status": "in work",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1030",
+        "order_id": 1030,
+        "creation_year": 2024,
+        "order_number": "2024-0030",
+        "order_name": "Umsatzsteuererklärung 2024",
+        "ordertype": "UST",
+        "assessment_year": 2024,
+        "client_id": "c-10018",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1031",
+        "order_id": 1031,
+        "creation_year": 2025,
+        "order_number": "2025-0031",
+        "order_name": "Finanzbuchführung 2025",
+        "ordertype": "FIBU",
+        "assessment_year": 2025,
+        "client_id": "c-10019",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1032",
+        "order_id": 1032,
+        "creation_year": 2025,
+        "order_number": "2025-0032",
+        "order_name": "Einkommensteuererklärung 2025",
+        "ordertype": "EST",
+        "assessment_year": 2025,
+        "client_id": "c-10019",
+        "completion_status": "in work",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1033",
+        "order_id": 1033,
+        "creation_year": 2025,
+        "order_number": "2025-0033",
+        "order_name": "Lohn und Gehalt 2025",
+        "ordertype": "LOHN",
+        "assessment_year": 2025,
+        "client_id": "c-10020",
+        "completion_status": "completed",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1034",
+        "order_id": 1034,
+        "creation_year": 2024,
+        "order_number": "2024-0034",
+        "order_name": "Umsatzsteuererklärung 2024",
+        "ordertype": "UST",
+        "assessment_year": 2024,
+        "client_id": "c-10020",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1035",
+        "order_id": 1035,
+        "creation_year": 2025,
+        "order_number": "2025-0035",
+        "order_name": "Jahresabschluss 2025",
+        "ordertype": "JA",
+        "assessment_year": 2025,
+        "client_id": "c-10021",
+        "completion_status": "completed",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1036",
+        "order_id": 1036,
+        "creation_year": 2024,
+        "order_number": "2024-0036",
+        "order_name": "Einkommensteuererklärung 2024",
+        "ordertype": "EST",
+        "assessment_year": 2024,
+        "client_id": "c-10021",
+        "completion_status": "in work",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1037",
+        "order_id": 1037,
+        "creation_year": 2024,
+        "order_number": "2024-0037",
+        "order_name": "Umsatzsteuererklärung 2024",
+        "ordertype": "UST",
+        "assessment_year": 2024,
+        "client_id": "c-10021",
+        "completion_status": "in work",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1038",
+        "order_id": 1038,
+        "creation_year": 2025,
+        "order_number": "2025-0038",
+        "order_name": "Einkommensteuererklärung 2025",
+        "ordertype": "EST",
+        "assessment_year": 2025,
+        "client_id": "c-10022",
+        "completion_status": "in work",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1039",
+        "order_id": 1039,
+        "creation_year": 2024,
+        "order_number": "2024-0039",
+        "order_name": "Lohn und Gehalt 2024",
+        "ordertype": "LOHN",
+        "assessment_year": 2024,
+        "client_id": "c-10023",
+        "completion_status": "completed",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1040",
+        "order_id": 1040,
+        "creation_year": 2024,
+        "order_number": "2024-0040",
+        "order_name": "Umsatzsteuererklärung 2024",
+        "ordertype": "UST",
+        "assessment_year": 2024,
+        "client_id": "c-10024",
+        "completion_status": "completed",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1041",
+        "order_id": 1041,
+        "creation_year": 2025,
+        "order_number": "2025-0041",
+        "order_name": "Finanzbuchführung 2025",
+        "ordertype": "FIBU",
+        "assessment_year": 2025,
+        "client_id": "c-10025",
+        "completion_status": "created/planned",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1042",
+        "order_id": 1042,
+        "creation_year": 2024,
+        "order_number": "2024-0042",
+        "order_name": "Finanzbuchführung 2024",
+        "ordertype": "FIBU",
+        "assessment_year": 2024,
+        "client_id": "c-10025",
+        "completion_status": "completed",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1043",
+        "order_id": 1043,
+        "creation_year": 2024,
+        "order_number": "2024-0043",
+        "order_name": "Finanzbuchführung 2024",
+        "ordertype": "FIBU",
+        "assessment_year": 2024,
+        "client_id": "c-10026",
+        "completion_status": "completed",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1044",
+        "order_id": 1044,
+        "creation_year": 2024,
+        "order_number": "2024-0044",
+        "order_name": "Umsatzsteuererklärung 2024",
+        "ordertype": "UST",
+        "assessment_year": 2024,
+        "client_id": "c-10027",
+        "completion_status": "completed",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1045",
+        "order_id": 1045,
+        "creation_year": 2024,
+        "order_number": "2024-0045",
+        "order_name": "Einkommensteuererklärung 2024",
+        "ordertype": "EST",
+        "assessment_year": 2024,
+        "client_id": "c-10027",
+        "completion_status": "completed",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1046",
+        "order_id": 1046,
+        "creation_year": 2025,
+        "order_number": "2025-0046",
+        "order_name": "Jahresabschluss 2025",
+        "ordertype": "JA",
+        "assessment_year": 2025,
+        "client_id": "c-10027",
+        "completion_status": "created/planned",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1047",
+        "order_id": 1047,
+        "creation_year": 2024,
+        "order_number": "2024-0047",
+        "order_name": "Jahresabschluss 2024",
+        "ordertype": "JA",
+        "assessment_year": 2024,
+        "client_id": "c-10028",
+        "completion_status": "completed",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1048",
+        "order_id": 1048,
+        "creation_year": 2025,
+        "order_number": "2025-0048",
+        "order_name": "Einkommensteuererklärung 2025",
+        "ordertype": "EST",
+        "assessment_year": 2025,
+        "client_id": "c-10029",
+        "completion_status": "in work",
+        "billing_status": "billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1049",
+        "order_id": 1049,
+        "creation_year": 2024,
+        "order_number": "2024-0049",
+        "order_name": "Jahresabschluss 2024",
+        "ordertype": "JA",
+        "assessment_year": 2024,
+        "client_id": "c-10029",
+        "completion_status": "created/planned",
+        "billing_status": "not billed",
+        "isinternal": false
+      },
+      {
+        "id": "o-1050",
+        "order_id": 1050,
+        "creation_year": 2024,
+        "order_number": "2024-0050",
+        "order_name": "Lohn und Gehalt 2024",
+        "ordertype": "LOHN",
+        "assessment_year": 2024,
+        "client_id": "c-10029",
+        "completion_status": "created/planned",
+        "billing_status": "not billed",
+        "isinternal": false
+      }
+    ],
+    "/ordertypes": [
+      {
+        "id": 1,
+        "ordertype_id": "FIBU",
+        "ordertype": "FIBU",
+        "ordertype_name": "Finanzbuchführung",
+        "active": true
+      },
+      {
+        "id": 2,
+        "ordertype_id": "LOHN",
+        "ordertype": "LOHN",
+        "ordertype_name": "Lohn und Gehalt",
+        "active": true
+      },
+      {
+        "id": 3,
+        "ordertype_id": "JA",
+        "ordertype": "JA",
+        "ordertype_name": "Jahresabschluss",
+        "active": true
+      },
+      {
+        "id": 4,
+        "ordertype_id": "EST",
+        "ordertype": "EST",
+        "ordertype_name": "Einkommensteuererklärung",
+        "active": true
+      },
+      {
+        "id": 5,
+        "ordertype_id": "UST",
+        "ordertype": "UST",
+        "ordertype_name": "Umsatzsteuererklärung",
+        "active": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "_hinweis": "Erfundene Testdaten im DATEVconnect-Format (master-data v1). Keine echten Mandanten.",
+  "clients": [
+    { "id": "c-10001", "number": 10001, "name": "Muster, Anna", "status": "active", "type": "natural_person", "natural_person_id": "p-1" },
+    { "id": "c-10002", "number": 10002, "name": "Bäckerei Krümel GmbH", "status": "active", "type": "legal_person", "legal_person_id": "l-2" },
+    { "id": "c-10003", "number": 10003, "name": "Beispiel, Jürgen", "status": "active", "type": "natural_person", "natural_person_id": "p-3" },
+    { "id": "c-10004", "number": 10004, "name": "Malerbetrieb Test e.K.", "status": "active", "type": "individual_enterprise", "natural_person_id": "p-4", "legal_person_id": "l-4" },
+    { "id": "c-10005", "number": 10005, "name": "Alt, Otto (inaktiv)", "status": "inactive", "type": "natural_person", "natural_person_id": "p-5" },
+    { "id": "c-10006", "number": 10006, "name": "Leer, Sabine", "status": "active", "type": "natural_person", "natural_person_id": "p-6" },
+    { "id": "c-10007", "number": 10007, "name": "Fehlt, Adressat", "status": "active", "type": "natural_person", "natural_person_id": "p-gibt-es-nicht" }
+  ],
+  "addressees": {
+    "p-1": {
+      "id": "p-1", "type": "natural_person", "status": "active", "firstname": "Anna", "current_surname": "Muster",
+      "tax_identification_number": "86095742719",
+      "detail": { "salutation": "Sehr geehrte Frau Muster," },
+      "addresses": [ { "type": "street", "street": "Hauptstraße 1", "postal_code": "04109", "city": "Leipzig", "currently_valid": true, "is_correspondence_address": true } ],
+      "communications": [
+        { "type": "email", "data_content": "anna.muster@example.com", "is_main_communication": true },
+        { "type": "phone", "data_content": "0341 123456", "is_main_communication": true }
+      ],
+      "bank_accounts": [ { "iban": "DE89370400440532013000", "currently_valid": true, "is_main_bank_account": true } ],
+      "tax_offices": [ { "tax_number": "231/123/45678", "tax_office_number": 3231, "tax_office_name": "Leipzig I", "currently_valid": true } ]
+    },
+    "l-2": {
+      "id": "l-2", "type": "legal_person", "status": "active", "current_company_name": "Bäckerei Krümel GmbH",
+      "detail": { "salutation": "Sehr geehrte Damen und Herren," },
+      "addresses": [ { "type": "street", "street": "Brötchenweg 7", "postal_code": "01067", "city": "Dresden" } ],
+      "communications": [ { "type": "phone", "data_content": "0351 987654" } ],
+      "bank_accounts": [ { "iban": "DE12500105170648489890", "currently_valid": false } ],
+      "tax_offices": [ { "tax_number": "202/111/22222", "tax_office_number": 3202, "tax_office_name": "Dresden-Nord" } ]
+    },
+    "p-3": {
+      "id": "p-3", "type": "natural_person", "status": "active", "current_surname": "Beispiel",
+      "tax_identification_number": "86095742718",
+      "detail": { "salutation": "Sehr geehrter Herr Beispiel," },
+      "addresses": [ { "type": "post_office_box", "post_office_box": "100 200", "postal_code": "04001", "city": "Leipzig" } ],
+      "communications": [ { "type": "email", "data_content": "juergen.beispiel(at)example.com" } ],
+      "bank_accounts": [ { "iban": "DE89370400440532013001" } ],
+      "tax_offices": [ { "tax_number": "231/999/00001", "tax_office_name": "Leipzig II" } ]
+    },
+    "p-4": {
+      "id": "p-4", "type": "natural_person", "status": "active", "current_surname": "Pinsel",
+      "tax_identification_number": "47258361908",
+      "detail": { "salutation": "Sehr geehrter Herr Pinsel," }
+    },
+    "l-4": {
+      "id": "l-4", "type": "legal_person", "status": "active", "current_company_name": "Malerbetrieb Test e.K.",
+      "addresses": [ { "type": "street", "street": "Farbgasse 3", "postal_code": "04103", "city": "Leipzig" } ],
+      "communications": [
+        { "type": "email", "data_content": "info@malerbetrieb-test.example", "is_main_communication": true },
+        { "type": "phone", "data_content": "0341 555000" }
+      ],
+      "bank_accounts": [ { "iban": "DE02120300000000202051" } ]
+    },
+    "p-5": { "id": "p-5", "type": "natural_person", "status": "inactive", "current_surname": "Alt" },
+    "p-6": {
+      "id": "p-6", "type": "natural_person", "status": "active", "current_surname": "Leer",
+      "communications": [ { "type": "email", "data_content": "sabine.leer@example.com" } ]
+    }
+  }
+}

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+paket/
+.vorschau-daten/
+prototyp-powershell/test/ausgang/
+prototyp-powershell/test/anhaenge-tmp/
+prototyp-powershell/test/protokoll-test.csv
+*.log

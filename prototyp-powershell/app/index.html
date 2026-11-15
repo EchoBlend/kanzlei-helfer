@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kanzlei-Helfer</title>
+<style>
+:root {
+  --bg: #f5f6f8; --flaeche: #fff; --linie: #e1e4e9; --text: #1c222a; --leise: #5d6877;
+  --akzent: #1f5a85; --akzent-dunkel: #164466; --akzent-hell: #e8f0f7;
+  --rot: #a8261b; --rot-bg: #fbeae8; --gelb: #7d5300; --gelb-bg: #fff3d4; --gruen: #1b6e40; --gruen-bg: #e5f3eb;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.45 "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--text); }
+header { display: flex; align-items: center; gap: 24px; padding: 0 24px; height: 52px; background: var(--flaeche); border-bottom: 1px solid var(--linie); position: sticky; top: 0; z-index: 2; }
+header h1 { font-size: 15px; font-weight: 600; margin: 0; }
+nav { display: flex; height: 100%; }
+nav button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 0 14px; height: 100%; color: var(--leise); }
+nav button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--akzent); font-weight: 600; }
+.status { margin-left: auto; display: flex; gap: 8px; font-size: 12px; }
+.pill { padding: 2px 9px; border-radius: 999px; background: var(--bg); color: var(--leise); }
+.pill.gut { background: var(--gruen-bg); color: var(--gruen); }
+.pill.schlecht { background: var(--rot-bg); color: var(--rot); }
+.pill.test { background: var(--gelb-bg); color: var(--gelb); }
+main { padding: 20px 24px 40px; max-width: 1400px; }
+.leiste { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.leiste .rechts { margin-left: auto; display: flex; gap: 8px; }
+input, select, textarea { font: inherit; color: inherit; padding: 6px 9px; border: 1px solid var(--linie); border-radius: 6px; background: var(--flaeche); }
+textarea { width: 100%; resize: vertical; line-height: 1.5; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--akzent); outline-offset: 1px; }
+button { font: inherit; padding: 6px 13px; border: 1px solid var(--linie); border-radius: 6px; background: var(--flaeche); color: var(--text); cursor: pointer; }
+button:hover { background: var(--bg); }
+button.primaer { background: var(--akzent); border-color: var(--akzent); color: #fff; }
+button.primaer:hover { background: var(--akzent-dunkel); }
+button:disabled { opacity: .45; cursor: default; }
+.zusammenfassung { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.zusammenfassung button { font-size: 12px; padding: 3px 10px; border-radius: 999px; }
+.zusammenfassung button[aria-pressed="true"] { background: var(--akzent-hell); border-color: var(--akzent); color: var(--akzent-dunkel); }
+.tabelle { background: var(--flaeche); border: 1px solid var(--linie); border-radius: 8px; overflow: auto; max-height: calc(100vh - 230px); }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--linie); text-align: left; vertical-align: top; }
+th { font-size: 12px; font-weight: 600; color: var(--leise); background: #fafbfc; position: sticky; top: 0; }
+tr:last-child td { border-bottom: 0; }
+td.nr { font-variant-numeric: tabular-nums; color: var(--leise); }
+.klein { font-size: 12px; color: var(--leise); }
+.chip { display: inline-block; padding: 1px 7px; margin: 1px 4px 1px 0; border-radius: 4px; font-size: 12px; white-space: nowrap; }
+.chip.fehlt { background: var(--rot-bg); color: var(--rot); }
+.chip.pruefen { background: var(--gelb-bg); color: var(--gelb); }
+.chip.ok { background: var(--gruen-bg); color: var(--gruen); }
+.meldung { padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; background: var(--akzent-hell); }
+.meldung.fehler { background: var(--rot-bg); color: var(--rot); }
+.meldung.test { background: var(--gelb-bg); color: var(--gelb); }
+.zwei { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.karte { background: var(--flaeche); border: 1px solid var(--linie); border-radius: 8px; padding: 16px; }
+.karte h2 { font-size: 13px; font-weight: 600; margin: 0 0 10px; }
+label { display: block; font-size: 12px; color: var(--leise); margin: 10px 0 4px; }
+label:first-child { margin-top: 0; }
+.feld { width: 100%; }
+.platzhalter { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.platzhalter button { font-size: 12px; padding: 2px 8px; font-family: Consolas, monospace; }
+.empfaenger { max-height: 220px; overflow: auto; margin: 0; padding: 0; list-style: none; }
+.empfaenger li { display: flex; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--linie); }
+.empfaenger li > span:first-child { flex: 1; min-width: 0; }
+.empfaenger li.aus { color: var(--leise); }
+.empfaenger button { padding: 0 7px; }
+.vorschau { white-space: pre-wrap; background: #fafbfc; border: 1px solid var(--linie); border-radius: 6px; padding: 12px; min-height: 220px; font-size: 13px; }
+.vorschau-kopf { display: flex; align-items: center; gap: 8px; margin: 14px 0 6px; }
+.vorschau-kopf span { flex: 1; font-size: 12px; color: var(--leise); }
+.liste-vorlagen { display: flex; flex-direction: column; gap: 4px; }
+.liste-vorlagen button { text-align: left; }
+.liste-vorlagen button[aria-pressed="true"] { background: var(--akzent-hell); border-color: var(--akzent); }
+.vorlagen { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 20px; }
+.leer { padding: 28px; text-align: center; color: var(--leise); }
+.ampel { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-top: 4px; }
+.ampel.rot { background: #d4351c; } .ampel.gelb { background: #e0a100; } .ampel.gruen { background: #2e9e5b; }
+.anhang-box { border: 1px dashed var(--linie); border-radius: 6px; padding: 10px; margin-top: 6px; }
+.anhang-box + .anhang-box { margin-top: 8px; }
+.anhang-box b { font-size: 12px; font-weight: 600; }
+.anhang-box ul { list-style: none; margin: 6px 0 0; padding: 0; }
+.anhang-box li { display: flex; gap: 8px; align-items: center; font-size: 12px; padding: 2px 0; }
+.anhang-box li > span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.anhang-box li button { padding: 0 7px; }
+.anhang-box input[type=file] { margin-top: 6px; font-size: 12px; border: 0; padding: 0; }
+@media (max-width: 900px) { .zwei, .vorlagen { grid-template-columns: 1fr; } header { gap: 12px; } .status { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kanzlei-Helfer</h1>
+  <nav role="tablist">
+    <button role="tab" data-tab="stammdaten" aria-selected="true">Stammdaten</button>
+    <button role="tab" data-tab="mails" aria-selected="false">E-Mails <span id="zahlAuswahl"></span></button>
+    <button role="tab" data-tab="vorlagen" aria-selected="false">Vorlagen</button>
+    <button role="tab" data-tab="protokoll" aria-selected="false">Protokoll</button>
+  </nav>
+  <div class="status" id="status"></div>
+</header>
+
+<main>
+  <div id="testhinweis" class="meldung test" hidden>Testmodus: erfundene Testmandanten aus dem nachgebauten DATEVconnect. E-Mails werden nur als .eml-Dateien gespeichert, nichts wird versendet.</div>
+
+  <section id="tab-stammdaten">
+    <div class="leiste">
+      <input id="suche" type="search" placeholder="Suchen: Name, Nummer, E-Mail" aria-label="Mandanten suchen" style="width: 280px">
+      <span class="klein" id="stand"></span>
+      <div class="rechts">
+        <button id="neuLaden">Aus DATEV neu laden</button>
+        <button id="csv">Liste als CSV</button>
+        <button id="anschreiben" class="primaer" disabled>Auswahl anschreiben</button>
+      </div>
+    </div>
+    <div class="zusammenfassung" id="zusammenfassung"></div>
+    <div id="stammdatenMeldung"></div>
+    <div class="tabelle">
+      <table>
+        <thead><tr>
+          <th style="width: 34px"><input type="checkbox" id="alleWaehlen" aria-label="Alle sichtbaren auswählen"></th>
+          <th style="width: 30px" title="Ampel: grün vollständig, gelb prüfen, rot fehlt etwas"><span class="ampel gruen" aria-label="Ampel"></span></th>
+          <th style="width: 80px">Nr.</th><th>Mandant</th><th>E-Mail</th><th>Prüfung</th><th style="width: 150px">Zuletzt angeschrieben</th>
+        </tr></thead>
+        <tbody id="mandantenZeilen"><tr><td colspan="7" class="leer">Verbinde mit DATEVconnect …</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="tab-mails" hidden>
+    <div class="zwei">
+      <div class="karte">
+        <h2>Nachricht</h2>
+        <label for="mailVorlage">Vorlage</label>
+        <select id="mailVorlage" class="feld"></select>
+        <label for="mailBetreff">Betreff</label>
+        <input id="mailBetreff" class="feld">
+        <label for="mailText">Text</label>
+        <textarea id="mailText" rows="16"></textarea>
+        <div class="platzhalter" data-ziel="mailText"></div>
+        <p class="klein">Änderungen hier gelten nur für diesen Versand. Dauerhaft ändern: Reiter Vorlagen.</p>
+        <label>Anhänge</label>
+        <div class="anhang-box">
+          <b>Für alle Empfänger</b>
+          <ul id="anhangAlleListe"></ul>
+          <input type="file" id="anhangAlle" multiple aria-label="Anhang für alle Empfänger hinzufügen">
+        </div>
+        <div class="anhang-box">
+          <b>Pro Mandant</b> <span class="klein">– Dateiname beginnt mit der Mandantennummer, z. B. 10004_Bescheid.pdf</span>
+          <ul id="anhangProListe"></ul>
+          <input type="file" id="anhangPro" multiple aria-label="Anhänge pro Mandant hinzufügen">
+        </div>
+      </div>
+      <div class="karte">
+        <h2 id="empfaengerTitel">Empfänger</h2>
+        <ul class="empfaenger" id="empfaenger"></ul>
+        <div class="vorschau-kopf">
+          <span id="vorschauWer">Vorschau</span>
+          <button id="vorschauZurueck" aria-label="Vorheriger Empfänger">‹</button>
+          <button id="vorschauVor" aria-label="Nächster Empfänger">›</button>
+        </div>
+        <div class="vorschau" id="vorschau"></div>
+        <div class="leiste" style="margin-top: 14px">
+          <button id="entwuerfe" class="primaer">Als Entwürfe in Outlook anlegen</button>
+          <button id="senden">Direkt senden</button>
+        </div>
+        <div id="versandMeldung"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-vorlagen" hidden>
+    <div class="vorlagen">
+      <div>
+        <div class="liste-vorlagen" id="vorlagenListe"></div>
+        <button id="vorlageNeu" style="margin-top: 10px; width: 100%">+ Neue Vorlage</button>
+      </div>
+      <div class="karte">
+        <label for="vName">Name der Vorlage</label>
+        <input id="vName" class="feld">
+        <label for="vBetreff">Betreff</label>
+        <input id="vBetreff" class="feld">
+        <label for="vText">Text</label>
+        <textarea id="vText" rows="18"></textarea>
+        <div class="platzhalter" data-ziel="vText"></div>
+        <p class="klein">Platzhalter werden je Mandant ersetzt. {{FehlendeAngaben}} listet die Lücken aus der Stammdaten-Prüfung.</p>
+        <div class="leiste">
+          <button id="vSpeichern" class="primaer">Speichern</button>
+          <button id="vLoeschen">Löschen</button>
+          <span class="klein" id="vMeldung"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-protokoll" hidden>
+    <div class="leiste"><input id="pSuche" type="search" placeholder="Suchen" aria-label="Protokoll durchsuchen" style="width: 280px"><span class="klein" id="pDatei"></span></div>
+    <div class="tabelle">
+      <table>
+        <thead><tr><th>Zeit</th><th>Art</th><th>Vorlage</th><th>Nr.</th><th>Mandant</th><th>An</th><th>Betreff</th><th>Anhänge</th><th>Ergebnis</th></tr></thead>
+        <tbody id="protokollZeilen"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+const FELD = { email: 'E-Mail-Adresse', telefon: 'Telefon', anschrift: 'Anschrift', steuernummer: 'Steuernummer', finanzamt: 'Finanzamt', steuerid: 'Steuer-ID', iban: 'IBAN' };
+const FELD_MAIL = { email: 'E-Mail-Adresse', telefon: 'Telefonnummer', anschrift: 'Anschrift', steuernummer: 'Steuernummer', finanzamt: 'Zuständiges Finanzamt', steuerid: 'Steuerliche Identifikationsnummer', iban: 'Bankverbindung (IBAN)' };
+const TYP = { natural_person: 'Person', individual_enterprise: 'Einzelunternehmen', legal_person: 'Gesellschaft' };
+const PLATZHALTER = ['Anrede', 'Name', 'Mandantennummer', 'FehlendeAngaben', 'Datum', 'Jahr', 'Vorjahr', 'Signatur'];
+const S = { status: {}, mandanten: [], vorlagen: [], protokoll: [], auswahl: new Set(), filter: 'luecken', vorschau: 0, vorlageId: null };
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+async function api(pfad, opt = {}) {
+  const r = await fetch(pfad, { ...opt, headers: { 'X-Kanzlei-Helfer': '1', 'Content-Type': 'application/json' } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.fehler || 'HTTP ' + r.status);
+  return j;
+}
+
+// ---------- Reiter ----------
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => zeigeTab(b.dataset.tab));
+function zeigeTab(name) {
+  document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name));
+  document.querySelectorAll('main > section').forEach(s => s.hidden = s.id !== 'tab-' + name);
+  if (name === 'mails') zeichneMails();
+  if (name === 'protokoll') ladeProtokoll();
+}
+
+// ---------- Status ----------
+async function ladeStatus() {
+  S.status = await api('/api/status');
+  const s = S.status;
+  $('#status').innerHTML =
+    `<span class="pill ${s.datev ? 'gut' : 'schlecht'}" title="${esc(s.datevUrl)}${s.meldung ? '\n' + esc(s.meldung) : ''}">DATEVconnect ${s.datev ? 'verbunden' : 'nicht erreichbar'}</span>` +
+    `<span class="pill ${s.versand === 'eml' ? 'test' : ''}">Versand: ${s.versand === 'eml' ? '.eml-Dateien' : 'Outlook'}</span>`;
+  $('#testhinweis').hidden = !s.test;
+  $('#pDatei').textContent = `Datei: ${s.protokoll} (öffnet in Excel)`;
+  if (s.versand === 'eml') { $('#entwuerfe').textContent = 'Als .eml-Dateien speichern'; $('#senden').hidden = true; }
+}
+
+// ---------- Stammdaten ----------
+const kannMail = m => m.email && !m.fehlerhaft.includes('email');
+const hatProblem = m => m.luecken.length || m.fehlerhaft.length || m.abruffehler;
+
+async function ladeMandanten(neu) {
+  $('#mandantenZeilen').innerHTML = `<tr><td colspan="7" class="leer">Lade Stammdaten aus DATEV … (bei vielen Mandanten bis zu einer Minute)</td></tr>`;
+  $('#stammdatenMeldung').innerHTML = '';
+  try {
+    const d = await api('/api/mandanten' + (neu ? '?neu=1' : ''));
+    S.mandanten = d.mandanten || [];
+    $('#stand').textContent = 'Stand ' + d.stand;
+  } catch (e) {
+    S.mandanten = [];
+    $('#stammdatenMeldung').innerHTML = `<div class="meldung fehler"><b>DATEVconnect nicht erreichbar</b> unter ${esc(S.status.datevUrl)}<br>${esc(e.message)}<br>
+      Prüfen: Läuft der Dienst? DATEV-Arbeitsplatz → Organisation | Basissoftware | Kommunikation → DATEVconnect-Einrichtung (Status „GESTARTET“). Andere Adresse: in config.json eintragen.</div>`;
+  }
+  zeichneStammdaten();
+}
+
+function sichtbareMandanten() {
+  const q = $('#suche').value.trim().toLowerCase();
+  return S.mandanten.filter(m => {
+    if (q && !`${m.nummer} ${m.name} ${m.email || ''}`.toLowerCase().includes(q)) return false;
+    if (S.filter === 'alle') return true;
+    if (S.filter === 'luecken') return hatProblem(m);
+    if (S.filter === 'ok') return !hatProblem(m);
+    if (S.filter === 'abruf') return !!m.abruffehler;
+    return m.luecken.includes(S.filter) || m.fehlerhaft.includes(S.filter);
+  });
+}
+
+function letzteMail(nummer) {
+  const z = S.protokoll.filter(p => String(p.Mandantennr) === String(nummer) && p.Ergebnis === 'ok');
+  return z.length ? z[z.length - 1] : null;
+}
+
+function zeichneStammdaten() {
+  const M = S.mandanten;
+  const zaehl = f => M.filter(m => m.luecken.includes(f) || m.fehlerhaft.includes(f)).length;
+  const knoepfe = [['alle', `Alle ${M.length}`], ['luecken', `Mit Lücken ${M.filter(hatProblem).length}`], ['ok', `Vollständig ${M.filter(m => !hatProblem(m)).length}`],
+    ...Object.keys(FELD).map(f => [f, `${FELD[f]} ${zaehl(f)}`])];
+  const abruf = M.filter(m => m.abruffehler).length;
+  if (abruf) knoepfe.push(['abruf', `Abruf fehlgeschlagen ${abruf}`]);
+  $('#zusammenfassung').innerHTML = knoepfe.map(([k, t]) => `<button data-filter="${k}" aria-pressed="${S.filter === k}">${esc(t)}</button>`).join('');
+
+  const V = sichtbareMandanten();
+  $('#mandantenZeilen').innerHTML = V.length ? V.map(m => {
+    const chips = m.abruffehler ? `<span class="chip pruefen" title="${esc(m.abruffehler)}">Abruf fehlgeschlagen</span>`
+      : (m.luecken.map(f => `<span class="chip fehlt">${FELD[f]} fehlt</span>`).join('') +
+         m.fehlerhaft.map(f => `<span class="chip pruefen" title="Prüfziffer oder Format stimmt nicht">${FELD[f]} prüfen</span>`).join('')) || '<span class="chip ok">vollständig</span>';
+    const l = letzteMail(m.nummer);
+    const [farbe, ampelText] = m.luecken.length ? ['rot', 'Es fehlt etwas'] : (m.fehlerhaft.length || m.abruffehler) ? ['gelb', 'Bitte prüfen'] : ['gruen', 'Vollständig'];
+    return `<tr>
+      <td><input type="checkbox" data-nr="${m.nummer}" ${S.auswahl.has(m.nummer) ? 'checked' : ''} ${kannMail(m) ? '' : 'disabled title="Keine gültige E-Mail-Adresse"'} aria-label="${esc(m.name)} auswählen"></td>
+      <td><span class="ampel ${farbe}" role="img" aria-label="${ampelText}" title="${ampelText}"></span></td>
+      <td class="nr">${m.nummer}</td>
+      <td>${esc(m.name)}<div class="klein">${TYP[m.typ] || esc(m.typ)}</div></td>
+      <td>${m.email ? esc(m.email) : '<span class="klein">–</span>'}</td>
+      <td>${chips}</td>
+      <td class="klein">${l ? esc(l.Zeit.slice(0, 10)) + '<br>' + esc(l.Vorlage) : '–'}</td></tr>`;
+  }).join('') : `<tr><td colspan="7" class="leer">${S.mandanten.length ? 'Keine Mandanten für diesen Filter.' : 'Keine Mandanten geladen.'}</td></tr>`;
+  zeichneAuswahlZahl();
+}
+
+function zeichneAuswahlZahl() {
+  const n = S.auswahl.size;
+  $('#anschreiben').disabled = !n;
+  $('#anschreiben').textContent = n ? `${n} anschreiben` : 'Auswahl anschreiben';
+  $('#zahlAuswahl').textContent = n ? `(${n})` : '';
+}
+
+$('#zusammenfassung').onclick = e => { const b = e.target.closest('button'); if (b) { S.filter = b.dataset.filter; zeichneStammdaten(); } };
+$('#suche').oninput = zeichneStammdaten;
+$('#neuLaden').onclick = () => ladeMandanten(true);
+$('#anschreiben').onclick = () => zeigeTab('mails');
+$('#mandantenZeilen').onchange = e => {
+  const nr = Number(e.target.dataset.nr);
+  e.target.checked ? S.auswahl.add(nr) : S.auswahl.delete(nr);
+  zeichneAuswahlZahl();
+};
+$('#alleWaehlen').onchange = e => {
+  sichtbareMandanten().filter(kannMail).forEach(m => e.target.checked ? S.auswahl.add(m.nummer) : S.auswahl.delete(m.nummer));
+  zeichneStammdaten();
+};
+$('#csv').onclick = () => {
+  const zelle = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const zeilen = [['Mandantennr', 'Mandant', 'Typ', 'E-Mail', 'Fehlt', 'Prüfen', 'Abruffehler'].map(zelle).join(';'),
+    ...sichtbareMandanten().map(m => [m.nummer, m.name, TYP[m.typ] || m.typ, m.email, m.luecken.map(f => FELD[f]).join(', '),
+      m.fehlerhaft.map(f => FELD[f]).join(', '), m.abruffehler].map(zelle).join(';'))];
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + zeilen.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  a.download = `Stammdaten-Luecken_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+};
+
+// ---------- Platzhalter ----------
+function fuellen(text, m) {
+  const fehlend = [...m.luecken.map(f => '– ' + FELD_MAIL[f]), ...m.fehlerhaft.map(f => '– ' + FELD_MAIL[f] + ' (bitte noch einmal prüfen)')].join('\n');
+  const d = new Date();
+  const w = { Anrede: m.anrede || 'Sehr geehrte Damen und Herren,', Name: m.name, Mandantennummer: m.nummer, FehlendeAngaben: fehlend,
+    Datum: d.toLocaleDateString('de-DE'), Jahr: d.getFullYear(), Vorjahr: d.getFullYear() - 1, Signatur: S.status.signatur || '' };
+  return text.replace(/\{\{(\w+)\}\}/g, (ganz, k) => k in w ? String(w[k]) : ganz);
+}
+document.querySelectorAll('.platzhalter').forEach(box => {
+  box.innerHTML = PLATZHALTER.map(p => `<button type="button" data-p="${p}">{{${p}}}</button>`).join('');
+  box.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const t = document.getElementById(box.dataset.ziel), ins = `{{${b.dataset.p}}}`;
+    const a = t.selectionStart ?? t.value.length;
+    t.value = t.value.slice(0, a) + ins + t.value.slice(t.selectionEnd ?? a);
+    t.focus(); t.selectionStart = t.selectionEnd = a + ins.length;
+    t.dispatchEvent(new Event('input'));
+  };
+});
+
+// ---------- Anhänge ----------
+S.anhangAlle = []; S.anhangPro = [];
+const nrAusName = name => { const t = /^(\d+)[ _\-.]/.exec(name); return t ? Number(t[1]) : null; };
+const anhaengeFuer = m => [...S.anhangAlle, ...S.anhangPro.filter(f => nrAusName(f.name) === m.nummer)];
+const groesse = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.ceil(b / 1024) + ' KB';
+
+function zeichneAnhaenge() {
+  const gewaehlt = new Set([...S.auswahl]);
+  $('#anhangAlleListe').innerHTML = S.anhangAlle.map((f, i) => `<li><span>${esc(f.name)} <span class="klein">${groesse(f.size)}</span></span>
+    <button data-alle="${i}" aria-label="${esc(f.name)} entfernen">×</button></li>`).join('');
+  $('#anhangProListe').innerHTML = S.anhangPro.map((f, i) => {
+    const nr = nrAusName(f.name), m = S.mandanten.find(x => x.nummer === nr);
+    const hinweis = nr === null ? '<span class="chip fehlt">keine Mandantennr. im Namen</span>'
+      : !gewaehlt.has(nr) ? `<span class="chip pruefen">${nr} nicht ausgewählt</span>` : `<span class="chip ok">→ ${esc(m ? m.name : nr)}</span>`;
+    return `<li><span>${esc(f.name)} <span class="klein">${groesse(f.size)}</span></span>${hinweis}<button data-pro="${i}" aria-label="${esc(f.name)} entfernen">×</button></li>`;
+  }).join('');
+}
+$('#anhangAlle').onchange = e => { S.anhangAlle.push(...e.target.files); e.target.value = ''; zeichneEmpfaenger(); };
+$('#anhangPro').onchange = e => { S.anhangPro.push(...e.target.files); e.target.value = ''; zeichneEmpfaenger(); };
+$('#anhangAlleListe').onclick = e => { const b = e.target.closest('[data-alle]'); if (b) { S.anhangAlle.splice(+b.dataset.alle, 1); zeichneEmpfaenger(); } };
+$('#anhangProListe').onclick = e => { const b = e.target.closest('[data-pro]'); if (b) { S.anhangPro.splice(+b.dataset.pro, 1); zeichneEmpfaenger(); } };
+
+async function hochladen(f) {
+  const r = await fetch('/api/anhang', { method: 'POST', body: f,
+    headers: { 'X-Kanzlei-Helfer': '1', 'X-Dateiname': encodeURIComponent(f.name), 'Content-Type': 'application/octet-stream' } });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.fehler || 'Upload fehlgeschlagen: ' + f.name);
+  return j.id;
+}
+
+// ---------- E-Mails ----------
+function empfaenger() {
+  const braucht = /\{\{FehlendeAngaben\}\}/.test($('#mailText').value + $('#mailBetreff').value);
+  return S.mandanten.filter(m => S.auswahl.has(m.nummer)).map(m => ({ m, grund: !kannMail(m) ? 'keine gültige E-Mail'
+    : (braucht && !m.luecken.length && !m.fehlerhaft.length) ? 'keine Lücken'
+    : (S.anhangPro.length && !S.anhangPro.some(f => nrAusName(f.name) === m.nummer)) ? 'kein eigener Anhang' : '' }));
+}
+
+function setzeVorlage(id) {
+  const v = S.vorlagen.find(x => x.id === id) || S.vorlagen[0];
+  if (!v) return;
+  $('#mailVorlage').value = v.id; $('#mailBetreff').value = v.betreff; $('#mailText').value = v.text;
+}
+
+function zeichneMails() {
+  const sel = $('#mailVorlage'), alt = sel.value;
+  sel.innerHTML = S.vorlagen.map(v => `<option value="${esc(v.id)}">${esc(v.name)}</option>`).join('');
+  if (!alt || !$('#mailText').value) setzeVorlage(alt || S.vorlagen[0]?.id); else sel.value = alt;
+  zeichneEmpfaenger();
+}
+
+function zeichneEmpfaenger() {
+  const E = empfaenger(), gehen = E.filter(e => !e.grund);
+  $('#empfaengerTitel').textContent = `Empfänger: ${gehen.length} von ${E.length}`;
+  $('#empfaenger').innerHTML = E.length ? E.map(({ m, grund }) => `<li class="${grund ? 'aus' : ''}">
+      <span>${esc(m.name)} <span class="klein">${m.nummer} · ${esc(m.email || '–')}</span></span>
+      ${grund ? `<span class="chip pruefen">${grund}, wird übersprungen</span>` : ''}
+      <button data-weg="${m.nummer}" aria-label="${esc(m.name)} entfernen">×</button></li>`).join('')
+    : '<li class="aus">Noch niemand ausgewählt. Im Reiter Stammdaten Mandanten anhaken.</li>';
+  S.vorschau = Math.min(S.vorschau, Math.max(gehen.length - 1, 0));
+  const v = gehen[S.vorschau];
+  $('#vorschauWer').textContent = v ? `Vorschau ${S.vorschau + 1} von ${gehen.length}: ${v.m.name}` : 'Vorschau';
+  if (v) {
+    const betreff = fuellen($('#mailBetreff').value, v.m), text = fuellen($('#mailText').value, v.m);
+    const offen = /\{\{\w+\}\}/.test(betreff + text) ? '\n\n⚠ Unbekannter Platzhalter – bitte prüfen.' : '';
+    const anh = anhaengeFuer(v.m).map(f => f.name).join(', ');
+    $('#vorschau').textContent = `An: ${v.m.email}\nBetreff: ${betreff}${anh ? '\nAnhänge: ' + anh : ''}\n\n${text}${offen}`;
+  } else $('#vorschau').textContent = '';
+  zeichneAnhaenge();
+  $('#entwuerfe').disabled = $('#senden').disabled = !gehen.length;
+  $('#vorschauZurueck').disabled = S.vorschau <= 0;
+  $('#vorschauVor').disabled = S.vorschau >= gehen.length - 1;
+}
+
+$('#mailVorlage').onchange = e => { setzeVorlage(e.target.value); zeichneEmpfaenger(); };
+$('#mailBetreff').oninput = $('#mailText').oninput = zeichneEmpfaenger;
+$('#vorschauZurueck').onclick = () => { S.vorschau--; zeichneEmpfaenger(); };
+$('#vorschauVor').onclick = () => { S.vorschau++; zeichneEmpfaenger(); };
+$('#empfaenger').onclick = e => { const b = e.target.closest('[data-weg]'); if (b) { S.auswahl.delete(Number(b.dataset.weg)); zeichneAuswahlZahl(); zeichneEmpfaenger(); } };
+
+async function versenden(modus) {
+  const gehen = empfaenger().filter(e => !e.grund);
+  if (!gehen.length) return;
+  if (modus === 'senden' && !confirm(`${gehen.length} E-Mail(s) jetzt direkt über Outlook senden?\nDas lässt sich nicht rückgängig machen.`)) return;
+  const v = S.vorlagen.find(x => x.id === $('#mailVorlage').value);
+  $('#entwuerfe').disabled = $('#senden').disabled = true;
+  $('#versandMeldung').innerHTML = '<div class="meldung">Wird erstellt …</div>';
+  try {
+    const ids = new Map();   // jede Datei nur einmal hochladen
+    for (const f of new Set(gehen.flatMap(({ m }) => anhaengeFuer(m)))) ids.set(f, await hochladen(f));
+    const mails = gehen.map(({ m }) => ({ nummer: m.nummer, name: m.name, an: m.email, betreff: fuellen($('#mailBetreff').value, m),
+      text: fuellen($('#mailText').value, m), anhaenge: anhaengeFuer(m).map(f => ids.get(f)) }));
+    const erg = await api('/api/mails', { method: 'POST', body: JSON.stringify({ modus, vorlage: v ? v.name : '(frei)', mails }) });
+    const fehl = erg.filter(x => !x.ok);
+    const wo = S.status.versand === 'eml' ? `als .eml in ${esc(S.status.ausgang)}` : modus === 'senden' ? 'gesendet' : 'in Outlook unter Entwürfe (Kategorie „Kanzlei-Helfer“)';
+    $('#versandMeldung').innerHTML = `<div class="meldung ${fehl.length ? 'fehler' : ''}">${erg.length - fehl.length} von ${erg.length} ${wo}.` +
+      (fehl.length ? '<br>' + fehl.map(x => `${x.nummer}: ${esc(x.info)}`).join('<br>') : '') + '</div>';
+    if (!fehl.length) { S.auswahl.clear(); S.anhangAlle = []; S.anhangPro = []; zeichneAuswahlZahl(); }
+    await ladeProtokoll(); zeichneStammdaten();
+  } catch (e) {
+    $('#versandMeldung').innerHTML = `<div class="meldung fehler">${esc(e.message)}</div>`;
+  }
+  zeichneEmpfaenger();
+}
+$('#entwuerfe').onclick = () => versenden('entwurf');
+$('#senden').onclick = () => versenden('senden');
+
+// ---------- Vorlagen ----------
+function zeichneVorlagen() {
+  $('#vorlagenListe').innerHTML = S.vorlagen.map(v => `<button data-id="${esc(v.id)}" aria-pressed="${v.id === S.vorlageId}">${esc(v.name)}</button>`).join('');
+  const v = S.vorlagen.find(x => x.id === S.vorlageId);
+  $('#vName').value = v ? v.name : ''; $('#vBetreff').value = v ? v.betreff : ''; $('#vText').value = v ? v.text : '';
+  $('#vLoeschen').disabled = !v;
+}
+async function speichereVorlagen(text) {
+  await api('/api/vorlagen', { method: 'PUT', body: JSON.stringify(S.vorlagen) });
+  $('#vMeldung').textContent = text; setTimeout(() => $('#vMeldung').textContent = '', 2500);
+}
+$('#vorlagenListe').onclick = e => { const b = e.target.closest('button'); if (b) { S.vorlageId = b.dataset.id; zeichneVorlagen(); } };
+$('#vorlageNeu').onclick = () => { S.vorlageId = null; zeichneVorlagen(); $('#vName').focus(); };
+$('#vSpeichern').onclick = async () => {
+  const name = $('#vName').value.trim();
+  if (!name) { $('#vMeldung').textContent = 'Bitte einen Namen eingeben.'; return; }
+  let v = S.vorlagen.find(x => x.id === S.vorlageId);
+  if (!v) { v = { id: 'v' + Date.now() }; S.vorlagen.push(v); S.vorlageId = v.id; }
+  Object.assign(v, { name, betreff: $('#vBetreff').value, text: $('#vText').value });
+  try { await speichereVorlagen('Gespeichert.'); } catch (e) { $('#vMeldung').textContent = e.message; }
+  zeichneVorlagen(); $('#mailText').value = ''; // E-Mail-Reiter lädt die Vorlage neu
+};
+$('#vLoeschen').onclick = async () => {
+  const v = S.vorlagen.find(x => x.id === S.vorlageId);
+  if (!v || !confirm(`Vorlage „${v.name}“ löschen?`)) return;
+  S.vorlagen = S.vorlagen.filter(x => x !== v); S.vorlageId = S.vorlagen[0]?.id ?? null;
+  try { await speichereVorlagen('Gelöscht.'); } catch (e) { $('#vMeldung').textContent = e.message; }
+  zeichneVorlagen(); $('#mailText').value = '';
+};
+
+// ---------- Protokoll ----------
+async function ladeProtokoll() {
+  try { S.protokoll = await api('/api/protokoll'); } catch { S.protokoll = []; }
+  zeichneProtokoll();
+}
+function zeichneProtokoll() {
+  const q = $('#pSuche').value.trim().toLowerCase();
+  const Z = S.protokoll.slice().reverse().filter(p => !q || Object.values(p).join(' ').toLowerCase().includes(q));
+  const art = { entwurf: 'Entwurf', senden: 'Gesendet', eml: '.eml (Test)' };
+  $('#protokollZeilen').innerHTML = Z.length ? Z.map(p => `<tr><td class="nr">${esc(p.Zeit)}</td><td>${art[p.Modus] || esc(p.Modus)}</td><td>${esc(p.Vorlage)}</td>
+    <td class="nr">${esc(p.Mandantennr)}</td><td>${esc(p.Mandant)}</td><td>${esc(p.An)}</td><td>${esc(p.Betreff)}</td><td class="klein">${esc(p.Anhaenge || '')}</td>
+    <td>${p.Ergebnis === 'ok' ? '<span class="chip ok">ok</span>' : `<span class="chip fehlt">${esc(p.Ergebnis)}</span>`}</td></tr>`).join('')
+    : '<tr><td colspan="9" class="leer">Noch keine E-Mails erstellt.</td></tr>';
+}
+$('#pSuche').oninput = zeichneProtokoll;
+
+// ---------- Start ----------
+(async () => {
+  try { await ladeStatus(); } catch (e) { $('#stammdatenMeldung').innerHTML = `<div class="meldung fehler">${esc(e.message)}</div>`; }
+  S.vorlagen = await api('/api/vorlagen').catch(() => []);
+  S.vorlageId = S.vorlagen[0]?.id ?? null;
+  zeichneVorlagen();
+  await ladeProtokoll();
+  await ladeMandanten(false);
+})();
+</script>
+</body>
+</html>
