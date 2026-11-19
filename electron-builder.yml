@@ -23,6 +23,7 @@ win:
 nsis:
   oneClick: false
   perMachine: false          # pro Benutzer, keine Adminrechte nötig
+  allowElevation: false      # fordert nie Adminrechte an
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
