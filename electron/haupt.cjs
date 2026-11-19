@@ -47,7 +47,7 @@ if (!app.requestSingleInstanceLock()) app.quit();
 
 const ablage = oeffneAblage(app.getPath("userData"));
 ablage.raeumeTmp(); // Reste eines abgebrochenen Outlook-Laufs (enthalten Adressen und Texte)
-// DATEVconnect-Adresse: nur http://<Server>/datev/api/master-data/v1; Unzulässiges fällt auf LIZENZSERVER zurück.
+// DATEVconnect-Adresse: nur http(s)://<Server>:<Port>/datev/api/master-data/v1; Unzulässiges fällt auf LIZENZSERVER zurück.
 const mitGueltigerAdresse = (e) => ({ ...e, datevconnect: datevAdresse(e.datevconnect) });
 let einstellungen = mitGueltigerAdresse(ablage.einstellungen());
 // Keine Windows-/Firmen-Anmeldung, an niemanden: Die Liste der Server, denen Chromium das Windows-Konto
@@ -105,6 +105,8 @@ app.on("web-contents-created", (_e, wc) => {
 });
 // Nie nach Benutzername/Passwort fragen und keine gespeicherten Zugangsdaten senden.
 app.on("login", (e, _wc, _details, _auth, weiter) => { e.preventDefault(); weiter(); });
+// Auch kein Client-Zertifikat aus dem Windows-Speicher (Electron nähme sonst das erste).
+app.on("select-client-certificate", (e, _wc, _url, _liste, weiter) => { e.preventDefault(); weiter(); });
 app.on("will-quit", () => ablage.raeumeTmp());
 
 app.whenReady().then(() => {
@@ -131,7 +133,7 @@ app.whenReady().then(() => {
     const u = d.url;
     let erlaubt = u.startsWith(URSPRUNG) || u.startsWith(DIST_URL) || u.startsWith("data:") || u.startsWith("blob:");
     // DATEV nur vom Hauptprozess (keine webContentsId) und nur lesend
-    if (!erlaubt && /^http:/i.test(u) && d.method === "GET" && d.webContentsId === undefined) {
+    if (!erlaubt && /^https?:/i.test(u) && d.method === "GET" && d.webContentsId === undefined) {
       try { erlaubt = new URL(u).origin === datevUrsprung(); } catch { erlaubt = false; }
     }
     antwort({ cancel: !erlaubt });
@@ -159,7 +161,10 @@ function handle(kanal, f) {
 
 handle("status", async () => {
   let datev = true, meldung = null;
-  try { await quelle().stamm("/version"); } catch (f) { datev = false; meldung = fehlerText(f); }
+  try {
+    // /version kennt nicht jede DATEVconnect-Fassung; dann reicht die Mandantenliste (nur Nummern) als Lebenszeichen.
+    await quelle().stamm("/version").catch((f) => { if (f.status === 404) return quelle().stamm("/clients?select=number"); throw f; });
+  } catch (f) { datev = false; meldung = fehlerText(f); }
   return { datev, meldung, einstellungen, version: app.getVersion(), daten: ablage.ordner, ausgang: ablage.ausgang, mica: MICA, auftragswesen, hinweise };
 });
 
@@ -187,7 +192,7 @@ handle("einstellungen:speichern", (_e, neu) => {
   const alt = einstellungen;
   neu = neu && typeof neu === "object" ? neu : {};
   if ("datevconnect" in neu && !erlaubteDatevAdresse(neu.datevconnect)) {
-    throw new Error("Adresse muss so aussehen: http://SERVER:PORT/datev/api/master-data/v1 (Server im eigenen Netz, kein https, keine Zugangsdaten)");
+    throw new Error("Adresse muss so aussehen: https://SERVER:PORT/datev/api/master-data/v1 (oder http://…; Server im eigenen Netz, keine Zugangsdaten)");
   }
   einstellungen = mitGueltigerAdresse(ablage.speichereEinstellungen(neu));
   if (alt.demo !== einstellungen.demo || alt.datevconnect !== einstellungen.datevconnect || alt.nurAktive !== einstellungen.nurAktive) mandanten = null;

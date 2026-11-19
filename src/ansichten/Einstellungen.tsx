@@ -39,7 +39,7 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
             <div className="grid gap-1.5">
               <Label htmlFor="e-url">Adresse von DATEVconnect (Stammdaten)</Label>
               <Input id="e-url" className="kennung" value={e.datevconnect} onChange={(x) => setE({ ...e, datevconnect: x.target.value })} disabled={e.demo} />
-              <p className="text-xs text-muted-foreground">Standard in dieser Kanzlei: <span className="kennung">http://LIZENZSERVER:58454/datev/api/master-data/v1</span>. Erlaubt ist nur http://SERVER:PORT/datev/api/master-data/v1 mit einem Server im eigenen Netz (z. B. localhost, LIZENZSERVER, 192.168.…).</p>
+              <p className="text-xs text-muted-foreground">Standard in dieser Kanzlei: <span className="kennung">https://LIZENZSERVER:58452/datev/api/master-data/v1</span>. Erlaubt ist nur https://SERVER:PORT/datev/api/master-data/v1 (oder http://…) mit einem Server im eigenen Netz (z. B. localhost, LIZENZSERVER, 192.168.…).</p>
             </div>
             <div className="flex items-center gap-3 rounded-lg border px-4 py-3 text-sm" data-verbindungstest>
               {status.einstellungen.demo ? <span className="text-muted-foreground">Demodaten aktiv, DATEV wird nicht abgefragt.</span>

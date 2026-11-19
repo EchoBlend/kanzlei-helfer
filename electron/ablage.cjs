@@ -7,9 +7,10 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { FELDER } = require("./pruefung.cjs");
+const { DATEV_STANDARD } = require("./netz.cjs");
 
 const STANDARD = {
-  datevconnect: "http://LIZENZSERVER:58454/datev/api/master-data/v1",
+  datevconnect: DATEV_STANDARD,
   versand: "eml", // "eml" (rein lokal) | "outlook" (Entwurf im Postfach, wird mit Exchange/M365 abgeglichen)
   signatur: "Ihr Team der Steuerkanzlei",
   nurAktive: true,

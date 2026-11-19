@@ -1,8 +1,9 @@
 /**
  * Der einzige Netzweg der App: DATEVconnect im eigenen Netz (Standard: LIZENZSERVER).
  *
- * - Adresse änderbar, aber nur http://<Server>:<Port>/datev/api/master-data/v1 – ohne Zugangsdaten, Parameter, Anker.
- *   Kein https: Zertifikatsprüfungen könnten Chromium zu externen Zertifizierungsstellen schicken.
+ * - Adresse änderbar, aber nur http(s)://<Server>:<Port>/datev/api/master-data/v1 – ohne Zugangsdaten, Parameter, Anker.
+ *   In der Kanzlei antwortet DATEVconnect per https auf Port 58452 (gemessen 19.11.). Das Zertifikat prüft Chromium
+ *   gegen den Windows-Zertifikatspeicher; Mandantendaten gehen dabei nirgends hin.
  * - Vor jeder Anfrage: Der Servername muss ausschließlich auf Adressen im eigenen Netz zeigen (10.x, 172.16–31.x,
  *   192.168.x, Loopback, Link-Local, IPv6 ULA). Sonst – z. B. Laptop zu Hause, Provider-DNS biegt unbekannte Namen
  *   auf Werbeserver um, Tippfehler auf eine Internet-Adresse – wird gar keine Verbindung aufgebaut.
@@ -11,7 +12,10 @@
 const dns = require("node:dns");
 const net = require("node:net");
 
-const DATEV_STANDARD = "http://LIZENZSERVER:58454/datev/api/master-data/v1";
+const DATEV_STANDARD = "https://LIZENZSERVER:58452/datev/api/master-data/v1";
+// Standard bis 1.3.1 (http, Port 58454) – gespeichert wird er auf den neuen Standard umgestellt.
+const FRUEHERER_STANDARD = "http://lizenzserver:58454/datev/api/master-data/v1";
+const WEB = ["http:", "https:"];
 const DATEV_PFAD = /^\/datev\/api\/master-data\/v1\/?$/i;
 const ZEITLIMIT_MS = 30000;
 
@@ -19,9 +23,13 @@ const ZEITLIMIT_MS = 30000;
 function erlaubteDatevAdresse(adresse) {
   let u;
   try { u = new URL(String(adresse)); } catch { return false; }
-  return u.protocol === "http:" && !!u.hostname && !u.username && !u.password && !u.search && !u.hash && DATEV_PFAD.test(u.pathname);
+  return WEB.includes(u.protocol) && !!u.hostname && !u.username && !u.password && !u.search && !u.hash && DATEV_PFAD.test(u.pathname);
 }
-const datevAdresse = (adresse) => (erlaubteDatevAdresse(adresse) ? String(adresse).trim() : DATEV_STANDARD);
+function datevAdresse(adresse) {
+  const a = String(adresse ?? "").trim();
+  if (a.toLowerCase().replace(/\/+$/, "") === FRUEHERER_STANDARD) return DATEV_STANDARD;
+  return erlaubteDatevAdresse(a) ? a : DATEV_STANDARD;
+}
 
 /** Adresse im eigenen Netz (RFC 1918, Loopback, Link-Local, IPv6 ULA/Link-Local)? */
 function privateAdresse(ip) {
@@ -57,10 +65,15 @@ async function pruefeImKanzleinetz(host, nachschlagen = dns.promises.lookup) {
 function sichererAbruf(holen, ursprung, { nachschlagen } = {}) {
   return async (adresse, optionen = {}) => {
     const u = new URL(adresse);
-    if (u.protocol !== "http:" || u.origin !== ursprung()) throw new Error(`Gesperrt: ${u.origin} ist nicht die eingestellte DATEVconnect-Adresse`);
+    if (!WEB.includes(u.protocol) || u.origin !== ursprung()) throw new Error(`Gesperrt: ${u.origin} ist nicht die eingestellte DATEVconnect-Adresse`);
     // bei jeder Anfrage; in der App mit Chromiums eigenem Resolver (net.resolveHost) – derselbe Cache wie beim Abruf
     await pruefeImKanzleinetz(u.hostname, nachschlagen);
-    const r = await holen(adresse, { ...optionen, method: "GET", redirect: "error", credentials: "omit", signal: AbortSignal.timeout(ZEITLIMIT_MS) });
+    let r;
+    try { r = await holen(adresse, { ...optionen, method: "GET", redirect: "error", credentials: "omit", signal: AbortSignal.timeout(ZEITLIMIT_MS) }); }
+    catch (f) {
+      if (/ERR_CERT_/.test(String(f?.message))) throw new Error(`Windows vertraut dem Zertifikat von ${u.host} nicht (${f.message}) – keine Daten abgerufen`);
+      throw f;
+    }
     if (r.status === 401 || r.status === 407) throw new Error("DATEVconnect verlangt eine Anmeldung – die App meldet sich bewusst bei niemandem an");
     return r;
   };
