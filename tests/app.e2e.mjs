@@ -125,7 +125,7 @@ try {
   pruefe(emls.length === 1 && emls[0].includes("_10004_"), `eine .eml für 10004 (${emls})`);
   const eml = fs.readFileSync(path.join(aus, emls[0]), "utf8");
   const b64 = (s) => Buffer.from(s, "utf8").toString("base64");
-  pruefe(eml.startsWith("X-Unsent: 1\r\nTo: info@malerbetrieb-test.example"), ".eml-Kopf: X-Unsent und Empfänger");
+  pruefe(eml.startsWith("X-Unsent: 1\r\nBcc: info@malerbetrieb-test.example"), ".eml-Kopf: X-Unsent und Empfänger");
   pruefe(eml.includes(b64("Merkblatt Übersicht.pdf")) && eml.includes(b64("10004_Test-Bescheid.pdf")) && eml.includes(Buffer.from("%PDF-1.4 Bescheid 10004").toString("base64")), ".eml enthält beide Anhänge mit Inhalt");
 
   // ---- 8. Protokoll + „Zuletzt angeschrieben“ ----

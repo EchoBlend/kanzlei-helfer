@@ -39,7 +39,7 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
             <div className="grid gap-1.5">
               <Label htmlFor="e-url">Adresse von DATEVconnect (Stammdaten)</Label>
               <Input id="e-url" className="kennung" value={e.datevconnect} onChange={(x) => setE({ ...e, datevconnect: x.target.value })} disabled={e.demo} />
-              <p className="text-xs text-muted-foreground">Auf dem eigenen PC und bei DATEV ASP: <span className="kennung">http://localhost:58454/datev/api/master-data/v1</span>. Bei einem Kanzlei-Server dessen Namen statt localhost.</p>
+              <p className="text-xs text-muted-foreground">In dieser Kanzlei läuft DATEVconnect auf dem Lizenzserver: <span className="kennung">http://LIZENZSERVER:58454/datev/api/master-data/v1</span>.</p>
             </div>
             <div className="flex items-center gap-3 rounded-lg border px-4 py-3 text-sm" data-verbindungstest>
               {status.einstellungen.demo ? <span className="text-muted-foreground">Demodaten aktiv, DATEV wird nicht abgefragt.</span>
@@ -75,7 +75,7 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
               <Select value={e.versand} onValueChange={(v) => setE({ ...e, versand: v as E["versand"] })}>
                 <SelectTrigger id="e-versand" className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="outlook">Outlook (klassisch): Entwürfe anlegen oder direkt senden</SelectItem>
+                  <SelectItem value="outlook">Outlook (klassisch): Entwürfe anlegen (Empfänger in BCC)</SelectItem>
                   <SelectItem value="eml">.eml-Dateien im Datenordner, z. B. beim neuen Outlook</SelectItem>
                 </SelectContent>
               </Select>

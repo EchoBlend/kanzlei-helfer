@@ -1,9 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { AtSignIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, SendIcon, UploadIcon, UsersIcon, XIcon } from "lucide-react";
+import { AtSignIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, UploadIcon, UsersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -27,7 +24,6 @@ interface Props {
 export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, gruppen, entwurf, setEntwurf, zuMandanten, nachVersand }: Props) {
   const [blick, setBlick] = useState(0);
   const [laeuft, setLaeuft] = useState(false);
-  const [bestaetigen, setBestaetigen] = useState(false);
   const [fehlschlaege, setFehlschlaege] = useState<MailErgebnis[]>([]);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const betreffRef = useRef<HTMLInputElement>(null);
@@ -88,20 +84,19 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
   const fuegeHinzu = (art: "alle" | "pro", neu: Datei[]) =>
     setEntwurf((e) => ({ ...e, [art]: [...e[art], ...neu.filter((d) => !e[art].some((x) => x.pfad === d.pfad))] }));
 
-  async function erstellen(modus: "entwurf" | "senden") {
-    setBestaetigen(false);
+  async function erstellen() {
     setLaeuft(true);
     setFehlschlaege([]);
     try {
       const vorlage = vorlagen.find((x) => x.id === entwurf.vorlageId);
       const { versand, ergebnisse } = await kh().mails({
-        modus, vorlage: vorlage?.name ?? "(frei)",
+        modus: "entwurf", vorlage: vorlage?.name ?? "(frei)",
         mails: gehen.map(({ m, an }) => ({ nummer: m.nummer, name: m.name, an, betreff: fuellen(entwurf.betreff, m, signatur),
           text: fuellen(entwurf.text, m, signatur), anhaenge: anhaengeFuer(m).map((d) => d.pfad) })),
       });
       const ok = ergebnisse.filter((e) => e.ok).length;
       const fehl = ergebnisse.filter((e) => !e.ok);
-      const wo = versand === "eml" ? "als .eml-Datei gespeichert" : modus === "senden" ? "gesendet" : "in Outlook unter „Entwürfe“ angelegt";
+      const wo = versand === "eml" ? "als .eml-Datei gespeichert" : "in Outlook unter „Entwürfe“ angelegt";
       if (fehl.length) toast.warning(`${ok} von ${ergebnisse.length} ${wo}`, { description: `${fehl.length} fehlgeschlagen, Details unten.` });
       else toast.success(`${ok} ${ok === 1 ? "Mail" : "Mails"} ${wo}`, { description: versand === "eml" ? status?.ausgang : "Kategorie „Kanzlei-Helfer“" });
       setFehlschlaege(fehl);
@@ -222,7 +217,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
               return (
                 <>
                   <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1 border-b px-4 py-3 text-sm">
-                    <dt className="text-muted-foreground">An</dt><dd className="break-all">{vAn.join(", ")}</dd>
+                    <dt className="text-muted-foreground">BCC</dt><dd className="break-all">{vAn.join(", ")}</dd>
                     <dt className="text-muted-foreground">Betreff</dt><dd className="font-medium">{betreff}</dd>
                     {anh.length > 0 && <><dt className="text-muted-foreground">Anhänge</dt><dd className="text-xs">{anh.map((d) => d.name).join(", ")}</dd></>}
                   </dl>
@@ -239,24 +234,11 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
         <span className="me-auto text-sm text-muted-foreground zahl">
           {gehen.length} {gehen.length === 1 ? "Mail" : "Mails"}{entwurf.alle.length + entwurf.pro.length ? ` · ${entwurf.alle.length + entwurf.pro.length} Anhänge` : ""}
         </span>
-        {!alsEml && <Button variant="outline" disabled={!gehen.length || laeuft} onClick={() => setBestaetigen(true)}><SendIcon />Direkt senden</Button>}
-        <Button disabled={!gehen.length || laeuft} onClick={() => erstellen("entwurf")} data-knopf="erstellen">
+        <Button disabled={!gehen.length || laeuft} onClick={() => erstellen()} data-knopf="erstellen">
           {alsEml ? "Als .eml-Dateien speichern" : "Als Entwürfe in Outlook anlegen"}
         </Button>
       </footer>
 
-      <AlertDialog open={bestaetigen} onOpenChange={setBestaetigen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{gehen.length} {gehen.length === 1 ? "Mail" : "Mails"} jetzt senden?</AlertDialogTitle>
-            <AlertDialogDescription>Outlook verschickt sie sofort. Das lässt sich nicht zurückholen. Sicherer sind Entwürfe: Sie prüfen und senden selbst.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={() => erstellen("senden")}>Jetzt senden</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

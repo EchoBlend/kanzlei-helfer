@@ -144,7 +144,7 @@ ipcMain.handle("mails", async (_e, auftrag) => {
   const versand = einstellungen.demo && einstellungen.versand === "outlook" ? "eml" : einstellungen.versand;
   const erg = await erstelleMails(auftrag, { versand, ausgang: ablage.ausgang, tmp: ablage.tmp });
   const zeit = new Date().toLocaleString("de-DE");
-  const modus = versand === "eml" ? "eml" : auftrag.modus;
+  const modus = versand === "eml" ? "eml" : "entwurf";
   ablage.protokolliere(erg.map((e) => {
     const m = auftrag.mails.find((x) => x.nummer === e.nummer) || {};
     return { Zeit: zeit, Modus: modus, Vorlage: auftrag.vorlage, Mandantennr: m.nummer, Mandant: m.name, An: [].concat(m.an || []).join("; "), Betreff: m.betreff,
