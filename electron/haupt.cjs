@@ -22,15 +22,21 @@ const GRUND = { hell: "#F6FAFB", dunkel: "#0B1316" };
 app.setName(NAME);
 // KH_DATEN nur für automatische Tests: eigener Ordner, Timos Daten bleiben unberührt.
 app.setPath("userData", process.env.KH_DATEN || path.join(app.getPath("appData"), NAME));
-// Windows-Anmeldung (NTLM/Kerberos) gegenüber DATEVconnect. ponytail: "*" statt Hostliste —
-// der Hauptprozess ruft ohnehin nur die eingestellte DATEVconnect-Adresse ab (Sperre unten).
-app.commandLine.appendSwitch("auth-server-allowlist", "*");
+// Kein HTTP-Cache: DATEV-Antworten (Mandantendaten) landen sonst je nach Server-Kopfzeilen
+// in %APPDATA%\Kanzlei-Helfer\Cache auf der Platte.
+app.commandLine.appendSwitch("disable-http-cache");
+// Immer direkt zu DATEVconnect im Kanzlei-Netz: kein Proxy (auch kein Cloud-Proxy aus den Windows-Einstellungen)
+// und keine automatische Proxy-Suche (WPAD/PAC).
+app.commandLine.appendSwitch("no-proxy-server");
 protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
 const ablage = oeffneAblage(app.getPath("userData"));
 let einstellungen = ablage.einstellungen();
+// Windows-Anmeldung (NTLM/Kerberos) nur gegenüber dem eingestellten DATEVconnect-Server, sonst niemandem.
+const datevHost = () => { try { return new URL(einstellungen.datevconnect).hostname; } catch { return ""; } };
+if (datevHost()) app.commandLine.appendSwitch("auth-server-allowlist", datevHost());
 let mandanten = null;
 let stand = null;
 let fenster = null;
@@ -58,10 +64,11 @@ function oeffneFenster() {
     // Eigene Titelleiste wie bei macOS-Apps: Inhalt bis oben, Windows-Knöpfe als Überlagerung
     titleBarStyle: "hidden", titleBarOverlay: fensterknoepfe(),
     ...(MICA ? { backgroundMaterial: "mica", backgroundColor: "#00000000" } : { backgroundColor: nativeTheme.shouldUseDarkColors ? GRUND.dunkel : GRUND.hell }),
-    webPreferences: { preload: path.join(__dirname, "vorlade.cjs"), contextIsolation: true, sandbox: true, spellcheck: true },
+    // Rechtschreibprüfung aus: Sie lädt ihr Wörterbuch beim Start von Google (redirector.gvt1.com).
+    // Outlook prüft die Rechtschreibung im Entwurf ohnehin.
+    webPreferences: { preload: path.join(__dirname, "vorlade.cjs"), contextIsolation: true, sandbox: true, spellcheck: false },
   });
   nativeTheme.on("updated", () => { try { fenster?.setTitleBarOverlay(fensterknoepfe()); } catch { /* Fenster zu */ } });
-  fenster.webContents.session.setSpellCheckerLanguages(["de-DE"]);
   fenster.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   fenster.webContents.on("will-navigate", (e, url) => { if (!url.startsWith(URSPRUNG)) e.preventDefault(); });
   if (!process.env.KH_TEST) fenster.maximize();
@@ -73,6 +80,12 @@ app.on("second-instance", () => { if (fenster) { if (fenster.isMinimized()) fens
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  // Rechtschreibprüfung ganz aus. Chromium lädt sonst selbst bei abgeschalteter Prüfung das Wörterbuch
+  // der Systemsprache von Google (gemessen per NetLog). Keine Sprachen = kein Download; die Adresse
+  // zeigt zur Sicherheit ins Leere auf diesem PC.
+  session.defaultSession.setSpellCheckerDictionaryDownloadURL("http://127.0.0.1:9/");
+  session.defaultSession.setSpellCheckerLanguages([]);
+  session.defaultSession.setSpellCheckerEnabled(false);
   protocol.handle("app", (req) => {
     const rel = decodeURIComponent(new URL(req.url).pathname).replace(/^\/+/, "") || "index.html";
     const datei = path.normalize(path.join(WURZEL, rel));
@@ -125,6 +138,7 @@ ipcMain.handle("einstellungen:speichern", (_e, neu) => {
   const alt = einstellungen;
   einstellungen = ablage.speichereEinstellungen(neu || {});
   if (alt.demo !== einstellungen.demo || alt.datevconnect !== einstellungen.datevconnect || alt.nurAktive !== einstellungen.nurAktive) mandanten = null;
+  if (alt.datevconnect !== einstellungen.datevconnect && datevHost()) session.defaultSession.allowNTLMCredentialsForDomains(datevHost());
   nativeTheme.themeSource = themenQuelle(einstellungen.design);
   return einstellungen;
 });
