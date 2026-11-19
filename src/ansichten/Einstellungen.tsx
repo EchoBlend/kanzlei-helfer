@@ -35,11 +35,11 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
       </Kopf>
       <div className="min-h-0 flex-1 overflow-auto px-8 py-8">
         <div className="grid max-w-3xl gap-12">
-          <Abschnitt titel="DATEV" text="DATEVconnect läuft im DATEV-Arbeitsplatz. Angemeldet wird mit Ihrem Windows-Konto.">
+          <Abschnitt titel="DATEV" text="Die App liest nur (GET), meldet sich bei niemandem an und verbindet sich ausschließlich mit dieser Adresse – und nur, wenn der Server im eigenen Netz liegt.">
             <div className="grid gap-1.5">
               <Label htmlFor="e-url">Adresse von DATEVconnect (Stammdaten)</Label>
               <Input id="e-url" className="kennung" value={e.datevconnect} onChange={(x) => setE({ ...e, datevconnect: x.target.value })} disabled={e.demo} />
-              <p className="text-xs text-muted-foreground">In dieser Kanzlei läuft DATEVconnect auf dem Lizenzserver: <span className="kennung">http://LIZENZSERVER:58454/datev/api/master-data/v1</span>.</p>
+              <p className="text-xs text-muted-foreground">Standard in dieser Kanzlei: <span className="kennung">http://LIZENZSERVER:58454/datev/api/master-data/v1</span>. Erlaubt ist nur http://SERVER:PORT/datev/api/master-data/v1 mit einem Server im eigenen Netz (z. B. localhost, LIZENZSERVER, 192.168.…).</p>
             </div>
             <div className="flex items-center gap-3 rounded-lg border px-4 py-3 text-sm" data-verbindungstest>
               {status.einstellungen.demo ? <span className="text-muted-foreground">Demodaten aktiv, DATEV wird nicht abgefragt.</span>
@@ -69,14 +69,14 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
             {status.hinweise.length > 0 && <ul className="list-disc ps-5 text-xs text-muted-foreground">{status.hinweise.map((h) => <li key={h}>{h}</li>)}</ul>}
           </Abschnitt>
 
-          <Abschnitt titel="Versand" text="Wie aus der Serienmail fertige Mails werden.">
+          <Abschnitt titel="Versand" text="Die App sendet nie selbst. Sie legt nur Vorlagen an; Senden macht immer ein Mensch in Outlook.">
             <div className="grid gap-1.5">
               <Label htmlFor="e-versand">Ausgabe</Label>
               <Select value={e.versand} onValueChange={(v) => setE({ ...e, versand: v as E["versand"] })}>
                 <SelectTrigger id="e-versand" className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="outlook">Outlook (klassisch): Entwürfe anlegen (Empfänger in BCC)</SelectItem>
-                  <SelectItem value="eml">.eml-Dateien im Datenordner, z. B. beim neuen Outlook</SelectItem>
+                  <SelectItem value="eml">.eml-Vorlagen im Datenordner – rein lokal, Doppelklick öffnet sie in Outlook (Empfehlung)</SelectItem>
+                  <SelectItem value="outlook">Outlook-Entwürfe im Postfach – werden sofort mit Exchange/Microsoft 365 abgeglichen</SelectItem>
                 </SelectContent>
               </Select>
             </div>

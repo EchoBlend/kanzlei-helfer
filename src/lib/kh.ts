@@ -51,11 +51,11 @@ interface Kh {
   speichereAnsicht(a: Ansicht): Promise<Ansicht>;
   protokoll(): Promise<Protokollzeile[]>;
   waehleDateien(): Promise<Datei[]>;
-  dateiInfo(pfade: string[]): Promise<Datei[]>;
+  /** Echte, ins Fenster gezogene Dateien; den Pfad bestimmt vorlade.cjs selbst. */
+  dateiInfoVon(dateien: File[]): Promise<Datei[]>;
   mails(a: { modus: "entwurf"; vorlage: string; mails: { nummer: number; name: string; an: string[]; betreff: string; text: string; anhaenge: string[] }[] }): Promise<{ versand: string; ergebnisse: MailErgebnis[] }>;
   exportiere(a: { name: string; inhalt: string }): Promise<string | null>;
   oeffneOrdner(welcher: "daten" | "ausgang"): Promise<string>;
-  pfadVon(f: File): string;
 }
 declare global { interface Window { kh: Kh } }
 export const kh = () => window.kh;
@@ -90,7 +90,8 @@ export const mitRegeln = (m: Mandant, regeln: Partial<Record<Feld, boolean>> = {
 
 export type Ampel = "ok" | "pruefen" | "fehlt";
 export const ampel = (m: Mandant): Ampel => (m.luecken.length ? "fehlt" : m.fehlerhaft.length || m.abruffehler ? "pruefen" : "ok");
-const MAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+// Gleiche Regel wie electron/pruefung.cjs: keine Trenner (, ; :), Klammern, Anführungszeichen, Steuerzeichen, kein „..“
+const MAIL_RE = /^(?!.*\.\.)[^\s@,;:<>()[\]\\"\x00-\x1f\x7f]+@[^\s@,;:<>()[\]\\"\x00-\x1f\x7f.][^\s@,;:<>()[\]\\"\x00-\x1f\x7f]*\.[^\s@,;:<>()[\]\\"\x00-\x1f\x7f]+$/;
 export const gueltigeMails = (m: Mandant) => (m.emails ?? []).filter((e) => MAIL_RE.test(e.adresse));
 /** Anschreibbar, sobald irgendeine gültige Adresse da ist – auch nur die eines Gesellschafters. */
 export const kannMail = (m: Mandant) => gueltigeMails(m).length > 0;

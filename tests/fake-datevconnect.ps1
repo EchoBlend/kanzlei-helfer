@@ -1,7 +1,7 @@
-# Nachgebautes DATEVconnect fuer Tests ohne DATEV, MIT Windows-Anmeldung wie das echte.
+# Nachgebautes DATEVconnect fuer Tests ohne DATEV, ohne Anmeldung wie das echte in der Kanzlei.
 # Liefert electron\demodaten.json unter denselben Pfaden (master-data v1, order-management v1) auf Port 58456.
-# Anfragen ohne gueltige Windows-Anmeldung bekommen 401 (macht HttpListener selbst).
-param([int]$Port = 58456)
+# -MitAnmeldung: verlangt Windows-Anmeldung (401) – damit wird geprueft, dass die App sich NICHT anmeldet.
+param([int]$Port = 58456, [switch]$MitAnmeldung)
 $ErrorActionPreference = 'Stop'
 $Utf8 = New-Object System.Text.UTF8Encoding($false)
 $daten = ConvertFrom-Json ([IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\electron\demodaten.json'), $Utf8))
@@ -17,10 +17,10 @@ function Get-Eintrag($objekt, [string]$name) {
 }
 
 $l = New-Object System.Net.HttpListener
-$l.AuthenticationSchemes = [System.Net.AuthenticationSchemes]::IntegratedWindowsAuthentication
+$l.AuthenticationSchemes = if ($MitAnmeldung) { [System.Net.AuthenticationSchemes]::IntegratedWindowsAuthentication } else { [System.Net.AuthenticationSchemes]::Anonymous }
 $l.Prefixes.Add("http://localhost:$Port/")
 $l.Start()
-Write-Host "Fake-DATEVconnect (Windows-Anmeldung) auf http://localhost:$Port"
+Write-Host "Fake-DATEVconnect ($(if ($MitAnmeldung) { 'mit' } else { 'ohne' }) Anmeldung) auf http://localhost:$Port"
 while ($l.IsListening) {
     $ctx = $l.GetContext()
     $pfad = $ctx.Request.Url.AbsolutePath

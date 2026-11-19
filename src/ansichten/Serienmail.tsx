@@ -297,8 +297,8 @@ function Ablage({ titel, hinweis, dateien, art, dazu, weg, zuordnung }: {
   const fallen = async (e: React.DragEvent) => {
     e.preventDefault();
     setUeber(false);
-    const pfade = [...e.dataTransfer.files].map((f) => kh().pfadVon(f)).filter(Boolean);
-    if (pfade.length) dazu(await kh().dateiInfo(pfade));
+    const dateien = [...e.dataTransfer.files];
+    if (dateien.length) dazu(await kh().dateiInfoVon(dateien));
   };
   return (
     <div data-ablage={art}

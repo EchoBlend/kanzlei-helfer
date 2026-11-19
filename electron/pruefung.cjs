@@ -12,7 +12,9 @@
 
 const FELDER = ["email", "telefon", "anschrift", "briefanrede", "geburtsdatum", "steuernummer", "finanzamt", "steuerid",
   "iban", "ustid", "rechtsform", "register", "zustaendig"];
-const MAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+// Eine Adresse, nichts sonst: keine Trenner (, ; :), Klammern, Anführungszeichen, Steuerzeichen, kein „..“.
+// Sonst teilt Outlook „a@x.de;Müller“ in zwei Empfänger und löst „Müller“ über das Adressbuch auf.
+const MAIL_RE = /^(?!.*\.\.)[^\s@,;:<>()[\]\\"\x00-\x1f\x7f]+@[^\s@,;:<>()[\]\\"\x00-\x1f\x7f.][^\s@,;:<>()[\]\\"\x00-\x1f\x7f]*\.[^\s@,;:<>()[\]\\"\x00-\x1f\x7f]+$/;
 // Rechtsformen mit Eintragungspflicht im Handels-, Genossenschafts-, Vereins- oder Partnerschaftsregister.
 // ponytail: Erkennung über den Kurznamen; GbR (eGbR freiwillig) bewusst nicht.
 const REGISTERPFLICHT = /(gmbh|\bug\b|\bag\b|\bkg\b|\bohg\b|e\.\s?k\.|\beg\b|e\.\s?v\.|\bse\b|kgaa|partg)/i;

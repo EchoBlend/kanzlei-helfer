@@ -1,4 +1,4 @@
-// Ende-zu-Ende: echte App (Electron) gegen den Fake-DATEVconnect mit Windows-Anmeldung.
+// Ende-zu-Ende: echte App (Electron) gegen den Fake-DATEVconnect (ohne Anmeldung; zum Schluss: App meldet sich nie an).
 // Start: npm run pruefe:app   (startet den Fake selbst, eigener Datenordner, Timos Daten bleiben unberührt)
 import { _electron as electron } from "playwright-core";
 import { spawn } from "node:child_process";
@@ -16,8 +16,8 @@ let fehler = 0;
 const pruefe = (ok, text) => { console.log(`${ok ? "OK  " : "FAIL"} ${text}`); if (!ok) fehler++; };
 const bild = (seite, name) => seite.screenshot({ path: path.join(BILDER, name) });
 
-function starteFake() {
-  const p = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(WURZEL, "tests", "fake-datevconnect.ps1"), "-Port", String(PORT)], { windowsHide: true });
+function starteFake(port = PORT, mitAnmeldung = false) {
+  const p = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(WURZEL, "tests", "fake-datevconnect.ps1"), "-Port", String(port), ...(mitAnmeldung ? ["-MitAnmeldung"] : [])], { windowsHide: true });
   return new Promise((ok) => p.stdout.on("data", (d) => { if (String(d).includes("auf http")) ok(p); }));
 }
 
@@ -36,10 +36,10 @@ const nummern = (seite) => seite.$$eval("tr[data-nummer]", (tr) => tr.map((t) =>
 const fake = await starteFake();
 const daten = fs.mkdtempSync(path.join(os.tmpdir(), "kh-e2e-"));
 try {
-  // ---- 1. Scan über DATEVconnect mit Windows-Anmeldung ----
+  // ---- 1. Scan über DATEVconnect (ohne Anmeldung) ----
   const basis = { datevconnect: `http://localhost:${PORT}/datev/api/master-data/v1`, demo: false, versand: "eml", design: "hell" };
   let { app, seite } = await starteApp(daten, basis);
-  pruefe((await seite.getAttribute("[data-verbindung]", "data-verbindung")) === "ok", "DATEVconnect verbunden (Windows-Anmeldung)");
+  pruefe((await seite.getAttribute("[data-verbindung]", "data-verbindung")) === "ok", "DATEVconnect verbunden (ohne Anmeldung)");
   await seite.waitForSelector("tr[data-nummer]", { timeout: 20000 });
   const ampeln = Object.fromEntries(await seite.$$eval("tr[data-nummer]", (tr) => tr.map((t) => [t.dataset.nummer, t.querySelector("[data-ampel]")?.dataset.ampel])));
   pruefe(JSON.stringify([10001, 10002, 10003, 10004, 10006, 10007].map((n) => ampeln[n])) === JSON.stringify(["ok", "fehlt", "fehlt", "fehlt", "fehlt", "pruefen"]), "Ampeln der Testfälle");
@@ -197,6 +197,15 @@ try {
   await seite.waitForSelector("[role=alert]", { timeout: 20000 });
   pruefe((await seite.getAttribute("[data-verbindung]", "data-verbindung")) === "aus", "Fehlerbild bei toter Adresse");
   await app.close();
+
+  // ---- 12b. Server verlangt Windows-Anmeldung → App meldet sich NICHT an ----
+  const mitAnmeldung = await starteFake(PORT + 1, true);
+  try {
+    ({ app, seite } = await starteApp(daten, { ...basis, datevconnect: `http://localhost:${PORT + 1}/datev/api/master-data/v1` }));
+    await seite.waitForSelector("[role=alert]", { timeout: 20000 });
+    pruefe((await seite.textContent("[role=alert]")).includes("Anmeldung"), "keine Windows-Anmeldung: Server mit Anmeldung bleibt zu");
+    await app.close();
+  } finally { mitAnmeldung.kill(); }
 
   // ---- 13. Dunkel ----
   ({ app, seite } = await starteApp(daten, { ...basis, design: "dunkel" }));

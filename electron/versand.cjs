@@ -1,5 +1,6 @@
 /**
- * Mails erstellen: Outlook (klassisch, per COM) oder .eml-Dateien.
+ * Mail-Vorlagen erstellen: .eml-Dateien (Standard, rein lokal) oder Outlook-Entwürfe (klassisch, per COM).
+ * Die App sendet nie selbst.
  *
  * Outlook läuft über ein kurzes PowerShell-Skript. Das Skript geht über stdin hinein,
  * nicht als -EncodedCommand: Den prüft Defender beim Start und das kostet fast 2 s
@@ -16,19 +17,34 @@ const b64 = (s) => Buffer.from(s, "utf8").toString("base64");
 const zeilen76 = (s) => s.replace(/(.{76})/g, "$1\r\n");
 const crlf = (s) => String(s ?? "").replace(/\r?\n/g, "\r\n");
 
+/** Betreff als RFC-2047-Wörter, gefaltet: keine Kopfzeile über 78 Zeichen, egal wie lang der Betreff ist. */
+function kopfText(s) {
+  const woerter = [];
+  let teil = "";
+  for (const z of String(s ?? "")) {
+    if (Buffer.byteLength(teil + z, "utf8") > 39) { woerter.push(teil); teil = ""; }
+    teil += z;
+  }
+  if (teil || !woerter.length) woerter.push(teil);
+  return woerter.map((w) => `=?utf-8?B?${b64(w)}?=`).join("\r\n ");
+}
+// RFC 5987: Dateiname für filename*= (zusätzlich zum verbreiteten name="=?utf-8?B?…?=")
+const rfc5987 = (s) => encodeURIComponent(s).replace(/['()*!]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+
 /** Empfänger stehen immer in BCC (Datenschutz: Empfänger sehen einander nie).
- * .eml mit X-Unsent: 1 — Outlook öffnet die Datei als Entwurf mit Senden-Knopf. */
+ * .eml mit X-Unsent: 1 — Outlook öffnet die Datei als neue, ungesendete Mail mit Senden-Knopf. */
 function baueEml(m, anhaenge = []) {
-  const kopf = `X-Unsent: 1\r\nBcc: ${[].concat(m.an).join(", ")}\r\nSubject: =?utf-8?B?${b64(m.betreff)}?=\r\nMIME-Version: 1.0\r\n`;
+  const kopf = `X-Unsent: 1\r\nBcc: ${[].concat(m.an).join(",\r\n ")}\r\nSubject: ${kopfText(m.betreff)}\r\nMIME-Version: 1.0\r\n`;
   const text = `Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${zeilen76(b64(crlf(m.text)))}\r\n`;
   if (!anhaenge.length) return kopf + text;
   const g = "KH_" + Math.random().toString(16).slice(2) + Date.now().toString(16);
   let eml = `${kopf}Content-Type: multipart/mixed; boundary="${g}"\r\n\r\n--${g}\r\n${text}`;
   for (const p of anhaenge) {
-    const name = `=?utf-8?B?${b64(path.basename(p))}?=`;
+    const datei = path.basename(p);
+    const name = `=?utf-8?B?${b64(datei)}?=`;
     const typ = /\.pdf$/i.test(p) ? "application/pdf" : "application/octet-stream";
     eml += `--${g}\r\nContent-Type: ${typ}; name="${name}"\r\nContent-Transfer-Encoding: base64\r\n` +
-      `Content-Disposition: attachment; filename="${name}"\r\n\r\n${zeilen76(fs.readFileSync(p).toString("base64"))}\r\n`;
+      `Content-Disposition: attachment;\r\n filename="${name}";\r\n filename*=UTF-8''${rfc5987(datei)}\r\n\r\n${zeilen76(fs.readFileSync(p).toString("base64"))}\r\n`;
   }
   return eml + `--${g}--\r\n`;
 }
@@ -42,15 +58,18 @@ function pruefeAnhaenge(liste) {
   });
 }
 
-const OUTLOOK_SKRIPT = (datei) => `
+// Der Pfad der Auftragsdatei kommt über die Umgebung (UTF-16, Umlaute im Benutzernamen bleiben heil),
+// nicht als Text im Skript (stdin läuft in der Codepage der Konsole). Pro Mail eine JSON-Zeile:
+// Bricht der Lauf ab, sind die schon angelegten Entwürfe trotzdem bekannt (keine Doppelten beim Wiederholen).
+const OUTLOOK_SKRIPT = `
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $ErrorActionPreference = 'Stop'
-$auftrag = Get-Content -Raw -Encoding UTF8 -LiteralPath '${datei.replace(/'/g, "''")}' | ConvertFrom-Json
-$erg = @()
+$auftrag = Get-Content -Raw -Encoding UTF8 -LiteralPath $env:KH_AUFTRAG | ConvertFrom-Json
+function Melde($nummer, $ok, $info) { [Console]::Out.WriteLine((ConvertTo-Json -Compress -InputObject @{ nummer = $nummer; ok = $ok; info = [string]$info })); [Console]::Out.Flush() }
 try { $ol = New-Object -ComObject Outlook.Application } catch {
   $m = $_.Exception.Message
-  foreach ($x in $auftrag.mails) { $erg += @{ nummer = $x.nummer; ok = $false; info = "Outlook nicht erreichbar: $m" } }
-  ConvertTo-Json -InputObject @($erg) -Compress; exit
+  foreach ($x in $auftrag.mails) { Melde $x.nummer $false "Outlook nicht erreichbar: $m" }
+  exit
 }
 foreach ($x in $auftrag.mails) {
   try {
@@ -58,29 +77,31 @@ foreach ($x in $auftrag.mails) {
     $i.BCC = (@($x.an) -join '; '); $i.Subject = $x.betreff; $i.Body = $x.text; $i.Categories = 'Kanzlei-Helfer'
     foreach ($p in @($x.anhaenge)) { if ($p) { [void]$i.Attachments.Add([string]$p) } }
     $i.Save()  # nie Send(): Die App legt nur Entwürfe an
-    $erg += @{ nummer = $x.nummer; ok = $true; info = '' }
-  } catch { $erg += @{ nummer = $x.nummer; ok = $false; info = $_.Exception.Message } }
+    Melde $x.nummer $true ''
+  } catch { Melde $x.nummer $false $_.Exception.Message }
 }
-ConvertTo-Json -InputObject @($erg) -Compress
 `;
+const POWERSHELL = path.join(process.env.SystemRoot || "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
 
-function viaOutlook(mails, modus, tmpOrdner) {
+function viaOutlook(mails, tmpOrdner) {
   fs.mkdirSync(tmpOrdner, { recursive: true });
   const datei = path.join(tmpOrdner, `auftrag-${Date.now()}.json`);
-  fs.writeFileSync(datei, JSON.stringify({ modus, mails: mails.map((m) => ({ ...m, text: crlf(m.text) })) }), "utf8");
+  fs.writeFileSync(datei, JSON.stringify({ mails: mails.map((m) => ({ ...m, text: crlf(m.text) })) }), "utf8");
+  const zeit = Math.min(60000 + 5000 * mails.length, 30 * 60000);
   return new Promise((fertig) => {
-    const kind = execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", "-"],
-      { timeout: 180000, windowsHide: true, maxBuffer: 10 * 1024 * 1024 }, (fehler, aus) => {
+    // RemoteSigned statt Bypass: reicht für die signierten Windows-Module, ändert keine Einstellung (nur dieser Prozess).
+    const kind = execFile(POWERSHELL, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-Command", "-"],
+      { timeout: zeit, windowsHide: true, maxBuffer: 10 * 1024 * 1024, env: { ...process.env, KH_AUFTRAG: datei } }, (fehler, aus) => {
         fs.rmSync(datei, { force: true }); // enthält Adressen und Texte
-        try {
-          const erg = JSON.parse(String(aus).trim().split(/\r?\n/).pop());
-          fertig(Array.isArray(erg) ? erg : [erg]);
-        } catch {
-          const info = fehler ? fehler.message : "Keine Antwort von Outlook";
-          fertig(mails.map((m) => ({ nummer: m.nummer, ok: false, info })));
+        const erg = new Map();
+        for (const z of String(aus || "").split(/\r?\n/)) {
+          try { const e = JSON.parse(z); if (Number.isInteger(e?.nummer)) erg.set(e.nummer, { nummer: e.nummer, ok: e.ok === true, info: String(e.info ?? "") }); } catch { /* keine Ergebniszeile */ }
         }
+        const ohne = fehler ? `Abgebrochen (${fehler.killed ? "Zeitlimit" : fehler.message}) – bitte im Outlook-Ordner „Entwürfe“ nachsehen` : "Keine Rückmeldung von Outlook – bitte im Outlook-Ordner „Entwürfe“ nachsehen";
+        fertig(mails.map((m) => erg.get(m.nummer) || { nummer: m.nummer, ok: false, info: ohne }));
       });
-    kind.stdin.end(OUTLOOK_SKRIPT(datei) + "\n\n"); // Leerzeile nötig, sonst bleibt die Ausgabe leer
+    kind.stdin.on("error", () => { /* PowerShell schon beendet; Ergebnis kommt über den Rückruf */ });
+    kind.stdin.end(OUTLOOK_SKRIPT + "\n\n"); // Leerzeile nötig, sonst bleibt die Ausgabe leer
   });
 }
 
@@ -94,6 +115,7 @@ async function erstelleMails({ modus, mails }, { versand, ausgang, tmp }) {
   const bereit = [];
   for (const m of mails) {
     try {
+      if (!Number.isInteger(m.nummer)) throw new Error("Mandantennummer fehlt");
       const an = [].concat(m.an || []).map((a) => String(a).trim());
       if (!an.length) throw new Error("Keine Adresse");
       for (const a of an) if (!MAIL_RE.test(a)) throw new Error(`Ungültige Adresse: ${a}`);
@@ -112,9 +134,9 @@ async function erstelleMails({ modus, mails }, { versand, ausgang, tmp }) {
       } catch (f) { ergebnisse.set(m.nummer, { nummer: m.nummer, ok: false, info: f.message }); }
     }
   } else if (bereit.length) {
-    for (const e of await viaOutlook(bereit, modus, tmp)) ergebnisse.set(e.nummer, e);
+    for (const e of await viaOutlook(bereit, tmp)) ergebnisse.set(e.nummer, e);
   }
-  return mails.map((m) => ({ ...ergebnisse.get(m.nummer), anhaenge: (m.anhaenge || []).map((p) => path.basename(p)) }));
+  return mails.map((m) => ({ nummer: m.nummer, ok: false, info: "Kein Ergebnis", ...ergebnisse.get(m.nummer), anhaenge: (m.anhaenge || []).map((p) => path.basename(String(p))) }));
 }
 
 module.exports = { baueEml, erstelleMails, MAX_ANHANG };

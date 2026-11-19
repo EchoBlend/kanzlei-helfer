@@ -1,21 +1,35 @@
 # Baut den Windows-Installer und veröffentlicht ihn als GitHub-Release:
 # bei einem Tag v* oder von Hand (Actions → Release → Run workflow); dann legt das Release den Tag v<Version> selbst an.
+# Zwei Jobs: Bauen/Prüfen nur mit Leserechten (kein Schreib-Token während npm ci und Build), Veröffentlichen getrennt.
 name: Release
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   installer:
     runs-on: windows-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+      - name: Version
+        id: version
+        shell: pwsh
+        run: |
+          $v = "v" + (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME -ne $v) { throw "Tag $env:GITHUB_REF_NAME passt nicht zu package.json ($v)" }
+          "version=$v" >> $env:GITHUB_OUTPUT
       - run: npm ci
       - run: npm run pruefe
       - run: npm run bau
@@ -30,11 +44,28 @@ jobs:
           $f = Get-ChildItem paket/Kanzlei-Helfer-Setup-*.exe | Select-Object -First 1
           $h = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower()
           "$h  $($f.Name)" | Out-File -Encoding ascii "$($f.FullName).sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: |
+            paket/Kanzlei-Helfer-Setup-*.exe
+            paket/Kanzlei-Helfer-Setup-*.exe.sha256
+          if-no-files-found: error
+
+  release:
+    needs: installer
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer
+          path: installer
       - name: Release anlegen
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          V: ${{ needs.installer.outputs.version }}
         run: |
-          $v = "v" + (Get-Content package.json -Raw | ConvertFrom-Json).version
-          $notes = "Windows-Installer: ein Klick, nur für den angemeldeten Benutzer, ohne Adminrechte (nicht signiert: SmartScreen → Weitere Informationen → Trotzdem ausführen). Deinstallieren über Windows-Einstellungen → Apps entfernt auch alle Daten. Nichts geht ins Internet (vor dem Release per NetLog auf Windows geprüft); DATEV wird nur gelesen; Mails nur als Outlook-Entwürfe, Empfänger immer in BCC. DATEVconnect-Standard: LIZENZSERVER."
-          gh release create $v (Get-ChildItem paket/Kanzlei-Helfer-Setup-*) --target "${{ github.sha }}" --title "Kanzlei-Helfer $v" --notes $notes
+          notes="Windows-Installer: ein Klick, nur für den angemeldeten Benutzer, ohne Adminrechte (nicht signiert: SmartScreen → Weitere Informationen → Trotzdem ausführen). Deinstallieren über Windows-Einstellungen → Apps entfernt auch alle Daten. Nichts geht ins Internet (vor dem Release per NetLog auf Windows geprüft). DATEV wird nur gelesen, ohne Anmeldung, nur im eigenen Netz. Mails nur als Vorlagen (.eml, rein lokal; Empfänger immer in BCC) – die App sendet nie selbst."
+          gh release create "$V" installer/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Kanzlei-Helfer $V" --notes "$notes"

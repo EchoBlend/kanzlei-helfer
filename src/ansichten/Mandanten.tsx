@@ -93,7 +93,8 @@ export function Mandanten(p: Props) {
   const einigeGewaehlt = alleSichtbar.some((n) => auswahl.has(n));
 
   const exportieren = async () => {
-    const z = (v: unknown) => '"' + String(v ?? "").replace(/"/g, '""') + '"';
+    // Werte, die mit = + - @ beginnen, führt Excel als Formel aus → mit ' als Text kennzeichnen
+    const z = (v: unknown) => '"' + String(v ?? "").replace(/^(?=[=+\-@\t\r\uFF1D\uFF0B\uFF0D\uFF20])/, "'").replace(/"/g, '""') + '"';
     const kopf = sichtbar.map((s) => z(s.titel)).join(";");
     const inhalt = zeilen.map((m) => sichtbar.map((s) => z(alsText(s.wert(m, u)))).join(";"));
     const ziel = await kh().exportiere({ name: `Mandanten_${new Date().toISOString().slice(0, 10)}.csv`, inhalt: [kopf, ...inhalt].join("\r\n") });

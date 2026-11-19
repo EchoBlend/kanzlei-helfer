@@ -249,7 +249,7 @@ export default function App() {
           {ansicht === "vorlagen" && <Vorlagen vorlagen={vorlagen} speichern={speichereVorlagen} />}
           {ansicht === "protokoll" && <Protokoll zeilen={protokoll} neuLaden={ladeProtokoll} status={status} />}
           {ansicht === "einstellungen" && (
-            <Einstellungen status={status} gespeichert={async () => { await ladeStatus(); await scanne(true); }} pruefen={ladeStatus} />
+            <Einstellungen status={status} gespeichert={async () => { await ladeStatus(); await scanne(false); }} pruefen={ladeStatus} />
           )}
         </SidebarInset>
       </SidebarProvider>

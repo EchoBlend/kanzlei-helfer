@@ -1,5 +1,6 @@
 // Netz-Wächter: echte App gegen ein Fake-DATEVconnect auf 127.0.0.1, Chromium-NetLog mitschreiben.
-// Bricht ab, wenn irgendetwas anderes als DATEV angefragt wird, DATEV etwas anderes als GET bekommt
+// Bricht ab, wenn irgendetwas anderes als DATEV angefragt wird, DATEV etwas anderes als GET bekommt,
+// die App sich anmeldet oder Cookies mitschickt, eine Internet-Adresse oder Daten in der Adresse durchgehen
 // oder Mandantendaten außerhalb von protokoll.csv / ausgang\ auf der Platte landen.
 // Start: npm run pruefe:netz   (läuft auch im Release-Workflow auf Windows)
 import { _electron as electron } from "playwright-core";
@@ -17,8 +18,11 @@ const pruefe = (ok, text) => { console.log(`${ok ? "OK  " : "FAIL"} ${text}`); i
 // ---- Fake-DATEVconnect aus den Demodaten; Antworten absichtlich cachebar ----
 const d = JSON.parse(fs.readFileSync(path.join(WURZEL, "electron", "demodaten.json"), "utf8"));
 const methoden = new Set();
+let mitAnmeldung = 0, falschePfade = 0;
 const server = http.createServer((req, res) => {
   methoden.add(req.method);
+  if (req.headers.cookie || req.headers.authorization) mitAnmeldung++;
+  if (!req.url.startsWith("/datev/api/")) falschePfade++;
   const u = new URL(req.url, "http://x");
   let p = u.pathname, wert;
   if (p.startsWith("/datev/api/master-data/v1")) {
@@ -31,7 +35,8 @@ const server = http.createServer((req, res) => {
     if (Array.isArray(wert) && u.searchParams.has("top")) { const s = +u.searchParams.get("skip") || 0; wert = wert.slice(s, s + +u.searchParams.get("top")); }
   }
   if (wert === undefined) { res.writeHead(404); return res.end(); }
-  res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600" });
+  // absichtlich cachebar und mit Cookie: Beides darf die App weder speichern noch zurückschicken
+  res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "public, max-age=3600", "Set-Cookie": "sitzung=geheim; Path=/" });
   res.end(JSON.stringify(wert));
 });
 await new Promise((ok) => server.listen(0, "127.0.0.1", ok));
@@ -74,6 +79,21 @@ try {
   pruefe(v.node, "Oberfläche ohne Node-Zugriff");
   pruefe(seite.url().startsWith("app://") && app.windows().length === 1, "Navigation und neue Fenster blockiert");
 
+  // DATEV-Adresse über die Schnittstelle verbiegen: Daten im Pfad und Internet-Adresse müssen scheitern
+  const ein = await seite.evaluate(async (p) => {
+    const r = {};
+    try { await window.kh.speichereEinstellungen({ datevconnect: `http://127.0.0.1:${p}/LEAK/10001-Muster/master-data/v1` }); r.pfad = false; } catch { r.pfad = true; }
+    await window.kh.speichereEinstellungen({ datevconnect: "http://93.184.215.14/datev/api/master-data/v1" });
+    const s = await window.kh.status();
+    r.extern = !s.datev && /nicht im eigenen Netz/.test(s.meldung || "");
+    await window.kh.speichereEinstellungen({ datevconnect: `http://127.0.0.1:${p}/datev/api/master-data/v1` });
+    r.zurueck = (await window.kh.status()).datev;
+    return r;
+  }, port);
+  pruefe(ein.pfad, "Adresse mit fremdem Pfad abgelehnt");
+  pruefe(ein.extern, "Internet-Adresse: keine Verbindung aufgebaut");
+  pruefe(ein.zurueck, "zurück auf DATEVconnect im eigenen Netz");
+
   await seite.waitForTimeout(LEERLAUF_MS); // verspätete Hintergrundanfragen abwarten
 } finally {
   await app.close();
@@ -98,14 +118,16 @@ for (const e of log.events) {
 }
 pruefe(fremd.size === 0, `keine Anfrage außer DATEVconnect${fremd.size ? ": " + [...fremd].join(", ") : ""}`);
 pruefe([...methoden].every((m) => m === "GET"), `DATEVconnect bekommt nur GET (${[...methoden]})`);
+pruefe(mitAnmeldung === 0, `keine Anmeldung, keine Cookies an DATEV (${mitAnmeldung})`);
+pruefe(falschePfade === 0, `nur DATEV-Pfade angefragt (${falschePfade} fremde)`);
 
 // ---- Mandantendaten auf der Platte nur in protokoll.csv und ausgang\ ----
 const namen = d["master-data"]["/clients"].map((c) => c.name).filter((n) => n && n.length >= 6);
 const liste = (o, p = "") => fs.readdirSync(o, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? liste(path.join(o, e.name), p + e.name + "/") : [p + e.name]);
 const funde = liste(daten).filter((f) => f !== "protokoll.csv" && !f.startsWith("ausgang/")).filter((f) => {
-  try { const b = fs.readFileSync(path.join(daten, f)); return namen.some((n) => b.includes(n)); } catch { return false; }
+  try { const b = fs.readFileSync(path.join(daten, f)); return [...namen, "sitzung"].some((n) => b.includes(n)); } catch { return false; }
 });
-pruefe(funde.length === 0, `keine Mandantendaten in Chromium-Ablagen${funde.length ? ": " + funde.join(", ") : ""}`);
+pruefe(funde.length === 0, `keine Mandantendaten und kein DATEV-Cookie in Chromium-Ablagen${funde.length ? ": " + funde.join(", ") : ""}`);
 
 fs.rmSync(netlog, { force: true });
 fs.rmSync(daten, { recursive: true, force: true });

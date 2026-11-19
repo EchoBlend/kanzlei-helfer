@@ -4,7 +4,7 @@
  * - Fester Ursprung app://kanzlei-helfer/ und fester Datenordner %APPDATA%\Kanzlei-Helfer.
  * - Nur eine Instanz.
  * - Nichts geht hinaus: Das Fenster darf nur die App selbst laden; der einzige Netzweg
- *   ist die eingestellte DATEVconnect-Adresse, und die fragt nur der Hauptprozess ab.
+ *   ist DATEVconnect auf dem LIZENZSERVER (fest, siehe netz.cjs), und den fragt nur der Hauptprozess ab.
  */
 const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, net, protocol, session, shell } = require("electron");
 const path = require("node:path");
@@ -13,11 +13,17 @@ const { pathToFileURL } = require("node:url");
 const { oeffneAblage } = require("./ablage.cjs");
 const { demoQuelle, netzQuelle, ladeMandanten } = require("./datev.cjs");
 const { erstelleMails } = require("./versand.cjs");
+const { datevAdresse, erlaubteDatevAdresse, sichererAbruf } = require("./netz.cjs");
 
 const NAME = "Kanzlei-Helfer";
 const URSPRUNG = "app://kanzlei-helfer/";
 const WURZEL = path.join(__dirname, "..", "dist");
 const GRUND = { hell: "#F6FAFB", dunkel: "#0B1316" };
+const CSP = "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; " +
+  "connect-src 'self'; object-src 'none'; frame-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'";
+
+// Fernsteuerung der fertigen App (Debug-Port) verweigern; die Tests nutzen die ungepackte App.
+if (app.isPackaged && ["remote-debugging-port", "remote-debugging-pipe", "inspect", "inspect-brk"].some((s) => app.commandLine.hasSwitch(s))) app.exit(1);
 
 app.setName(NAME);
 // KH_DATEN nur für automatische Tests: eigener Ordner, Timos Daten bleiben unberührt.
@@ -33,10 +39,14 @@ protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: t
 if (!app.requestSingleInstanceLock()) app.quit();
 
 const ablage = oeffneAblage(app.getPath("userData"));
-let einstellungen = ablage.einstellungen();
-// Windows-Anmeldung (NTLM/Kerberos) nur gegenüber dem eingestellten DATEVconnect-Server, sonst niemandem.
-const datevHost = () => { try { return new URL(einstellungen.datevconnect).hostname; } catch { return ""; } };
-if (datevHost()) app.commandLine.appendSwitch("auth-server-allowlist", datevHost());
+ablage.raeumeTmp(); // Reste eines abgebrochenen Outlook-Laufs (enthalten Adressen und Texte)
+// DATEVconnect-Adresse: nur http://<Server>/datev/api/master-data/v1; Unzulässiges fällt auf LIZENZSERVER zurück.
+const mitGueltigerAdresse = (e) => ({ ...e, datevconnect: datevAdresse(e.datevconnect) });
+let einstellungen = mitGueltigerAdresse(ablage.einstellungen());
+// Keine Windows-/Firmen-Anmeldung, an niemanden: Die Liste der Server, denen Chromium das Windows-Konto
+// automatisch anbieten darf, enthält nur einen Namen, den es nicht geben kann (.invalid, RFC 2606).
+// Zusätzlich fragt die App DATEV mit credentials: "omit" ab (netz.cjs).
+app.commandLine.appendSwitch("auth-server-allowlist", "niemand.invalid");
 let mandanten = null;
 let stand = null;
 let fenster = null;
@@ -44,8 +54,10 @@ let fenster = null;
 let auftragswesen = null;
 let hinweise = [];
 
-const quelle = () => (einstellungen.demo ? demoQuelle() : netzQuelle((u, o) => net.fetch(u, o), einstellungen.datevconnect));
-const datevUrsprung = () => { try { return new URL(einstellungen.datevconnect).origin; } catch { return null; } };
+const abruf = sichererAbruf((u, o) => net.fetch(u, o), () => datevUrsprung());
+const quelle = () => (einstellungen.demo ? demoQuelle() : netzQuelle(abruf, einstellungen.datevconnect));
+const datevUrsprung = () => new URL(einstellungen.datevconnect).origin;
+const DIST_URL = pathToFileURL(WURZEL).href + "/";
 const themenQuelle = (d) => ({ hell: "light", dunkel: "dark" })[d] || "system";
 // Windows 11 (ab 22H2, Build 22621) hat das Material „Mica“ – das Gegenstück zur macOS-Vibrancy.
 const MICA = process.platform === "win32" && Number(require("node:os").release().split(".")[2]) >= 22621 && !process.env.KH_OHNE_MICA;
@@ -69,14 +81,22 @@ function oeffneFenster() {
     webPreferences: { preload: path.join(__dirname, "vorlade.cjs"), contextIsolation: true, sandbox: true, spellcheck: false },
   });
   nativeTheme.on("updated", () => { try { fenster?.setTitleBarOverlay(fensterknoepfe()); } catch { /* Fenster zu */ } });
-  fenster.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   fenster.webContents.on("will-navigate", (e, url) => { if (!url.startsWith(URSPRUNG)) e.preventDefault(); });
+  fenster.webContents.on("will-redirect", (e, url) => { if (!url.startsWith(URSPRUNG)) e.preventDefault(); });
   if (!process.env.KH_TEST) fenster.maximize();
   fenster.show();
   fenster.loadURL(URSPRUNG + "index.html");
 }
 
 app.on("second-instance", () => { if (fenster) { if (fenster.isMinimized()) fenster.restore(); fenster.focus(); } });
+// Für jedes Fenster/jeden Inhalt: keine neuen Fenster, keine eingebetteten Webviews.
+app.on("web-contents-created", (_e, wc) => {
+  wc.setWindowOpenHandler(() => ({ action: "deny" }));
+  wc.on("will-attach-webview", (e) => e.preventDefault());
+});
+// Nie nach Benutzername/Passwort fragen und keine gespeicherten Zugangsdaten senden.
+app.on("login", (e, _wc, _details, _auth, weiter) => { e.preventDefault(); weiter(); });
+app.on("will-quit", () => ablage.raeumeTmp());
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
@@ -86,20 +106,30 @@ app.whenReady().then(() => {
   session.defaultSession.setSpellCheckerDictionaryDownloadURL("http://127.0.0.1:9/");
   session.defaultSession.setSpellCheckerLanguages([]);
   session.defaultSession.setSpellCheckerEnabled(false);
-  protocol.handle("app", (req) => {
+  protocol.handle("app", async (req) => {
     const rel = decodeURIComponent(new URL(req.url).pathname).replace(/^\/+/, "") || "index.html";
     const datei = path.normalize(path.join(WURZEL, rel));
-    if (!datei.startsWith(WURZEL) || !fs.existsSync(datei)) return new Response("Nicht gefunden", { status: 404 });
-    return net.fetch(pathToFileURL(datei).toString());
+    if (!datei.startsWith(WURZEL + path.sep) || !fs.existsSync(datei) || !fs.statSync(datei).isFile()) return new Response("Nicht gefunden", { status: 404 });
+    const r = await net.fetch(pathToFileURL(datei).toString());
+    const kopf = new Headers(r.headers);
+    kopf.set("Content-Security-Policy", CSP);
+    return new Response(r.body, { status: r.status, headers: kopf });
   });
-  // Sperre: nur die App selbst und die eingestellte DATEVconnect-Adresse.
+  // Sperre: nur die App selbst (app://, Dateien aus dist) und DATEVconnect auf dem LIZENZSERVER (exakter Ursprung).
   session.defaultSession.webRequest.onBeforeRequest((d, antwort) => {
     const u = d.url;
-    const erlaubt = u.startsWith(URSPRUNG) || u.startsWith("file:") || u.startsWith("data:") || u.startsWith("blob:") ||
-      u.startsWith("devtools:") || (datevUrsprung() && u.startsWith(datevUrsprung()));
+    let erlaubt = u.startsWith(URSPRUNG) || u.startsWith(DIST_URL) || u.startsWith("data:") || u.startsWith("blob:");
+    // DATEV nur vom Hauptprozess (keine webContentsId) und nur lesend
+    if (!erlaubt && /^http:/i.test(u) && d.method === "GET" && d.webContentsId === undefined) {
+      try { erlaubt = new URL(u).origin === datevUrsprung(); } catch { erlaubt = false; }
+    }
     antwort({ cancel: !erlaubt });
   });
+  // Keine Rechte: Kamera, Mikrofon, Standort, Benachrichtigungen, Zwischenablage-Lesen, USB/HID/Seriell …
   session.defaultSession.setPermissionRequestHandler((_w, _p, ok) => ok(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
+  session.defaultSession.setDevicePermissionHandler(() => false);
+  session.defaultSession.on("will-download", (e) => e.preventDefault());
   oeffneFenster();
 });
 app.on("window-all-closed", () => app.quit());
@@ -108,7 +138,15 @@ app.on("window-all-closed", () => app.quit());
 
 const fehlerText = (f) => (f && f.message) || String(f);
 
-ipcMain.handle("status", async () => {
+/** Nur die eigene Oberfläche (app://kanzlei-helfer) darf die Schnittstelle benutzen. */
+function handle(kanal, f) {
+  ipcMain.handle(kanal, (e, ...a) => {
+    if (!e.senderFrame || !e.senderFrame.url.startsWith(URSPRUNG)) throw new Error("Nicht erlaubt");
+    return f(e, ...a);
+  });
+}
+
+handle("status", async () => {
   let datev = true, meldung = null;
   try { await quelle().stamm("/version"); } catch (f) { datev = false; meldung = fehlerText(f); }
   return { datev, meldung, einstellungen, version: app.getVersion(), daten: ablage.ordner, ausgang: ablage.ausgang, mica: MICA, auftragswesen, hinweise };
@@ -116,7 +154,7 @@ ipcMain.handle("status", async () => {
 
 // Scan: alle Mandanten neu aus DATEV lesen und prüfen; Fortschritt geht als Ereignis „scan“ ans Fenster.
 let laufenderScan = null;
-ipcMain.handle("mandanten", async (e, neu) => {
+handle("mandanten", async (e, neu) => {
   if (!mandanten || neu) {
     laufenderScan ??= ladeMandanten(quelle(), einstellungen.nurAktive, (fertig, gesamt) => e.sender.send("scan", { fertig, gesamt }))
       .finally(() => { laufenderScan = null; });
@@ -129,53 +167,85 @@ ipcMain.handle("mandanten", async (e, neu) => {
   return { stand, mandanten, auftragswesen, hinweise };
 });
 
-ipcMain.handle("gruppen", () => ablage.gruppen());
-ipcMain.handle("gruppen:speichern", (_e, liste) => ablage.speichereGruppen(liste));
-ipcMain.handle("ansicht", () => ablage.ansicht());
-ipcMain.handle("ansicht:speichern", (_e, a) => ablage.speichereAnsicht(a));
+handle("gruppen", () => ablage.gruppen());
+handle("gruppen:speichern", (_e, liste) => ablage.speichereGruppen(liste));
+handle("ansicht", () => ablage.ansicht());
+handle("ansicht:speichern", (_e, a) => ablage.speichereAnsicht(a));
 
-ipcMain.handle("einstellungen:speichern", (_e, neu) => {
+handle("einstellungen:speichern", (_e, neu) => {
   const alt = einstellungen;
-  einstellungen = ablage.speichereEinstellungen(neu || {});
+  neu = neu && typeof neu === "object" ? neu : {};
+  if ("datevconnect" in neu && !erlaubteDatevAdresse(neu.datevconnect)) {
+    throw new Error("Adresse muss so aussehen: http://SERVER:PORT/datev/api/master-data/v1 (Server im eigenen Netz, kein https, keine Zugangsdaten)");
+  }
+  einstellungen = mitGueltigerAdresse(ablage.speichereEinstellungen(neu));
   if (alt.demo !== einstellungen.demo || alt.datevconnect !== einstellungen.datevconnect || alt.nurAktive !== einstellungen.nurAktive) mandanten = null;
-  if (alt.datevconnect !== einstellungen.datevconnect && datevHost()) session.defaultSession.allowNTLMCredentialsForDomains(datevHost());
   nativeTheme.themeSource = themenQuelle(einstellungen.design);
   return einstellungen;
 });
 
-ipcMain.handle("vorlagen", () => ablage.vorlagen());
-ipcMain.handle("vorlagen:speichern", (_e, liste) => ablage.speichereVorlagen(liste));
-ipcMain.handle("protokoll", () => ablage.protokoll());
+handle("vorlagen", () => ablage.vorlagen());
+handle("vorlagen:speichern", (_e, liste) => ablage.speichereVorlagen(liste));
+handle("protokoll", () => ablage.protokoll());
 
-ipcMain.handle("dateien:waehlen", async () => {
+// Anhänge: nur Dateien, die der Benutzer in dieser Sitzung selbst gewählt oder ins Fenster gezogen hat.
+const freigegeben = new Set();
+function dateiInfo(p) {
+  const st = fs.statSync(p, { throwIfNoEntry: false });
+  if (!st || !st.isFile()) return null;
+  freigegeben.add(p);
+  return { pfad: p, name: path.basename(p), groesse: st.size };
+}
+handle("dateien:waehlen", async () => {
   const r = await dialog.showOpenDialog(fenster, { title: "Anhänge auswählen", properties: ["openFile", "multiSelections"] });
-  return r.canceled ? [] : r.filePaths.map(dateiInfo);
+  return r.canceled ? [] : r.filePaths.map(dateiInfo).filter(Boolean);
 });
-ipcMain.handle("dateien:info", (_e, pfade) => (pfade || []).filter((p) => fs.existsSync(p)).map(dateiInfo));
-function dateiInfo(p) { return { pfad: p, name: path.basename(p), groesse: fs.statSync(p).size }; }
+// Pfade kommen aus vorlade.cjs (webUtils.getPathForFile auf echten, ins Fenster gezogenen Dateien).
+handle("dateien:info", (_e, pfade) => (Array.isArray(pfade) ? pfade : []).filter((p) => typeof p === "string" && path.isAbsolute(p)).map(dateiInfo).filter(Boolean));
 
-ipcMain.handle("mails", async (_e, auftrag) => {
+/** Prüft einen Mail-Auftrag der Oberfläche gegen den letzten Scan: Adressen müssen die des Mandanten aus DATEV sein. */
+function pruefeAuftrag(auftrag) {
+  const text = (v, max) => typeof v === "string" && v.length <= max;
+  if (!auftrag || auftrag.modus !== "entwurf" || !text(auftrag.vorlage, 500) || !Array.isArray(auftrag.mails) || auftrag.mails.length > 5000) throw new Error("Ungültiger Auftrag");
+  const adressen = new Map((mandanten || []).map((m) => [m.nummer, new Set((m.emails || []).map((x) => x.adresse))]));
+  const gut = [], schlecht = [];
+  for (const m of auftrag.mails) {
+    if (!m || !Number.isInteger(m.nummer) || !text(m.name, 500) || !text(m.betreff, 2000) || !text(m.text, 200000) ||
+      !Array.isArray(m.an) || !m.an.every((a) => text(a, 320)) || !Array.isArray(m.anhaenge) || !m.anhaenge.every((p) => text(p, 4000))) throw new Error("Ungültiger Auftrag");
+    const fremd = m.an.find((a) => !adressen.get(m.nummer)?.has(a));
+    const anhang = m.anhaenge.find((p) => !freigegeben.has(p));
+    if (fremd) schlecht.push({ nummer: m.nummer, ok: false, info: `Adresse gehört nicht zu Mandant ${m.nummer} in DATEV: ${fremd}`, anhaenge: [] });
+    else if (anhang) schlecht.push({ nummer: m.nummer, ok: false, info: `Anhang nicht freigegeben: ${path.basename(anhang)}`, anhaenge: [] });
+    else gut.push(m);
+  }
+  return { gut, schlecht };
+}
+
+handle("mails", async (_e, auftrag) => {
+  const { gut, schlecht } = pruefeAuftrag(auftrag);
   const versand = einstellungen.demo && einstellungen.versand === "outlook" ? "eml" : einstellungen.versand;
-  const erg = await erstelleMails(auftrag, { versand, ausgang: ablage.ausgang, tmp: ablage.tmp });
+  const erg = [...(gut.length ? await erstelleMails({ modus: "entwurf", mails: gut }, { versand, ausgang: ablage.ausgang, tmp: ablage.tmp }) : []), ...schlecht];
   const zeit = new Date().toLocaleString("de-DE");
   const modus = versand === "eml" ? "eml" : "entwurf";
   ablage.protokolliere(erg.map((e) => {
     const m = auftrag.mails.find((x) => x.nummer === e.nummer) || {};
     return { Zeit: zeit, Modus: modus, Vorlage: auftrag.vorlage, Mandantennr: m.nummer, Mandant: m.name, An: [].concat(m.an || []).join("; "), Betreff: m.betreff,
-      Ergebnis: e.ok ? "ok" : `Fehler: ${e.info}`, Anhaenge: e.anhaenge.join(", ") };
+      Ergebnis: e.ok ? "ok" : `Fehler: ${e.info}`, Anhaenge: (e.anhaenge || []).join(", ") };
   }));
   return { versand, ergebnisse: erg };
 });
 
-ipcMain.handle("export", async (_e, { name, inhalt }) => {
+handle("export", async (_e, auftrag) => {
+  const name = path.basename(String(auftrag?.name || "Mandanten.csv")).replace(/[^\w .()-]/g, "_").replace(/(\.csv)?$/i, ".csv");
+  const inhalt = String(auftrag?.inhalt ?? "");
   const r = await dialog.showSaveDialog(fenster, { title: "Liste speichern", defaultPath: path.join(app.getPath("documents"), name),
     filters: [{ name: "Excel (CSV)", extensions: ["csv"] }] });
   if (r.canceled || !r.filePath) return null;
-  fs.writeFileSync(r.filePath, "﻿" + inhalt, "utf8");
+  fs.writeFileSync(r.filePath, "\ufeff" + inhalt, "utf8");
   return r.filePath;
 });
 
-ipcMain.handle("ordner", (_e, welcher) => {
+handle("ordner", (_e, welcher) => {
   const ziel = welcher === "ausgang" ? ablage.ausgang : ablage.ordner;
   fs.mkdirSync(ziel, { recursive: true });
   return shell.openPath(ziel);
