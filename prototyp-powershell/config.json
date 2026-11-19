@@ -1,7 +1,0 @@
-{
-  "datevconnect": "http://LIZENZSERVER:58454/datev/api/master-data/v1",
-  "port": 8790,
-  "nurAktiveMandanten": true,
-  "versand": "outlook",
-  "signatur": "Ihr Team der Steuerkanzlei"
-}
