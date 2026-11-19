@@ -175,3 +175,21 @@ html:not([data-mica]) .inhalt { border-left: 1px solid var(--line); }
 /* Lesetext (Mail-Vorschau): Silbentrennung, Absätze ohne Hurenkinder, Satzbreite gemessen */
 .lesetext { font-size: var(--text-base); line-height: 1.55; hyphens: auto; text-wrap: pretty; max-width: 68ch; white-space: pre-wrap; }
 .kennung { font-family: var(--font-mono); font-size: 0.8125rem; letter-spacing: 0; }
+
+/* Mailtext: Papier immer weiß mit schwarzer Schrift wie die Mail beim Empfänger (auch im dunklen Design);
+   Absätze ohne Abstand wie in Outlook (jede Eingabetaste = neue Zeile). Gleiche Regeln in versand.cjs. */
+.mailpapier { background: #fff; color: #000; color-scheme: light; }
+.mailtext { font-family: Aptos, Calibri, "Segoe UI", Arial, sans-serif; font-size: 11pt; line-height: 1.35; hyphens: manual; }
+.mailtext p { margin: 0; min-height: 1.35em; }
+.mailtext ul { list-style: disc; padding-left: 1.75em; margin: 0; }
+.mailtext ol { list-style: decimal; padding-left: 1.75em; margin: 0; }
+.mailtext a { color: #0563c1; text-decoration: underline; }
+.mailtext mark { color: inherit; padding: 0; }
+.mailtext img { display: inline-block; max-width: 100%; }
+.mailtext img.ProseMirror-selectednode, .mailtext [data-resize-container].ProseMirror-selectednode img { outline: 2px solid var(--brand); }
+.mailtext [data-resize-container] { display: inline-block; max-width: 100%; }
+.mailtext [data-resize-handle] { width: 10px; height: 10px; background: var(--brand); border: 1px solid #fff; border-radius: 2px; opacity: 0; z-index: 1; }
+.mailtext [data-resize-handle="top-left"], .mailtext [data-resize-handle="bottom-right"] { cursor: nwse-resize; }
+.mailtext [data-resize-handle="top-right"], .mailtext [data-resize-handle="bottom-left"] { cursor: nesw-resize; }
+.mailtext [data-resize-container]:hover [data-resize-handle], .mailtext [data-resize-state="true"] [data-resize-handle] { opacity: 1; }
+.mailtext .ProseMirror-gapcursor:after { border-top-color: #000; }

@@ -5,12 +5,18 @@ export type Feld = "email" | "telefon" | "anschrift" | "briefanrede" | "geburtsd
 export const FELDER: Feld[] = ["email", "telefon", "anschrift", "briefanrede", "geburtsdatum", "steuernummer", "finanzamt", "steuerid", "iban", "ustid", "rechtsform", "register", "zustaendig"];
 
 /** Eine E-Mail-Adresse mit Herkunft: eigene (Person, Inhaber, Unternehmen) oder eines Partners (Gesellschafter, Ansprechpartner …). */
-export interface Mail { adresse: string; rolle: string; wer: string; notiz: string | null; standard: boolean; eigen: boolean; anrede: string | null }
+export interface Mail {
+  adresse: string; rolle: string; wer: string; notiz: string | null; standard: boolean; eigen: boolean; anrede: string | null;
+  /** In der App als Standard für Mails festgelegt (überstimmt DATEV). */
+  festgelegt?: boolean;
+}
 export interface Auftrag { art: string; artName: string; jahr: number | null; status: string | null; abrechnung: string | null }
 export interface Mandant {
   id: string; nummer: number; name: string; typ: "natural_person" | "individual_enterprise" | "legal_person" | string; status: string;
   seit?: string | null; notiz?: string | null;
-  email: string | null; emails: Mail[]; beziehungen: string[]; verbund: string[]; anrede: string | null; titel?: string | null; grussformel?: string | null;
+  email: string | null; emails: Mail[]; beziehungen: string[];
+  /** In der App festgelegte Standard-Adressen (nur gültige, die DATEV beim Mandanten hat); null = DATEV-Standard. */
+  festeAdressen?: string[] | null; verbund: string[]; anrede: string | null; titel?: string | null; grussformel?: string | null;
   vorname?: string | null; nachname?: string | null; firma?: string | null; geburtsdatum?: string | null; beruf?: string | null; familienstand?: string | null;
   strasse?: string | null; postfach?: string | null; plz?: string | null; ort?: string | null; land?: string | null;
   telefon?: string | null; fax?: string | null; internet?: string | null;
@@ -30,11 +36,16 @@ export interface Status {
   datev: boolean; meldung: string | null; einstellungen: Einstellungen; version: string; daten: string; ausgang: string;
   mica: boolean; auftragswesen: boolean | null; hinweise: string[];
 }
-export interface Vorlage { id: string; name: string; betreff: string; text: string }
+/** `text` = reiner Text (für Prüfungen und als Klartext-Teil der Mail); `html` = formatierte Fassung mit Farben und Bildern. */
+export interface Vorlage { id: string; name: string; betreff: string; text: string; html?: string }
+/** Fertige Fassung für einen Mandanten (Platzhalter schon ersetzt). */
+export interface Fassung { betreff: string; text: string; html: string }
 export interface Gruppe { id: string; name: string; mitglieder: number[] }
-export interface Ansicht { spalten?: string[]; gruppe?: string | null; filterzeile?: boolean; sort?: { id: string; ab: boolean } }
+export interface Ansicht { spalten?: string[]; gruppe?: string | null; filterzeile?: boolean; sort?: { id: string; ab: boolean }; breiten?: Record<string, number> }
 export interface Protokollzeile { Zeit: string; Modus: string; Vorlage: string; Mandantennr: string; Mandant: string; An: string; Betreff: string; Ergebnis: string; Anhaenge: string }
 export interface Datei { pfad: string; name: string; groesse: number }
+/** Mandantennummer → festgelegte Standard-Adressen (nur in der App gespeichert). */
+export type StandardAdressen = Record<number, string[]>;
 export interface MailErgebnis { nummer: number; ok: boolean; info: string; anhaenge: string[] }
 export interface Scan { stand: string; mandanten: Mandant[]; auftragswesen: boolean | null; hinweise: string[] }
 
@@ -50,15 +61,21 @@ interface Kh {
   ansicht(): Promise<Ansicht>;
   speichereAnsicht(a: Ansicht): Promise<Ansicht>;
   protokoll(): Promise<Protokollzeile[]>;
+  standardAdressen(): Promise<StandardAdressen>;
+  setzeStandardAdressen(nummer: number, liste: string[] | null): Promise<StandardAdressen>;
   waehleDateien(): Promise<Datei[]>;
+  /** Bild für die Mail wählen → data:-URL (bleibt in der App, geht als eingebettetes Bild in die Mail). */
+  waehleBild(): Promise<string | null>;
   /** Echte, ins Fenster gezogene Dateien; den Pfad bestimmt vorlade.cjs selbst. */
   dateiInfoVon(dateien: File[]): Promise<Datei[]>;
-  mails(a: { modus: "entwurf"; vorlage: string; mails: { nummer: number; name: string; an: string[]; betreff: string; text: string; anhaenge: string[] }[] }): Promise<{ versand: string; ergebnisse: MailErgebnis[] }>;
+  mails(a: { modus: "entwurf"; vorlage: string; mails: { nummer: number; name: string; an: string[]; betreff: string; text: string; html: string; anhaenge: string[] }[] }): Promise<{ versand: string; ergebnisse: MailErgebnis[] }>;
   exportiere(a: { name: string; inhalt: string }): Promise<string | null>;
   oeffneOrdner(welcher: "daten" | "ausgang"): Promise<string>;
 }
 declare global { interface Window { kh: Kh } }
 export const kh = () => window.kh;
+/** Fehler aus dem Hauptprozess ohne Electrons Vorspann „Error invoking remote method '…': Error: “. */
+export const fehlertext = (f: unknown) => (f instanceof Error ? f.message : String(f)).replace(/^(Error: )?Error invoking remote method '[^']+': (Error: )?/, "");
 
 export const FELD: Record<Feld, string> = {
   email: "E-Mail", telefon: "Telefon", anschrift: "Anschrift", briefanrede: "Briefanrede", geburtsdatum: "Geburtsdatum",
@@ -96,18 +113,27 @@ export const gueltigeMails = (m: Mandant) => (m.emails ?? []).filter((e) => MAIL
 /** Anschreibbar, sobald irgendeine gültige Adresse da ist – auch nur die eines Gesellschafters. */
 export const kannMail = (m: Mandant) => gueltigeMails(m).length > 0;
 
+/** Festgelegte Standard-Adressen an den Mandanten hängen (nur solche, die DATEV beim Mandanten noch hat). */
+export function mitStandard(m: Mandant, alle: StandardAdressen): Mandant {
+  const fest = (alle[m.nummer] ?? []).filter((a) => gueltigeMails(m).some((e) => e.adresse === a));
+  if (!fest.length) return m.festeAdressen ? { ...m, festeAdressen: null } : m;
+  return { ...m, festeAdressen: fest, emails: m.emails.map((e) => ({ ...e, festgelegt: fest.includes(e.adresse) })) };
+}
+
 /** An wen die Serienmail geht. */
 export type Ziel = "standard" | "eigene" | "alle";
 export const ZIEL_TEXT: Record<Ziel, string> = {
-  standard: "Standard-Adresse", eigene: "Alle eigenen Adressen", alle: "Eigene + Beziehungen",
+  standard: "Standard-Adressen", eigene: "Alle eigenen Adressen", alle: "Eigene + Beziehungen",
 };
 /**
- * Adressen für einen Mandanten: eigene Wahl (pro Mandant) vor der Regel.
- * „Standard“ = DATEV-Standard-Adresse; hat der Mandant keine eigene (z. B. GmbH ohne Mail), gehen die der Partner.
+ * Adressen für einen Mandanten: eigene Wahl (nur diese Mail) vor der Regel.
+ * „Standard“ = in der App festgelegte Adressen, sonst die DATEV-Standard-Adresse;
+ * hat der Mandant keine eigene (z. B. GmbH ohne Mail), gehen die der Partner.
  */
 export function adressenFuer(m: Mandant, ziel: Ziel, wahl?: string[]): string[] {
   const g = gueltigeMails(m);
   if (wahl) return g.filter((e) => wahl.includes(e.adresse)).map((e) => e.adresse);
+  if (ziel === "standard" && m.festeAdressen?.length) return g.filter((e) => m.festeAdressen!.includes(e.adresse)).map((e) => e.adresse);
   const eigene = g.filter((e) => e.eigen);
   if (ziel === "alle") return g.map((e) => e.adresse);
   if (ziel === "eigene") return (eigene.length ? eigene : g).map((e) => e.adresse);
@@ -115,6 +141,8 @@ export function adressenFuer(m: Mandant, ziel: Ziel, wahl?: string[]): string[] 
   return std ? [std.adresse] : g.map((e) => e.adresse);
 }
 export const mailText = (e: Mail) => `${e.rolle}${e.eigen ? "" : " " + e.wer}${e.notiz ? " · " + e.notiz : ""}`;
+/** Standard ohne eigene Wahl: festgelegte Adressen, sonst DATEV-Standard. */
+export const standardFuer = (m: Mandant) => adressenFuer(m, "standard");
 
 export const PLATZHALTER = ["Anrede", "Name", "Vorname", "Nachname", "Firma", "Strasse", "PLZ", "Ort", "Mandantennummer", "FehlendeAngaben", "Grussformel", "Datum", "Jahr", "Vorjahr", "Signatur"] as const;
 
@@ -141,6 +169,27 @@ export function fuellen(text: string, m: Mandant, signatur: string) {
 /** Hat dieser Mandant etwas, das man ihn per Mail fragen kann? */
 export const hatMailLuecken = (m: Mandant) => m.luecken.some((f) => !NUR_INTERN.includes(f)) || m.fehlerhaft.some((f) => !NUR_INTERN.includes(f));
 export const braucheLuecken = (s: string) => /\{\{FehlendeAngaben\}\}/.test(s);
+
+// ---------- Formatierte Mails (HTML) ----------
+export const htmlSicher = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+/** Alter Klartext (Vorlagen bis 1.3.5) → Absätze wie im Editor. */
+export const textZuHtml = (text: string) => String(text ?? "").split(/\r?\n/).map((z) => `<p>${htmlSicher(z)}</p>`).join("");
+export const htmlVon = (v: { text: string; html?: string }) => (v.html ? v.html : textZuHtml(v.text));
+/** Platzhalter im HTML ersetzen; Werte aus DATEV werden maskiert, Zeilenumbrüche zu <br>. */
+export function fuellenHtml(html: string, m: Mandant, signatur: string) {
+  const w = platzhalterWerte(m, signatur);
+  return html.replace(/\{\{(\w+)\}\}/g, (ganz, k) => (k in w ? htmlSicher(w[k]).replace(/\n/g, "<br>") : ganz));
+}
+/** Klartext aus dem HTML (Absätze und <br> → Zeilen), für den Klartext-Teil der Mail und die Prüfungen. */
+export function htmlZuText(html: string) {
+  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
+  doc.querySelectorAll("br").forEach((b) => b.replaceWith("\n"));
+  doc.querySelectorAll("li").forEach((li) => (li.querySelector("p") ?? li).prepend("– "));
+  doc.querySelectorAll("img").forEach((i) => i.replaceWith("[Bild]"));
+  const zeilen: string[] = [];
+  doc.body.querySelectorAll("p, li").forEach((b) => { if (!b.querySelector("p")) zeilen.push(b.textContent ?? ""); });
+  return zeilen.length ? zeilen.join("\n") : (doc.body.textContent ?? "");
+}
 export const offenePlatzhalter = (s: string) => /\{\{\w+\}\}/.test(s);
 
 /** Anhang pro Mandant: Dateiname beginnt mit der Mandantennummer, z. B. „10004_Bescheid.pdf“. */

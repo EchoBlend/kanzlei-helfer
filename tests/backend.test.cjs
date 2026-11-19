@@ -170,25 +170,78 @@ test("Kaputte Dateien im Datenordner legen die App nicht lahm", () => {
   assert.ok(!fs.existsSync(path.join(dir, "tmp")));
 });
 
-test("Netz: nur DATEVconnect im eigenen Netz, ohne Anmeldung", async () => {
-  const { erlaubteDatevAdresse, datevAdresse, privateAdresse, pruefeImKanzleinetz, sichererAbruf, DATEV_STANDARD } = require("../electron/netz.cjs");
-  for (const ok of ["http://LIZENZSERVER:58454/datev/api/master-data/v1", "http://localhost:58454/datev/api/master-data/v1/", "http://192.168.1.5:58454/datev/api/master-data/v1"]) assert.ok(erlaubteDatevAdresse(ok), ok);
-  for (const nein of ["https://LIZENZSERVER:58452/datev/api/master-data/v1", "http://u:p@LIZENZSERVER:58454/datev/api/master-data/v1",
-    "http://LIZENZSERVER:58454/datev/api/master-data/v1?x=1", "http://LIZENZSERVER:58454/LEAK/daten/master-data/v1", "ftp://x/datev/api/master-data/v1", "quatsch"]) assert.ok(!erlaubteDatevAdresse(nein), nein);
-  assert.equal(datevAdresse("http://evil.example/x"), DATEV_STANDARD);
+test("Netz: nur DATEVconnect im eigenen Netz, Adresse wie eingetragen", async () => {
+  const { datevAdresse, datevBasis, privateAdresse, pruefeImKanzleinetz, sichererAbruf, DATEV_STANDARD } = require("../electron/netz.cjs");
+  // Adresse: bleibt wie eingetragen (keine Prüfung); leer/alter Standard → neuer Standard
+  assert.equal(DATEV_STANDARD, "https://LIZENZSERVER:58452/datev/api/master-data/v1");
+  const link = "https://lizenzserver:58452/datev/api/master-data/v1/clients?select=number,name&filter=status%20eq%20active";
+  assert.equal(datevAdresse(link), link);
+  assert.equal(datevAdresse("  quatsch "), "quatsch");
+  for (const e of ["", "   ", "http://LIZENZSERVER:58454/datev/api/master-data/v1", "http://lizenzserver:58454/datev/api/master-data/v1/"]) assert.equal(datevAdresse(e), DATEV_STANDARD, e);
+  // Basis für die Abfragen: Browser-Adresse → …/master-data/v1, ohne Schema → https
+  const basis = "https://lizenzserver:58452/datev/api/master-data/v1";
+  for (const e of [link, "lizenzserver:58452/datev/api/master-data/v1", "  https://lizenzserver:58452/datev/api/master-data/v1/  ", "https://LIZENZSERVER:58452/datev/api/master-data/v1#x"]) assert.equal(datevBasis(e), basis, e);
+  assert.equal(datevBasis("http://192.168.1.5:58454/datev/api/master-data/v1/clients"), "http://192.168.1.5:58454/datev/api/master-data/v1");
+  assert.equal(datevBasis("http://srv:8080/anderer/pfad/?x=1"), "http://srv:8080/anderer/pfad");
+  assert.equal(datevBasis(""), DATEV_STANDARD.replace("LIZENZSERVER", "lizenzserver"));
   for (const ip of ["10.0.0.1", "172.16.0.1", "172.31.255.255", "192.168.178.20", "127.0.0.1", "169.254.1.1", "::1", "fd00::1", "fe80::1", "::ffff:192.168.0.1"]) assert.ok(privateAdresse(ip), ip);
   for (const ip of ["8.8.8.8", "172.32.0.1", "100.64.0.1", "2a00:1450::1", "::ffff:8.8.8.8", "0.0.0.0"]) assert.ok(!privateAdresse(ip), ip);
   await pruefeImKanzleinetz("LIZENZSERVER", async () => [{ address: "192.168.0.10" }]);
   await assert.rejects(pruefeImKanzleinetz("LIZENZSERVER", async () => [{ address: "192.168.0.10" }, { address: "52.1.2.3" }]), /nicht im eigenen Netz/);
   await assert.rejects(pruefeImKanzleinetz("x", async () => []), /nicht im eigenen Netz/);
-  // Abruf: falscher Ursprung gesperrt; sonst GET, ohne Weiterleitung, ohne Anmeldung
+  // Abruf: falscher Ursprung gesperrt; sonst GET, ohne Weiterleitung (Cookies/Anmeldung regelt holeMitWindowsKonto in haupt.cjs)
   const aufrufe = [];
   const abruf = sichererAbruf(async (u, o) => { aufrufe.push([u, o]); return { status: 200 }; }, () => "http://lizenzserver:58454", { nachschlagen: async () => [{ address: "10.0.0.2" }] });
   await abruf("http://lizenzserver:58454/datev/api/master-data/v1/clients", { method: "POST" });
   assert.equal(aufrufe[0][1].method, "GET");
   assert.equal(aufrufe[0][1].redirect, "error");
-  assert.equal(aufrufe[0][1].credentials, "omit");
+  assert.ok(!("credentials" in aufrufe[0][1]));
   await assert.rejects(abruf("http://evil.example/datev/api/master-data/v1/clients"), /Gesperrt/);
   const mitAnmeldung = sichererAbruf(async () => ({ status: 401 }), () => "http://lizenzserver:58454", { nachschlagen: async () => [{ address: "10.0.0.2" }] });
-  await assert.rejects(mitAnmeldung("http://lizenzserver:58454/datev/api/master-data/v1/version"), /Anmeldung/);
+  await assert.rejects(mitAnmeldung("http://lizenzserver:58454/datev/api/master-data/v1/version"), /Windows-Konto nicht zu \(401\)/);
+  // https: gleicher Ursprung nötig (Schema + Server + Port), sonst gesperrt
+  const sicher = sichererAbruf(async () => ({ status: 200 }), () => "https://lizenzserver:58452", { nachschlagen: async () => [{ address: "10.0.0.2" }] });
+  assert.equal((await sicher("https://lizenzserver:58452/datev/api/master-data/v1/clients")).status, 200);
+  await assert.rejects(sicher("http://lizenzserver:58452/datev/api/master-data/v1/clients"), /Gesperrt/);
+  const fremdesZertifikat = sichererAbruf(async () => { throw new TypeError("net::ERR_CERT_AUTHORITY_INVALID"); }, () => "https://lizenzserver:58452", { nachschlagen: async () => [{ address: "10.0.0.2" }] });
+  await assert.rejects(fremdesZertifikat("https://lizenzserver:58452/datev/api/master-data/v1/clients"), /vertraut dem Zertifikat/);
+});
+
+test("Standard-Adressen pro Mandant: speichern, aufheben, kaputte Datei", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kh-"));
+  const ab = oeffneAblage(dir);
+  assert.deepEqual(ab.standardAdressen(), {});
+  assert.deepEqual(ab.setzeStandardAdressen(10004, ["a@x.de", " a@x.de ", "b@x.de", "", 7]), { 10004: ["a@x.de", "b@x.de"] });
+  assert.deepEqual(ab.setzeStandardAdressen(10001, ["c@x.de"]), { 10004: ["a@x.de", "b@x.de"], 10001: ["c@x.de"] });
+  assert.deepEqual(ab.setzeStandardAdressen(10004, null), { 10001: ["c@x.de"] });
+  assert.deepEqual(ab.setzeStandardAdressen(10001, []), {});
+  assert.throws(() => ab.setzeStandardAdressen("10001", ["c@x.de"]), /Mandantennummer/);
+  fs.writeFileSync(path.join(dir, "standard-adressen.json"), '{"abc": ["x@y.de"], "10002": "kein Array", "10003": ["ok@y.de"]');
+  assert.deepEqual(ab.standardAdressen(), {}, "kaputtes JSON → leer");
+  fs.writeFileSync(path.join(dir, "standard-adressen.json"), '{"abc": ["x@y.de"], "10002": "kein Array", "10003": ["ok@y.de"]}');
+  assert.deepEqual(ab.standardAdressen(), { 10003: ["ok@y.de"] });
+});
+
+test("Formatierte Mail: Farben bleiben, Bilder eingebettet (cid), fremde Bilder und Skripte weg", () => {
+  const { baueEml, bereiteHtml } = require("../electron/versand.cjs");
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const html = `<p>Hallo <span style="color: #C00000">rot</span> <mark data-color="#FFFF00" style="background-color: #FFFF00; color: inherit">gelb</mark></p><p></p>` +
+    `<p style="text-align: center"><img src="data:image/png;base64,${png}" width="120" onerror="x()"><img src="https://tracker.example/p.png"></p><script>alert(1)</script>`;
+  const f = bereiteHtml(html);
+  assert.equal(f.bilder.length, 1);
+  assert.match(f.html, /<span style="color: #C00000">rot<\/span>/);
+  assert.match(f.html, /<span style="background-color: #FFFF00; color: inherit">gelb<\/span>/);
+  assert.match(f.html, new RegExp(`<img src="cid:${f.bilder[0].cid.replace(/\./g, "\\.")}" width="120">`));
+  assert.match(f.html, /<p style="margin:0"><br><\/p>/);
+  assert.match(f.html, /<p style="margin:0;text-align: center">/);
+  for (const weg of ["tracker.example", "<script", "onerror", "data:image"]) assert.ok(!f.html.includes(weg), weg);
+  assert.throws(() => bereiteHtml(`<img src="data:image/png;base64,${"A".repeat(21 * 1024 * 1024)}">`), /zu groß/);
+
+  const eml = baueEml({ an: ["a@x.de"], betreff: "Test", text: "Hallo rot gelb", formatiert: f }, []);
+  assert.match(eml, /Content-Type: multipart\/alternative/);
+  assert.match(eml, /Content-Type: text\/plain; charset=utf-8/);
+  assert.match(eml, /Content-Type: multipart\/related/);
+  assert.match(eml, new RegExp(`Content-ID: <${f.bilder[0].cid.replace(/\./g, "\\.")}>`));
+  // ohne html bleibt es reiner Text wie bisher
+  assert.ok(!/multipart/.test(baueEml({ an: ["a@x.de"], betreff: "T", text: "nur Text" }, [])));
 });

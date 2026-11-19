@@ -1,15 +1,17 @@
 /**
  * Alles, was der Kanzlei-Helfer auf die Platte schreibt, liegt in einem Ordner
  * (%APPDATA%\Kanzlei-Helfer): Einstellungen, Vorlagen, Gruppen (nur Mandantennummern), Ansicht,
- * Protokoll (Zeit, Mandantennr., Name, Empfänger, Betreff, Anhangnamen) und .eml-Ausgang.
+ * Protokoll (Zeit, Mandantennr., Name, Empfänger, Betreff, Anhangnamen), festgelegte Standard-Adressen
+ * (Mandantennr. → E-Mail-Adressen) und .eml-Ausgang.
  * Die DATEV-Stammdaten selbst leben nur im Arbeitsspeicher. Deinstallieren löscht den Ordner.
  */
 const fs = require("node:fs");
 const path = require("node:path");
 const { FELDER } = require("./pruefung.cjs");
+const { DATEV_STANDARD } = require("./netz.cjs");
 
 const STANDARD = {
-  datevconnect: "http://LIZENZSERVER:58454/datev/api/master-data/v1",
+  datevconnect: DATEV_STANDARD,
   versand: "eml", // "eml" (rein lokal) | "outlook" (Entwurf im Postfach, wird mit Exchange/M365 abgeglichen)
   signatur: "Ihr Team der Steuerkanzlei",
   nurAktive: true,
@@ -66,11 +68,25 @@ function saubereEinstellungen(roh) {
   return e;
 }
 const saubereVorlagen = (liste) => liste.filter(istObjekt).slice(0, 500)
-  .map((v) => ({ id: text(v.id, 100), name: text(v.name, 200), betreff: text(v.betreff, 1000), text: text(v.text, 100000) }));
+  .map((v) => ({ id: text(v.id, 100), name: text(v.name, 200), betreff: text(v.betreff, 1000), text: text(v.text, 100000),
+    // formatierte Fassung (Farben, eingebettete Bilder als data:) – nur wenn vorhanden
+    ...(typeof v.html === "string" && v.html ? { html: v.html.slice(0, 20 * 1024 * 1024) } : {}) }));
 const saubereGruppen = (liste) => liste.filter(istObjekt).slice(0, 500).map((g) => ({
   id: text(g.id, 100), name: text(g.name, 80).trim() || "Gruppe",
   mitglieder: [...new Set((Array.isArray(g.mitglieder) ? g.mitglieder : []).map(Number).filter(Number.isInteger))],
 }));
+/** Festgelegte Standard-Adressen: { Mandantennummer: [Adresse, …] } – nur in der App, DATEV bleibt unverändert. */
+function saubereStandardAdressen(roh) {
+  const r = {};
+  if (!istObjekt(roh)) return r;
+  for (const [k, v] of Object.entries(roh).slice(0, 50000)) {
+    const nr = Number(k);
+    if (!Number.isInteger(nr) || !Array.isArray(v)) continue;
+    const liste = [...new Set(v.filter((a) => typeof a === "string" && a.trim() && a.length <= 320).map((a) => a.trim()))].slice(0, 50);
+    if (liste.length) r[nr] = liste;
+  }
+  return r;
+}
 function saubereAnsicht(a) {
   if (!istObjekt(a)) return {};
   const sauber = {};
@@ -78,6 +94,11 @@ function saubereAnsicht(a) {
   if (typeof a.gruppe === "string" || a.gruppe === null) sauber.gruppe = a.gruppe === null ? null : a.gruppe.slice(0, 50);
   if (typeof a.filterzeile === "boolean") sauber.filterzeile = a.filterzeile;
   if (istObjekt(a.sort) && typeof a.sort.id === "string" && typeof a.sort.ab === "boolean") sauber.sort = { id: a.sort.id.slice(0, 50), ab: a.sort.ab };
+  // Spaltenbreiten (Pixel) je Spalte, vom Benutzer gezogen
+  if (istObjekt(a.breiten)) {
+    sauber.breiten = Object.fromEntries(Object.entries(a.breiten).filter(([k, v]) => k.length <= 50 && Number.isFinite(v))
+      .slice(0, 100).map(([k, v]) => [k, Math.round(Math.min(2000, Math.max(48, v)))]));
+  }
   return sauber;
 }
 
@@ -134,6 +155,20 @@ function oeffneAblage(ordner) {
     speichereAnsicht(a) {
       const sauber = saubereAnsicht(a);
       schreibJson("ansicht.json", sauber);
+      return sauber;
+    },
+
+    /** Pro Mandant festgelegte Standard-Adressen für Mails (überstimmen die Standard-Adresse aus DATEV). */
+    standardAdressen() {
+      return saubereStandardAdressen(liesJson("standard-adressen.json", {}));
+    },
+    /** liste leer oder null → Festlegung aufheben (wieder DATEV-Standard). */
+    setzeStandardAdressen(nummer, liste) {
+      if (!Number.isInteger(nummer)) throw new Error("Mandantennummer fehlt");
+      const alle = this.standardAdressen();
+      if (Array.isArray(liste) && liste.length) alle[nummer] = liste; else delete alle[nummer];
+      const sauber = saubereStandardAdressen(alle);
+      schreibJson("standard-adressen.json", sauber);
       return sauber;
     },
 

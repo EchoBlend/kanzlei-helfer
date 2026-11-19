@@ -1,6 +1,6 @@
 // Netz-Wächter: echte App gegen ein Fake-DATEVconnect auf 127.0.0.1, Chromium-NetLog mitschreiben.
 // Bricht ab, wenn irgendetwas anderes als DATEV angefragt wird, DATEV etwas anderes als GET bekommt,
-// die App sich anmeldet oder Cookies mitschickt, eine Internet-Adresse oder Daten in der Adresse durchgehen
+// die App Cookies mitschickt oder sich unaufgefordert anmeldet, eine Internet-Adresse oder Daten in der Adresse durchgehen
 // oder Mandantendaten außerhalb von protokoll.csv / ausgang\ auf der Platte landen.
 // Start: npm run pruefe:netz   (läuft auch im Release-Workflow auf Windows)
 import { _electron as electron } from "playwright-core";
@@ -79,10 +79,9 @@ try {
   pruefe(v.node, "Oberfläche ohne Node-Zugriff");
   pruefe(seite.url().startsWith("app://") && app.windows().length === 1, "Navigation und neue Fenster blockiert");
 
-  // DATEV-Adresse über die Schnittstelle verbiegen: Daten im Pfad und Internet-Adresse müssen scheitern
+  // DATEV-Adresse auf eine Internet-Adresse verbiegen: keine Verbindung
   const ein = await seite.evaluate(async (p) => {
     const r = {};
-    try { await window.kh.speichereEinstellungen({ datevconnect: `http://127.0.0.1:${p}/LEAK/10001-Muster/master-data/v1` }); r.pfad = false; } catch { r.pfad = true; }
     await window.kh.speichereEinstellungen({ datevconnect: "http://93.184.215.14/datev/api/master-data/v1" });
     const s = await window.kh.status();
     r.extern = !s.datev && /nicht im eigenen Netz/.test(s.meldung || "");
@@ -90,7 +89,6 @@ try {
     r.zurueck = (await window.kh.status()).datev;
     return r;
   }, port);
-  pruefe(ein.pfad, "Adresse mit fremdem Pfad abgelehnt");
   pruefe(ein.extern, "Internet-Adresse: keine Verbindung aufgebaut");
   pruefe(ein.zurueck, "zurück auf DATEVconnect im eigenen Netz");
 
@@ -118,7 +116,7 @@ for (const e of log.events) {
 }
 pruefe(fremd.size === 0, `keine Anfrage außer DATEVconnect${fremd.size ? ": " + [...fremd].join(", ") : ""}`);
 pruefe([...methoden].every((m) => m === "GET"), `DATEVconnect bekommt nur GET (${[...methoden]})`);
-pruefe(mitAnmeldung === 0, `keine Anmeldung, keine Cookies an DATEV (${mitAnmeldung})`);
+pruefe(mitAnmeldung === 0, `keine Cookies, keine unaufgeforderte Anmeldung an DATEV (${mitAnmeldung})`);
 pruefe(falschePfade === 0, `nur DATEV-Pfade angefragt (${falschePfade} fremde)`);
 
 // ---- Mandantendaten auf der Platte nur in protokoll.csv und ausgang\ ----
@@ -131,5 +129,31 @@ pruefe(funde.length === 0, `keine Mandantendaten und kein DATEV-Cookie in Chromi
 
 fs.rmSync(netlog, { force: true });
 fs.rmSync(daten, { recursive: true, force: true });
+
+// ---- Nur Windows: DATEVconnect mit Windows-Anmeldung (wie in der Kanzlei), Adresse als Browser-Link ----
+if (process.platform === "win32") {
+  const { spawn } = await import("node:child_process");
+  const port2 = 58457;
+  const fake = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(WURZEL, "tests", "fake-datevconnect.ps1"), "-Port", String(port2), "-MitAnmeldung"], { windowsHide: true });
+  let ausgabe = "";
+  await new Promise((ok, nein) => {
+    const t = setTimeout(() => nein(new Error("Fake-DATEVconnect startet nicht")), 30000);
+    fake.stdout.on("data", (b) => { ausgabe += b; if (ausgabe.includes("auf http")) { clearTimeout(t); ok(); } });
+  });
+  const daten2 = fs.mkdtempSync(path.join(os.tmpdir(), "kh-anmeldung-"));
+  const link = `http://localhost:${port2}/datev/api/master-data/v1/clients?select=number,name&filter=status%20eq%20active`;
+  fs.writeFileSync(path.join(daten2, "einstellungen.json"), JSON.stringify({ datevconnect: link, demo: false, versand: "eml" }));
+  const app2 = await electron.launch({ args: [WURZEL], cwd: WURZEL, env: { ...process.env, KH_DATEN: daten2, KH_TEST: "1", KH_OHNE_MICA: "1" } });
+  try {
+    const seite = await app2.firstWindow();
+    await seite.waitForSelector("tr[data-nummer]", { timeout: 30000 }).catch(() => {});
+    pruefe((await seite.$$("tr[data-nummer]")).length === 25, "Windows-Anmeldung am eingestellten Server: Scan klappt");
+    pruefe((await seite.evaluate(() => window.kh.status())).einstellungen.datevconnect === link, "Browser-Link bleibt in den Einstellungen stehen");
+  } finally { await app2.close(); fake.kill(); }
+  const angemeldet = [...ausgabe.matchAll(/angemeldet als: (.+)/g)].map((m) => m[1].trim());
+  pruefe(angemeldet.length > 0 && angemeldet.every((w) => w !== "-"), `DATEV sieht das Windows-Konto (${[...new Set(angemeldet)].join(", ")})`);
+  pruefe(!/^(POST|PUT|PATCH|DELETE) /m.test(ausgabe), "auch mit Anmeldung nur GET");
+  fs.rmSync(daten2, { recursive: true, force: true });
+}
 console.log(fehler ? `\n${fehler} Prüfung(en) fehlgeschlagen` : "\nNetz-Wächter: alles dicht");
 process.exit(fehler ? 1 : 0);

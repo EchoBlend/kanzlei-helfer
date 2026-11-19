@@ -4,7 +4,8 @@
  * - Fester Ursprung app://kanzlei-helfer/ und fester Datenordner %APPDATA%\Kanzlei-Helfer.
  * - Nur eine Instanz.
  * - Nichts geht hinaus: Das Fenster darf nur die App selbst laden; der einzige Netzweg
- *   ist DATEVconnect auf dem LIZENZSERVER (fest, siehe netz.cjs), und den fragt nur der Hauptprozess ab.
+ *   ist die eingestellte DATEVconnect-Adresse (Standard LIZENZSERVER, siehe netz.cjs), und die fragt nur der Hauptprozess ab –
+ *   mit dem Windows-Konto wie der Browser, nur bei diesem Server.
  */
 const { app, BrowserWindow, Menu, crashReporter, dialog, ipcMain, nativeTheme, net, protocol, session, shell } = require("electron");
 const path = require("node:path");
@@ -13,7 +14,7 @@ const { pathToFileURL } = require("node:url");
 const { oeffneAblage } = require("./ablage.cjs");
 const { demoQuelle, netzQuelle, ladeMandanten } = require("./datev.cjs");
 const { erstelleMails } = require("./versand.cjs");
-const { datevAdresse, erlaubteDatevAdresse, sichererAbruf } = require("./netz.cjs");
+const { datevAdresse, datevBasis, sichererAbruf } = require("./netz.cjs");
 
 const NAME = "Kanzlei-Helfer";
 const URSPRUNG = "app://kanzlei-helfer/";
@@ -47,12 +48,12 @@ if (!app.requestSingleInstanceLock()) app.quit();
 
 const ablage = oeffneAblage(app.getPath("userData"));
 ablage.raeumeTmp(); // Reste eines abgebrochenen Outlook-Laufs (enthalten Adressen und Texte)
-// DATEVconnect-Adresse: nur http://<Server>/datev/api/master-data/v1; Unzulässiges fällt auf LIZENZSERVER zurück.
+// DATEVconnect-Adresse wie eingetragen (leer → LIZENZSERVER).
 const mitGueltigerAdresse = (e) => ({ ...e, datevconnect: datevAdresse(e.datevconnect) });
 let einstellungen = mitGueltigerAdresse(ablage.einstellungen());
-// Keine Windows-/Firmen-Anmeldung, an niemanden: Die Liste der Server, denen Chromium das Windows-Konto
-// automatisch anbieten darf, enthält nur einen Namen, den es nicht geben kann (.invalid, RFC 2606).
-// Zusätzlich fragt die App DATEV mit credentials: "omit" ab (netz.cjs).
+// Windows-Anmeldung (Kerberos/NTLM) wie im Browser – aber nur beim eingestellten DATEV-Server:
+// Bis die App bereit ist, darf Chromium das Windows-Konto niemandem anbieten (.invalid, RFC 2606);
+// danach genau diesem einen Servernamen (erlaubeWindowsKonto, bei jeder Adressänderung neu).
 app.commandLine.appendSwitch("auth-server-allowlist", "niemand.invalid");
 let mandanten = null;
 let stand = null;
@@ -61,10 +62,41 @@ let fenster = null;
 let auftragswesen = null;
 let hinweise = [];
 
-const abruf = sichererAbruf((u, o) => net.fetch(u, o), () => datevUrsprung(),
+/**
+ * Ein GET an DATEVconnect über net.request: ohne credentials-Angabe schickt Electron die Windows-Anmeldung
+ * (nur an Server aus erlaubeWindowsKonto), aber keine Cookies und speichert auch keine.
+ */
+function holeMitWindowsKonto(adresse, { headers = {}, signal } = {}) {
+  return new Promise((fertig, fehler) => {
+    const anfrage = net.request({ url: adresse, method: "GET", redirect: "error" });
+    for (const [k, v] of Object.entries(headers)) anfrage.setHeader(k, v);
+    // Nie nach Benutzername/Kennwort fragen (Basic-Anmeldung o. Ä.) → 401 → Meldung in netz.cjs
+    anfrage.on("login", (_info, weiter) => weiter());
+    anfrage.on("response", (antwort) => {
+      const teile = [];
+      antwort.on("data", (t) => teile.push(t));
+      antwort.on("error", fehler);
+      antwort.on("end", () => {
+        const text = Buffer.concat(teile).toString("utf8");
+        fertig({ ok: antwort.statusCode >= 200 && antwort.statusCode < 300, status: antwort.statusCode, statusText: antwort.statusMessage,
+          text: async () => text, json: async () => JSON.parse(text) });
+      });
+    });
+    anfrage.on("error", fehler);
+    signal?.addEventListener("abort", () => { anfrage.abort(); fehler(new Error("DATEVconnect antwortet nicht (Zeitlimit 30 s)")); });
+    anfrage.end();
+  });
+}
+const abruf = sichererAbruf(holeMitWindowsKonto, () => datevUrsprung(),
   { nachschlagen: async (host) => (await net.resolveHost(host)).endpoints.map((e) => ({ address: e.address })) });
-const quelle = () => (einstellungen.demo ? demoQuelle() : netzQuelle(abruf, einstellungen.datevconnect));
-const datevUrsprung = () => new URL(einstellungen.datevconnect).origin;
+const quelle = () => (einstellungen.demo ? demoQuelle() : netzQuelle(abruf, datevBasis(einstellungen.datevconnect)));
+const datevUrsprung = () => { try { return new URL(datevBasis(einstellungen.datevconnect)).origin; } catch { return null; } };
+/** Windows-Konto nur dem eingestellten DATEV-Server anbieten (Demo: niemandem). */
+function erlaubeWindowsKonto() {
+  let host = "niemand.invalid";
+  try { if (!einstellungen.demo) host = new URL(datevBasis(einstellungen.datevconnect)).hostname || host; } catch { /* bleibt niemand */ }
+  session.defaultSession.allowNTLMCredentialsForDomains(host);
+}
 const DIST_URL = pathToFileURL(WURZEL).href + "/";
 const themenQuelle = (d) => ({ hell: "light", dunkel: "dark" })[d] || "system";
 // Windows 11 (ab 22H2, Build 22621) hat das Material „Mica“ – das Gegenstück zur macOS-Vibrancy.
@@ -105,6 +137,8 @@ app.on("web-contents-created", (_e, wc) => {
 });
 // Nie nach Benutzername/Passwort fragen und keine gespeicherten Zugangsdaten senden.
 app.on("login", (e, _wc, _details, _auth, weiter) => { e.preventDefault(); weiter(); });
+// Auch kein Client-Zertifikat aus dem Windows-Speicher (Electron nähme sonst das erste).
+app.on("select-client-certificate", (e, _wc, _url, _liste, weiter) => { e.preventDefault(); weiter(); });
 app.on("will-quit", () => ablage.raeumeTmp());
 
 app.whenReady().then(() => {
@@ -131,12 +165,13 @@ app.whenReady().then(() => {
     const u = d.url;
     let erlaubt = u.startsWith(URSPRUNG) || u.startsWith(DIST_URL) || u.startsWith("data:") || u.startsWith("blob:");
     // DATEV nur vom Hauptprozess (keine webContentsId) und nur lesend
-    if (!erlaubt && /^http:/i.test(u) && d.method === "GET" && d.webContentsId === undefined) {
+    if (!erlaubt && /^https?:/i.test(u) && d.method === "GET" && d.webContentsId === undefined) {
       try { erlaubt = new URL(u).origin === datevUrsprung(); } catch { erlaubt = false; }
     }
     antwort({ cancel: !erlaubt });
   });
   // Keine Rechte: Kamera, Mikrofon, Standort, Benachrichtigungen, Zwischenablage-Lesen, USB/HID/Seriell …
+  erlaubeWindowsKonto();
   session.defaultSession.setPermissionRequestHandler((_w, _p, ok) => ok(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   session.defaultSession.setDevicePermissionHandler(() => false);
@@ -159,7 +194,10 @@ function handle(kanal, f) {
 
 handle("status", async () => {
   let datev = true, meldung = null;
-  try { await quelle().stamm("/version"); } catch (f) { datev = false; meldung = fehlerText(f); }
+  try {
+    // /version kennt nicht jede DATEVconnect-Fassung; dann reicht die Mandantenliste (nur Nummern) als Lebenszeichen.
+    await quelle().stamm("/version").catch((f) => { if (f.status === 404) return quelle().stamm("/clients?select=number"); throw f; });
+  } catch (f) { datev = false; meldung = fehlerText(f); }
   return { datev, meldung, einstellungen, version: app.getVersion(), daten: ablage.ordner, ausgang: ablage.ausgang, mica: MICA, auftragswesen, hinweise };
 });
 
@@ -186,13 +224,23 @@ handle("ansicht:speichern", (_e, a) => ablage.speichereAnsicht(a));
 handle("einstellungen:speichern", (_e, neu) => {
   const alt = einstellungen;
   neu = neu && typeof neu === "object" ? neu : {};
-  if ("datevconnect" in neu && !erlaubteDatevAdresse(neu.datevconnect)) {
-    throw new Error("Adresse muss so aussehen: http://SERVER:PORT/datev/api/master-data/v1 (Server im eigenen Netz, kein https, keine Zugangsdaten)");
-  }
+  // Adresse: genau wie eingetragen, keine Prüfung (die Abfragen nehmen davon die Basis, datevBasis)
+  if ("datevconnect" in neu) neu = { ...neu, datevconnect: datevAdresse(neu.datevconnect) };
   einstellungen = mitGueltigerAdresse(ablage.speichereEinstellungen(neu));
   if (alt.demo !== einstellungen.demo || alt.datevconnect !== einstellungen.datevconnect || alt.nurAktive !== einstellungen.nurAktive) mandanten = null;
+  erlaubeWindowsKonto();
   nativeTheme.themeSource = themenQuelle(einstellungen.design);
   return einstellungen;
+});
+
+// Standard-Adressen pro Mandant: nur Adressen, die DATEV beim Mandanten hat (letzter Scan)
+handle("standardAdressen", () => ablage.standardAdressen());
+handle("standardAdressen:setzen", (_e, nummer, liste) => {
+  const m = (mandanten || []).find((x) => x.nummer === nummer);
+  if (mandanten && !m) throw new Error(`Mandant ${nummer} nicht im letzten Scan`);
+  const erlaubt = m ? new Set((m.emails || []).map((e) => e.adresse)) : null;
+  const sauber = (Array.isArray(liste) ? liste : []).filter((a) => typeof a === "string" && (!erlaubt || erlaubt.has(a)));
+  return ablage.setzeStandardAdressen(nummer, sauber.length ? sauber : null);
 });
 
 handle("vorlagen", () => ablage.vorlagen());
@@ -211,6 +259,17 @@ handle("dateien:waehlen", async () => {
   const r = await dialog.showOpenDialog(fenster, { title: "Anhänge auswählen", properties: ["openFile", "multiSelections"] });
   return r.canceled ? [] : r.filePaths.map(dateiInfo).filter(Boolean);
 });
+// Bild für eine formatierte Mail: vom Benutzer gewählt, als data:-URL in den Editor (wird beim Erstellen zum eingebetteten Bild).
+const BILDTYP = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp" };
+handle("bild:waehlen", async () => {
+  const r = await dialog.showOpenDialog(fenster, { title: "Bild einfügen", properties: ["openFile"], filters: [{ name: "Bilder", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] }] });
+  const p = !r.canceled && r.filePaths[0];
+  if (!p) return null;
+  const typ = BILDTYP[path.extname(p).toLowerCase()];
+  if (!typ) throw new Error("Nur PNG, JPG, GIF, WebP oder BMP");
+  if (fs.statSync(p).size > 5 * 1024 * 1024) throw new Error("Bild zu groß (max. 5 MB)");
+  return `data:${typ};base64,${fs.readFileSync(p).toString("base64")}`;
+});
 // Pfade kommen aus vorlade.cjs (webUtils.getPathForFile auf echten, ins Fenster gezogenen Dateien).
 handle("dateien:info", (_e, pfade) => (Array.isArray(pfade) ? pfade : []).filter((p) => typeof p === "string" && path.isAbsolute(p)).map(dateiInfo).filter(Boolean));
 
@@ -221,7 +280,7 @@ function pruefeAuftrag(auftrag) {
   const adressen = new Map((mandanten || []).map((m) => [m.nummer, new Set((m.emails || []).map((x) => x.adresse))]));
   const gut = [], schlecht = [];
   for (const m of auftrag.mails) {
-    if (!m || !Number.isInteger(m.nummer) || !text(m.name, 500) || !text(m.betreff, 2000) || !text(m.text, 200000) ||
+    if (!m || !Number.isInteger(m.nummer) || !text(m.name, 500) || !text(m.betreff, 2000) || !text(m.text, 200000) || (m.html !== undefined && !text(m.html, 40 * 1024 * 1024)) ||
       !Array.isArray(m.an) || !m.an.every((a) => text(a, 320)) || !Array.isArray(m.anhaenge) || !m.anhaenge.every((p) => text(p, 4000))) throw new Error("Ungültiger Auftrag");
     const fremd = m.an.find((a) => !adressen.get(m.nummer)?.has(a));
     const anhang = m.anhaenge.find((p) => !freigegeben.has(p));

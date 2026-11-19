@@ -1,40 +1,43 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AtSignIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, PencilIcon, RotateCcwIcon, UploadIcon, UsersIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, PencilIcon, RotateCcwIcon, UploadIcon, UsersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { RichAnsicht, RichText, type RichTextGriff } from "@/components/RichText";
+import { Teiler, useGroesse } from "@/components/Teiler";
 import { Kopf, type Entwurf } from "@/App";
+import { MailAdressWahl, type SetzeStandard } from "@/ansichten/AdressWahl";
 import {
-  adressenFuer, braucheLuecken, fuellen, groesse, gueltigeMails, hatMailLuecken, kannMail, kh, nrAusName, offenePlatzhalter, PLATZHALTER, platzhalterWerte, ZIEL_TEXT,
-  type Datei, type Gruppe, type Mandant, type MailErgebnis, type Status, type Vorlage, type Ziel,
+  adressenFuer, braucheLuecken, fehlertext, fuellen, fuellenHtml, groesse, gueltigeMails, hatMailLuecken, htmlVon, htmlZuText, kannMail, kh, nrAusName, offenePlatzhalter,
+  PLATZHALTER, platzhalterWerte, ZIEL_TEXT, type Datei, type Fassung, type Gruppe, type Mandant, type MailErgebnis, type Status, type Vorlage, type Ziel,
 } from "@/lib/kh";
 import { cn } from "@/lib/utils";
 
 interface Props {
   mandanten: Mandant[]; auswahl: Set<number>; setAuswahl: (s: Set<number>) => void; vorlagen: Vorlage[]; status: Status | null; gruppen: Gruppe[];
+  setzeStandard: SetzeStandard;
   entwurf: Entwurf; setEntwurf: (f: (e: Entwurf) => Entwurf) => void; zuMandanten: () => void; nachVersand: () => Promise<void>;
 }
 
-export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, gruppen, entwurf, setEntwurf, zuMandanten, nachVersand }: Props) {
+export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, gruppen, setzeStandard, entwurf, setEntwurf, zuMandanten, nachVersand }: Props) {
   const [blick, setBlick] = useState(0);
   const [laeuft, setLaeuft] = useState(false);
   const [fehlschlaege, setFehlschlaege] = useState<MailErgebnis[]>([]);
-  const textRef = useRef<HTMLTextAreaElement>(null);
+  const textRef = useRef<RichTextGriff>(null);
   const betreffRef = useRef<HTMLInputElement>(null);
   const zuletzt = useRef<"betreff" | "text">("text");
   // Durchgehen: Mail eines Mandanten anpassen; wer schon angesehen wurde
   const [bearbeiten, setBearbeiten] = useState(false);
   const [gesehen, setGesehen] = useState<Set<number>>(new Set());
-  const eigenTextRef = useRef<HTMLTextAreaElement>(null);
+  const eigenTextRef = useRef<RichTextGriff>(null);
   const eigenBetreffRef = useRef<HTMLInputElement>(null);
   const eigenZuletzt = useRef<"betreff" | "text">("text");
 
+  const rechts = useGroesse("serienmail.rechts", 440, 340, () => Math.max(340, window.innerWidth - 640));
+  const listeHoehe = useGroesse("serienmail.empfaenger", 288, 96, () => Math.max(96, window.innerHeight - 220));
   const signatur = status?.einstellungen.signatur ?? "";
   const alsEml = !status || status.einstellungen.versand === "eml" || status.einstellungen.demo;
   const setze = (teil: Partial<Entwurf>) => setEntwurf((e) => ({ ...e, ...teil }));
@@ -55,8 +58,13 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
   const i = Math.min(blick, Math.max(gehen.length - 1, 0));
   const v = gehen[i]?.m, vAn = gehen[i]?.an ?? [];
   /** Was dieser Mandant bekommt: eigene Fassung, sonst die Vorlage mit seinen Werten. */
-  const fassung = (m: Mandant) => entwurf.anpassung[m.nummer] ?? { betreff: fuellen(entwurf.betreff, m, signatur), text: fuellen(entwurf.text, m, signatur) };
-  const setzeAnpassung = (nr: number, f: { betreff: string; text: string } | null) => setEntwurf((e) => {
+  const fassung = (m: Mandant): Fassung => {
+    const eigen = entwurf.anpassung[m.nummer];
+    if (eigen) return eigen;
+    const html = fuellenHtml(entwurf.html, m, signatur);
+    return { betreff: fuellen(entwurf.betreff, m, signatur), html, text: htmlZuText(html) };
+  };
+  const setzeAnpassung = (nr: number, f: Fassung | null) => setEntwurf((e) => {
     const anpassung = { ...e.anpassung };
     if (f) anpassung[nr] = f; else delete anpassung[nr];
     return { ...e, anpassung };
@@ -69,12 +77,10 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
   const wertEinfuegen = (p: string) => {
     if (!v) return;
     const f = fassung(v), ins = platzhalterWerte(v, signatur)[p] ?? "";
-    const imBetreff = eigenZuletzt.current === "betreff";
-    const ziel = imBetreff ? eigenBetreffRef.current : eigenTextRef.current;
-    const alt = imBetreff ? f.betreff : f.text;
-    const a = ziel?.selectionStart ?? alt.length, b = ziel?.selectionEnd ?? a;
-    const neu = alt.slice(0, a) + ins + alt.slice(b);
-    setzeAnpassung(v.nummer, imBetreff ? { ...f, betreff: neu } : { ...f, text: neu });
+    if (eigenZuletzt.current !== "betreff") { eigenTextRef.current?.einfuegen(ins); return; }
+    const ziel = eigenBetreffRef.current;
+    const a = ziel?.selectionStart ?? f.betreff.length, b = ziel?.selectionEnd ?? a;
+    setzeAnpassung(v.nummer, { ...f, betreff: f.betreff.slice(0, a) + ins + f.betreff.slice(b) });
     requestAnimationFrame(() => { if (ziel) { ziel.focus(); ziel.selectionStart = ziel.selectionEnd = a + ins.length; } });
   };
   const setzeWahl = (nr: number, adressen: string[] | null) => setEntwurf((e) => {
@@ -85,15 +91,16 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
 
   const waehleVorlage = (id: string) => {
     const t = vorlagen.find((x) => x.id === id);
-    if (t) setze({ vorlageId: t.id, betreff: t.betreff, text: t.text });
+    if (t) setze({ vorlageId: t.id, betreff: t.betreff, text: t.text, html: htmlVon(t) });
   };
 
   const einfuegen = (p: string) => {
-    const ziel = zuletzt.current === "betreff" ? betreffRef.current : textRef.current;
+    if (zuletzt.current !== "betreff") { textRef.current?.einfuegen(`{{${p}}}`); return; }
+    const ziel = betreffRef.current;
     if (!ziel) return;
     const ins = `{{${p}}}`, a = ziel.selectionStart ?? ziel.value.length, b = ziel.selectionEnd ?? a;
     const neu = ziel.value.slice(0, a) + ins + ziel.value.slice(b);
-    setze(zuletzt.current === "betreff" ? { betreff: neu } : { text: neu });
+    setze({ betreff: neu });
     requestAnimationFrame(() => { ziel.focus(); ziel.selectionStart = ziel.selectionEnd = a + ins.length; });
   };
 
@@ -131,7 +138,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       if (!fehl.length) { setAuswahl(new Set()); setGesehen(new Set()); setEntwurf((e) => ({ ...e, alle: [], pro: [], wahl: {}, anpassung: {} })); }
       await nachVersand();
     } catch (f) {
-      toast.error("Mails nicht erstellt", { description: String(f) });
+      toast.error("Mails nicht erstellt", { description: fehlertext(f) });
     } finally {
       setLaeuft(false);
     }
@@ -156,10 +163,10 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       <Kopf titel="Serienmail"
         unter={<span className="zahl">{gehen.length} von {empfaenger.length} Empfängern{uebersprungen ? ` · ${uebersprungen} übersprungen` : ""}{alsEml ? " · Ausgabe als .eml-Dateien" : ""}</span>}>{gruppenMenue}</Kopf>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(380px,460px)]">
+      <div className="grid min-h-0 flex-1" style={{ gridTemplateColumns: `minmax(0,1fr) auto ${rechts.wert}px` }}>
         {/* Links: Nachricht und Anhänge */}
-        <section className="min-h-0 overflow-auto border-r px-8 py-6">
-          <div className="grid max-w-3xl gap-5">
+        <section className="min-h-0 overflow-auto px-8 py-6">
+          <div className="grid max-w-4xl gap-5">
             <div className="grid gap-1.5">
               <Label htmlFor="vorlage">Vorlage</Label>
               <Select value={entwurf.vorlageId ?? undefined} onValueChange={waehleVorlage}>
@@ -176,8 +183,8 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
                 <Label htmlFor="text">Text</Label>
                 <span className="text-xs text-muted-foreground">Änderungen gelten nur für diesen Versand</span>
               </div>
-              <Textarea id="text" ref={textRef} value={entwurf.text} rows={15} onFocus={() => (zuletzt.current = "text")}
-                onChange={(e) => setze({ text: e.target.value })} className="min-h-72 text-base leading-relaxed" />
+              <RichText id="text" label="Text der Mail" ref={textRef} html={entwurf.html} hoehe="22rem" onFokus={() => (zuletzt.current = "text")}
+                aendern={(html, text) => setze({ html, text })} />
               <Platzhalter einfuegen={einfuegen} beispiel={v ? (p) => platzhalterWerte(v, signatur)[p] : undefined} />
               {angepasst > 0 && <p className="text-xs text-warn">{angepasst} {angepasst === 1 ? "Mandant hat" : "Mandanten haben"} eine eigene Fassung – Änderungen hier gelten für {angepasst === 1 ? "ihn" : "sie"} nicht mehr.</p>}
             </div>
@@ -209,6 +216,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
           </div>
         </section>
 
+        <Teiler richtung="x" groesse={rechts} umgekehrt label="Breite von Empfänger und Vorschau" />
         {/* Rechts: Empfänger und Vorschau */}
         <aside className="flex min-h-0 flex-col overflow-auto bg-surface px-6 py-6">
           <div className="mb-2 flex items-center gap-2">
@@ -218,34 +226,35 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
               <SelectContent align="end">{(Object.keys(ZIEL_TEXT) as Ziel[]).map((z) => <SelectItem key={z} value={z} data-ziel={z}>{ZIEL_TEXT[z]}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <ul className="max-h-72 flex-none divide-y overflow-auto rounded-lg border bg-background" data-empfaenger>
+          <ul className="flex-none divide-y overflow-auto rounded-lg border bg-background" style={{ maxHeight: listeHoehe.wert }} data-empfaenger>
             {empfaenger.map(({ m, an, grund }) => (
               <li key={m.nummer} className={cn("flex items-center gap-3 px-3 py-2", grund && "text-muted-foreground")} data-grund={grund} data-nummer={m.nummer}>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{m.name}</div>
                   <div className="truncate text-xs text-muted-foreground" data-an={an.join(";")}>
-                    <span className="kennung">{m.nummer}</span> · {an.length ? an.join(", ") : "keine Adresse"}{entwurf.wahl[m.nummer] ? " · eigene Wahl" : ""}
+                    <span className="kennung">{m.nummer}</span> · {an.length ? an.join(", ") : "keine Adresse"}{entwurf.wahl[m.nummer] ? " · nur diese Mail" : entwurf.ziel === "standard" && m.festeAdressen ? " · festgelegter Standard" : ""}
                   </div>
                 </div>
                 {grund && <span className="shrink-0 rounded-[4px] bg-warn-soft px-1.5 py-px text-xs font-medium text-warn">{grund}</span>}
                 {!grund && entwurf.anpassung[m.nummer] && <span className="shrink-0 rounded-[4px] bg-brand-soft px-1.5 py-px text-xs font-medium text-brand" data-angepasst>angepasst</span>}
                 {!grund && !entwurf.anpassung[m.nummer] && gesehen.has(m.nummer) && <CheckIcon className="size-3.5 shrink-0 text-ok" aria-label="durchgesehen" />}
-                {gueltigeMails(m).length > 1 && <AdressWahl m={m} an={an} eigeneWahl={!!entwurf.wahl[m.nummer]} setze={(a) => setzeWahl(m.nummer, a)} />}
+                {gueltigeMails(m).length > 1 && <MailAdressWahl m={m} an={an} eigeneWahl={!!entwurf.wahl[m.nummer]} setze={(a) => setzeWahl(m.nummer, a)} setzeStandard={setzeStandard} />}
                 <Button variant="ghost" size="icon-sm" aria-label={`${m.name} entfernen`}
                   onClick={() => { const s = new Set(auswahl); s.delete(m.nummer); setAuswahl(s); }}><XIcon /></Button>
               </li>
             ))}
           </ul>
+          {empfaenger.length > 3 && <Teiler richtung="y" groesse={listeHoehe} label="Höhe der Empfängerliste" className="mt-0.5" />}
 
-          <div className="mt-6 mb-2 flex items-center gap-2">
-            <h2 className="flex-1 text-xs font-semibold text-muted-foreground">Durchgehen{v ? <span className="zahl"> · {i + 1} von {gehen.length}</span> : null}</h2>
+          <div className="mt-5 mb-2 flex flex-wrap items-center gap-2">
+            <h2 className="flex-1 whitespace-nowrap text-xs font-semibold text-muted-foreground">Durchgehen{v ? <span className="zahl"> · {i + 1} von {gehen.length}</span> : null}</h2>
             {v && !bearbeiten && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setBearbeiten(true)} data-knopf="anpassen"><PencilIcon />Für diesen Mandanten anpassen</Button>}
             <Button variant="outline" size="icon-sm" aria-label="Vorheriger Empfänger" disabled={i <= 0} onClick={() => setBlick(i - 1)}><ChevronLeftIcon /></Button>
             <Button variant="outline" size="icon-sm" aria-label="Nächster Empfänger" disabled={i >= gehen.length - 1} onClick={() => setBlick(i + 1)}><ChevronRightIcon /></Button>
           </div>
           <div className="flex-none rounded-lg border bg-background" data-vorschau>
             {v ? (() => {
-              const { betreff, text } = fassung(v), anh = anhaengeFuer(v), eigen = !!entwurf.anpassung[v.nummer];
+              const { betreff, text, html } = fassung(v), anh = anhaengeFuer(v), eigen = !!entwurf.anpassung[v.nummer];
               return (
                 <>
                   <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1 border-b px-4 py-3 text-sm">
@@ -258,10 +267,10 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
                     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 px-4 py-3" data-anpassen>
                       <Label htmlFor="eigen-betreff" className="text-xs">Betreff nur für {v.name}</Label>
                       <Input id="eigen-betreff" ref={eigenBetreffRef} value={betreff} onFocus={() => (eigenZuletzt.current = "betreff")}
-                        onChange={(e) => setzeAnpassung(v.nummer, { betreff: e.target.value, text })} />
+                        onChange={(e) => setzeAnpassung(v.nummer, { betreff: e.target.value, text, html })} />
                       <Label htmlFor="eigen-text" className="mt-1 text-xs">Text nur für {v.name}</Label>
-                      <Textarea id="eigen-text" ref={eigenTextRef} value={text} rows={12} onFocus={() => (eigenZuletzt.current = "text")}
-                        onChange={(e) => setzeAnpassung(v.nummer, { betreff, text: e.target.value })} className="text-sm leading-relaxed" />
+                      <RichText key={v.nummer} id="eigen-text" label={`Text nur für ${v.name}`} ref={eigenTextRef} html={html} hoehe="18rem"
+                        onFokus={() => (eigenZuletzt.current = "text")} aendern={(h, t) => setzeAnpassung(v.nummer, { betreff, html: h, text: t })} />
                       <Platzhalter einfuegen={wertEinfuegen} beispiel={(p) => platzhalterWerte(v, signatur)[p]} titel="Wert einfügen:" />
                       <div className="flex flex-wrap gap-2 pt-1">
                         <Button size="sm" onClick={() => setBearbeiten(false)} data-knopf="anpassen-fertig"><CheckIcon />Fertig</Button>
@@ -271,7 +280,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
                     </div>
                   ) : (
                     <>
-                      <div className="lesetext px-4 py-4" lang="de">{text}</div>
+                      <RichAnsicht html={html} className="rounded-b-lg px-4 py-4" />
                       {eigen && (
                         <div className="flex items-center gap-2 border-t px-4 py-2 text-xs">
                           <span className="font-medium text-brand">Eigene Fassung für diesen Mandanten</span>
@@ -299,38 +308,6 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       </footer>
 
     </div>
-  );
-}
-
-/** Pro Mandant ankreuzen, welche seiner Adressen die Mail bekommen. */
-function AdressWahl({ m, an, eigeneWahl, setze }: { m: Mandant; an: string[]; eigeneWahl: boolean; setze: (a: string[] | null) => void }) {
-  const liste = gueltigeMails(m);
-  const um = (adresse: string, an_: boolean) => setze(liste.map((e) => e.adresse).filter((x) => (x === adresse ? an_ : an.includes(x))));
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={`Adressen für ${m.name} wählen`} data-knopf="adressen"><AtSignIcon /></Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-0">
-        <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">An wen geht die Mail an {m.name}?</div>
-        <ul className="max-h-72 overflow-auto py-1">
-          {liste.map((e) => (
-            <li key={e.adresse}>
-              <label className="flex cursor-pointer items-start gap-2.5 px-3 py-1.5 hover:bg-accent" data-adresse={e.adresse}>
-                <Checkbox className="mt-0.5" checked={an.includes(e.adresse)} onCheckedChange={(x) => um(e.adresse, !!x)} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm">{e.adresse}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {e.rolle}{e.eigen ? "" : ` · ${e.wer}`}{e.notiz ? ` · ${e.notiz}` : ""}{e.standard && e.eigen ? " · Standard" : ""}
-                  </span>
-                </span>
-              </label>
-            </li>
-          ))}
-        </ul>
-        {eigeneWahl && <div className="border-t p-2"><Button variant="ghost" size="sm" onClick={() => setze(null)}>Wie oben eingestellt</Button></div>}
-      </PopoverContent>
-    </Popover>
   );
 }
 

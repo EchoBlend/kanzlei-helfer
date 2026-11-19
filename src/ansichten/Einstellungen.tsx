@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Kopf } from "@/App";
-import { FELD, FELD_ERKLAERUNG, FELDER, kh, type Einstellungen as E, type Status } from "@/lib/kh";
+import { FELD, FELD_ERKLAERUNG, FELDER, fehlertext, kh, type Einstellungen as E, type Status } from "@/lib/kh";
 
 export function Einstellungen({ status, gespeichert, pruefen }: { status: Status | null; gespeichert: () => Promise<void>; pruefen: () => Promise<void> }) {
   const [e, setE] = useState<E | null>(status?.einstellungen ?? null);
@@ -23,7 +23,7 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
       setE(await kh().speichereEinstellungen(e));
       await gespeichert();
       toast.success("Einstellungen gespeichert");
-    } catch (f) { toast.error("Nicht gespeichert", { description: String(f) }); }
+    } catch (f) { toast.error("Nicht gespeichert", { description: fehlertext(f) }); }
     finally { setLaeuft(false); }
   };
 
@@ -39,7 +39,7 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
             <div className="grid gap-1.5">
               <Label htmlFor="e-url">Adresse von DATEVconnect (Stammdaten)</Label>
               <Input id="e-url" className="kennung" value={e.datevconnect} onChange={(x) => setE({ ...e, datevconnect: x.target.value })} disabled={e.demo} />
-              <p className="text-xs text-muted-foreground">Standard in dieser Kanzlei: <span className="kennung">http://LIZENZSERVER:58454/datev/api/master-data/v1</span>. Erlaubt ist nur http://SERVER:PORT/datev/api/master-data/v1 mit einem Server im eigenen Netz (z. B. localhost, LIZENZSERVER, 192.168.…).</p>
+              <p className="text-xs text-muted-foreground">Standard in dieser Kanzlei: <span className="kennung">https://LIZENZSERVER:58452/datev/api/master-data/v1</span>. Auch der Link aus dem Browser (…/clients?…) geht – die App fragt denselben Server ab. Anmeldung mit dem Windows-Konto wie im Browser, nur bei diesem Server; nur Server im eigenen Netz.</p>
             </div>
             <div className="flex items-center gap-3 rounded-lg border px-4 py-3 text-sm" data-verbindungstest>
               {status.einstellungen.demo ? <span className="text-muted-foreground">Demodaten aktiv, DATEV wird nicht abgefragt.</span>
