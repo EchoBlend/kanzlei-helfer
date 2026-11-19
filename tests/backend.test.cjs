@@ -206,3 +206,18 @@ test("Netz: nur DATEVconnect im eigenen Netz, Adresse wie eingetragen", async ()
   const fremdesZertifikat = sichererAbruf(async () => { throw new TypeError("net::ERR_CERT_AUTHORITY_INVALID"); }, () => "https://lizenzserver:58452", { nachschlagen: async () => [{ address: "10.0.0.2" }] });
   await assert.rejects(fremdesZertifikat("https://lizenzserver:58452/datev/api/master-data/v1/clients"), /vertraut dem Zertifikat/);
 });
+
+test("Standard-Adressen pro Mandant: speichern, aufheben, kaputte Datei", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kh-"));
+  const ab = oeffneAblage(dir);
+  assert.deepEqual(ab.standardAdressen(), {});
+  assert.deepEqual(ab.setzeStandardAdressen(10004, ["a@x.de", " a@x.de ", "b@x.de", "", 7]), { 10004: ["a@x.de", "b@x.de"] });
+  assert.deepEqual(ab.setzeStandardAdressen(10001, ["c@x.de"]), { 10004: ["a@x.de", "b@x.de"], 10001: ["c@x.de"] });
+  assert.deepEqual(ab.setzeStandardAdressen(10004, null), { 10001: ["c@x.de"] });
+  assert.deepEqual(ab.setzeStandardAdressen(10001, []), {});
+  assert.throws(() => ab.setzeStandardAdressen("10001", ["c@x.de"]), /Mandantennummer/);
+  fs.writeFileSync(path.join(dir, "standard-adressen.json"), '{"abc": ["x@y.de"], "10002": "kein Array", "10003": ["ok@y.de"]');
+  assert.deepEqual(ab.standardAdressen(), {}, "kaputtes JSON → leer");
+  fs.writeFileSync(path.join(dir, "standard-adressen.json"), '{"abc": ["x@y.de"], "10002": "kein Array", "10003": ["ok@y.de"]}');
+  assert.deepEqual(ab.standardAdressen(), { 10003: ["ok@y.de"] });
+});

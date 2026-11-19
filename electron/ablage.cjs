@@ -1,7 +1,8 @@
 /**
  * Alles, was der Kanzlei-Helfer auf die Platte schreibt, liegt in einem Ordner
  * (%APPDATA%\Kanzlei-Helfer): Einstellungen, Vorlagen, Gruppen (nur Mandantennummern), Ansicht,
- * Protokoll (Zeit, Mandantennr., Name, Empfänger, Betreff, Anhangnamen) und .eml-Ausgang.
+ * Protokoll (Zeit, Mandantennr., Name, Empfänger, Betreff, Anhangnamen), festgelegte Standard-Adressen
+ * (Mandantennr. → E-Mail-Adressen) und .eml-Ausgang.
  * Die DATEV-Stammdaten selbst leben nur im Arbeitsspeicher. Deinstallieren löscht den Ordner.
  */
 const fs = require("node:fs");
@@ -72,6 +73,18 @@ const saubereGruppen = (liste) => liste.filter(istObjekt).slice(0, 500).map((g) 
   id: text(g.id, 100), name: text(g.name, 80).trim() || "Gruppe",
   mitglieder: [...new Set((Array.isArray(g.mitglieder) ? g.mitglieder : []).map(Number).filter(Number.isInteger))],
 }));
+/** Festgelegte Standard-Adressen: { Mandantennummer: [Adresse, …] } – nur in der App, DATEV bleibt unverändert. */
+function saubereStandardAdressen(roh) {
+  const r = {};
+  if (!istObjekt(roh)) return r;
+  for (const [k, v] of Object.entries(roh).slice(0, 50000)) {
+    const nr = Number(k);
+    if (!Number.isInteger(nr) || !Array.isArray(v)) continue;
+    const liste = [...new Set(v.filter((a) => typeof a === "string" && a.trim() && a.length <= 320).map((a) => a.trim()))].slice(0, 50);
+    if (liste.length) r[nr] = liste;
+  }
+  return r;
+}
 function saubereAnsicht(a) {
   if (!istObjekt(a)) return {};
   const sauber = {};
@@ -135,6 +148,20 @@ function oeffneAblage(ordner) {
     speichereAnsicht(a) {
       const sauber = saubereAnsicht(a);
       schreibJson("ansicht.json", sauber);
+      return sauber;
+    },
+
+    /** Pro Mandant festgelegte Standard-Adressen für Mails (überstimmen die Standard-Adresse aus DATEV). */
+    standardAdressen() {
+      return saubereStandardAdressen(liesJson("standard-adressen.json", {}));
+    },
+    /** liste leer oder null → Festlegung aufheben (wieder DATEV-Standard). */
+    setzeStandardAdressen(nummer, liste) {
+      if (!Number.isInteger(nummer)) throw new Error("Mandantennummer fehlt");
+      const alle = this.standardAdressen();
+      if (Array.isArray(liste) && liste.length) alle[nummer] = liste; else delete alle[nummer];
+      const sauber = saubereStandardAdressen(alle);
+      schreibJson("standard-adressen.json", sauber);
       return sauber;
     },
 

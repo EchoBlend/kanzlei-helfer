@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useRef, useState } from "react";
 import {
   ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, CircleCheckIcon, CircleXIcon, Columns3Icon, DownloadIcon, FolderPlusIcon,
-  FunnelIcon, LayersIcon, MailIcon, OctagonXIcon, RefreshCwIcon, SearchIcon, TriangleAlertIcon, UserMinusIcon,
+  FunnelIcon, LayersIcon, MailIcon, OctagonXIcon, RefreshCwIcon, SearchIcon, StarIcon, TriangleAlertIcon, UserMinusIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Kopf } from "@/App";
+import { StandardWahl, type SetzeStandard } from "@/ansichten/AdressWahl";
 import { ampel, FELD, kannMail, kh, mailText, TYP, type Ampel, type Ansicht, type Gruppe, type Mandant, type Protokollzeile, type Status } from "@/lib/kh";
 import { alsText, AMPEL_TEXT, gruppenSchluessel, SPALTE, SPALTEN, STANDARD_SPALTEN, type Spalte, type Umgebung } from "@/lib/spalten";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ interface Props {
   gruppen: Gruppe[]; quelle: Quelle; ansicht: Ansicht; setAnsicht: (a: Ansicht) => void;
   neuScannen: () => void; anschreiben: () => void; zuEinstellungen: () => void;
   zuGruppe: (gruppeId: string | null, nummern: number[]) => void; ausGruppe: (gruppeId: string, nummern: number[]) => void;
+  setzeStandard: SetzeStandard;
 }
 
 export function Mandanten(p: Props) {
@@ -265,10 +267,10 @@ export function Mandanten(p: Props) {
                           </button>
                         </td>
                       </tr>
-                      {offen && liste.map((m) => <Zeile key={`${schluessel}-${m.nummer}`} m={m} sichtbar={sichtbar} u={u} auswahl={auswahl} umschalten={umschalten} links={links} fest={fest} kante={kante} />)}
+                      {offen && liste.map((m) => <Zeile key={`${schluessel}-${m.nummer}`} m={m} sichtbar={sichtbar} u={u} auswahl={auswahl} umschalten={umschalten} links={links} fest={fest} kante={kante} setzeStandard={p.setzeStandard} />)}
                     </Fragment>
                   );
-                }) : zeilen.map((m) => <Zeile key={m.nummer} m={m} sichtbar={sichtbar} u={u} auswahl={auswahl} umschalten={umschalten} links={links} fest={fest} kante={kante} />)}
+                }) : zeilen.map((m) => <Zeile key={m.nummer} m={m} sichtbar={sichtbar} u={u} auswahl={auswahl} umschalten={umschalten} links={links} fest={fest} kante={kante} setzeStandard={p.setzeStandard} />)}
               </tbody>
             </table>
           </div>
@@ -278,9 +280,9 @@ export function Mandanten(p: Props) {
   );
 }
 
-function Zeile({ m, sichtbar, u, auswahl, umschalten, links, fest, kante }: {
+function Zeile({ m, sichtbar, u, auswahl, umschalten, links, fest, kante, setzeStandard }: {
   m: Mandant; sichtbar: Spalte[]; u: Umgebung; auswahl: Set<number>; umschalten: (n: number[], an: boolean) => void;
-  links: (i: number) => number; fest: (i: number) => boolean; kante: (i: number) => string;
+  links: (i: number) => number; fest: (i: number) => boolean; kante: (i: number) => string; setzeStandard: SetzeStandard;
 }) {
   const gewaehlt = auswahl.has(m.nummer);
   const grund = gewaehlt ? "bg-brand-soft" : "bg-background group-hover:bg-surface";
@@ -292,14 +294,14 @@ function Zeile({ m, sichtbar, u, auswahl, umschalten, links, fest, kante }: {
       </td>
       {sichtbar.map((s, i) => (
         <td key={s.id} style={fest(i + 1) ? { left: links(i + 1) } : undefined} className={cn("border-b px-3 py-2 align-top", grund, fest(i + 1) && "sticky z-10", kante(i + 1))}>
-          <Zelle s={s} m={m} u={u} />
+          <Zelle s={s} m={m} u={u} setzeStandard={setzeStandard} />
         </td>
       ))}
     </tr>
   );
 }
 
-function Zelle({ s, m, u }: { s: Spalte; m: Mandant; u: Umgebung }) {
+function Zelle({ s, m, u, setzeStandard }: { s: Spalte; m: Mandant; u: Umgebung; setzeStandard: SetzeStandard }) {
   if (s.id === "stand") {
     const a = ampel(m), A = AMPEL[a];
     return <span className={cn("inline-flex items-center gap-1.5 font-medium", A.farbe)} data-ampel={a} title={m.abruffehler ?? undefined}><A.icon className="size-4" aria-hidden="true" />{AMPEL_TEXT[a]}</span>;
@@ -314,12 +316,17 @@ function Zelle({ s, m, u }: { s: Spalte; m: Mandant; u: Umgebung }) {
     return <Marken max={2} liste={m.aufgabenbereiche.map((a) => ({ text: a.bereich, art: "neutral" as const, title: a.mitarbeiter ? `Zuständig: ${a.mitarbeiter}` : "Kein zuständiger Mitarbeiter" }))} />;
   }
   const v = s.wert(m, u);
-  const weitere = (m.emails ?? []).filter((e) => e.adresse !== m.email);
-  if (s.id === "email" && weitere.length) {
+  if (s.id === "email") {
+    // Angezeigt wird der Standard für Mails: in der App festgelegt (Stern), sonst die Standard-Adresse aus DATEV
+    const fest = m.festeAdressen ?? [];
+    const gezeigt = fest.length ? fest : m.email ? [m.email] : [];
+    const weitere = (m.emails ?? []).filter((e) => !gezeigt.includes(e.adresse));
     return (
-      <span className="flex min-w-0 items-center gap-1.5" title={(m.emails ?? []).map((e) => `${e.adresse} – ${mailText(e)}`).join("\n")}>
-        <span className={cn("truncate", !v && "text-muted-foreground", m.fehlerhaft.includes("email") && "text-warn")}>{v ? String(v) : "keine eigene"}</span>
-        <span className="shrink-0 rounded-[4px] border px-1 text-xs text-muted-foreground zahl" data-weitere-mails={weitere.length}>+{weitere.length}</span>
+      <span className="flex min-w-0 items-center gap-1.5" title={(m.emails ?? []).map((e) => `${e.adresse} – ${mailText(e)}${e.festgelegt ? " · Standard (festgelegt)" : ""}`).join("\n")}>
+        <span className={cn("truncate", !gezeigt.length && "text-muted-foreground", !fest.length && m.fehlerhaft.includes("email") && "text-warn")}>{gezeigt.length ? gezeigt.join(", ") : "keine eigene"}</span>
+        {fest.length > 0 && <StarIcon className="size-3 shrink-0 fill-current text-brand" aria-label="Standard festgelegt" data-festgelegt />}
+        {weitere.length > 0 && <span className="shrink-0 rounded-[4px] border px-1 text-xs text-muted-foreground zahl" data-weitere-mails={weitere.length}>+{weitere.length}</span>}
+        <span className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100"><StandardWahl m={m} setzeStandard={setzeStandard} /></span>
       </span>
     );
   }

@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AtSignIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, PencilIcon, RotateCcwIcon, UploadIcon, UsersIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, PencilIcon, RotateCcwIcon, UploadIcon, UsersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Kopf, type Entwurf } from "@/App";
+import { MailAdressWahl, type SetzeStandard } from "@/ansichten/AdressWahl";
 import {
   adressenFuer, braucheLuecken, fehlertext, fuellen, groesse, gueltigeMails, hatMailLuecken, kannMail, kh, nrAusName, offenePlatzhalter, PLATZHALTER, platzhalterWerte, ZIEL_TEXT,
   type Datei, type Gruppe, type Mandant, type MailErgebnis, type Status, type Vorlage, type Ziel,
@@ -18,10 +17,11 @@ import { cn } from "@/lib/utils";
 
 interface Props {
   mandanten: Mandant[]; auswahl: Set<number>; setAuswahl: (s: Set<number>) => void; vorlagen: Vorlage[]; status: Status | null; gruppen: Gruppe[];
+  setzeStandard: SetzeStandard;
   entwurf: Entwurf; setEntwurf: (f: (e: Entwurf) => Entwurf) => void; zuMandanten: () => void; nachVersand: () => Promise<void>;
 }
 
-export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, gruppen, entwurf, setEntwurf, zuMandanten, nachVersand }: Props) {
+export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, gruppen, setzeStandard, entwurf, setEntwurf, zuMandanten, nachVersand }: Props) {
   const [blick, setBlick] = useState(0);
   const [laeuft, setLaeuft] = useState(false);
   const [fehlschlaege, setFehlschlaege] = useState<MailErgebnis[]>([]);
@@ -224,13 +224,13 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{m.name}</div>
                   <div className="truncate text-xs text-muted-foreground" data-an={an.join(";")}>
-                    <span className="kennung">{m.nummer}</span> · {an.length ? an.join(", ") : "keine Adresse"}{entwurf.wahl[m.nummer] ? " · eigene Wahl" : ""}
+                    <span className="kennung">{m.nummer}</span> · {an.length ? an.join(", ") : "keine Adresse"}{entwurf.wahl[m.nummer] ? " · nur diese Mail" : entwurf.ziel === "standard" && m.festeAdressen ? " · festgelegter Standard" : ""}
                   </div>
                 </div>
                 {grund && <span className="shrink-0 rounded-[4px] bg-warn-soft px-1.5 py-px text-xs font-medium text-warn">{grund}</span>}
                 {!grund && entwurf.anpassung[m.nummer] && <span className="shrink-0 rounded-[4px] bg-brand-soft px-1.5 py-px text-xs font-medium text-brand" data-angepasst>angepasst</span>}
                 {!grund && !entwurf.anpassung[m.nummer] && gesehen.has(m.nummer) && <CheckIcon className="size-3.5 shrink-0 text-ok" aria-label="durchgesehen" />}
-                {gueltigeMails(m).length > 1 && <AdressWahl m={m} an={an} eigeneWahl={!!entwurf.wahl[m.nummer]} setze={(a) => setzeWahl(m.nummer, a)} />}
+                {gueltigeMails(m).length > 1 && <MailAdressWahl m={m} an={an} eigeneWahl={!!entwurf.wahl[m.nummer]} setze={(a) => setzeWahl(m.nummer, a)} setzeStandard={setzeStandard} />}
                 <Button variant="ghost" size="icon-sm" aria-label={`${m.name} entfernen`}
                   onClick={() => { const s = new Set(auswahl); s.delete(m.nummer); setAuswahl(s); }}><XIcon /></Button>
               </li>
@@ -299,38 +299,6 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       </footer>
 
     </div>
-  );
-}
-
-/** Pro Mandant ankreuzen, welche seiner Adressen die Mail bekommen. */
-function AdressWahl({ m, an, eigeneWahl, setze }: { m: Mandant; an: string[]; eigeneWahl: boolean; setze: (a: string[] | null) => void }) {
-  const liste = gueltigeMails(m);
-  const um = (adresse: string, an_: boolean) => setze(liste.map((e) => e.adresse).filter((x) => (x === adresse ? an_ : an.includes(x))));
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={`Adressen für ${m.name} wählen`} data-knopf="adressen"><AtSignIcon /></Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-0">
-        <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">An wen geht die Mail an {m.name}?</div>
-        <ul className="max-h-72 overflow-auto py-1">
-          {liste.map((e) => (
-            <li key={e.adresse}>
-              <label className="flex cursor-pointer items-start gap-2.5 px-3 py-1.5 hover:bg-accent" data-adresse={e.adresse}>
-                <Checkbox className="mt-0.5" checked={an.includes(e.adresse)} onCheckedChange={(x) => um(e.adresse, !!x)} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm">{e.adresse}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {e.rolle}{e.eigen ? "" : ` · ${e.wer}`}{e.notiz ? ` · ${e.notiz}` : ""}{e.standard && e.eigen ? " · Standard" : ""}
-                  </span>
-                </span>
-              </label>
-            </li>
-          ))}
-        </ul>
-        {eigeneWahl && <div className="border-t p-2"><Button variant="ghost" size="sm" onClick={() => setze(null)}>Wie oben eingestellt</Button></div>}
-      </PopoverContent>
-    </Popover>
   );
 }
 

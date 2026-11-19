@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ampel, fehlertext, kannMail, kh, mitRegeln, type Ansicht as AnsichtT, type Datei, type Gruppe, type Mandant, type Protokollzeile, type Status, type Vorlage, type Ziel } from "@/lib/kh";
+import { ampel, fehlertext, kannMail, kh, mitRegeln, mitStandard, type StandardAdressen, type Ansicht as AnsichtT, type Datei, type Gruppe, type Mandant, type Protokollzeile, type Status, type Vorlage, type Ziel } from "@/lib/kh";
 import { Mandanten, type Quelle } from "@/ansichten/Mandanten";
 import { Serienmail } from "@/ansichten/Serienmail";
 import { Vorlagen } from "@/ansichten/Vorlagen";
@@ -47,6 +47,7 @@ export default function App() {
   const [gruppen, setGruppen] = useState<Gruppe[]>([]);
   const [tabelle, setTabelle] = useState<AnsichtT>({});
   const [protokoll, setProtokoll] = useState<Protokollzeile[]>([]);
+  const [standard, setStandard] = useState<StandardAdressen>({});
   const [entwurf, setEntwurf] = useState<Entwurf>({ vorlageId: null, betreff: "", text: "", alle: [], pro: [], ziel: "standard", wahl: {}, anpassung: {} });
   const [gruppenDialog, setGruppenDialog] = useState<{ id?: string; name: string; mitglieder: number[] } | null>(null);
   const [loeschen, setLoeschen] = useState<Gruppe | null>(null);
@@ -76,6 +77,7 @@ export default function App() {
     const ab = kh().aufScan((fertig, gesamt) => setScan({ fertig, gesamt }));
     ladeStatus(); ladeProtokoll(); scanne();
     kh().gruppen().then(setGruppen);
+    kh().standardAdressen().then(setStandard);
     kh().ansicht().then(setTabelle);
     kh().vorlagen().then((v) => {
       setVorlagen(v);
@@ -84,8 +86,15 @@ export default function App() {
     return ab;
   }, [ladeStatus, ladeProtokoll, scanne]);
 
-  // Abgeschaltete Prüfregeln wirken überall: Ampel, Filter, {{FehlendeAngaben}}
-  const mandanten = useMemo(() => roh.map((m) => mitRegeln(m, status?.einstellungen.regeln)), [roh, status?.einstellungen.regeln]);
+  // Abgeschaltete Prüfregeln wirken überall: Ampel, Filter, {{FehlendeAngaben}}; festgelegte Standard-Adressen ebenso
+  const mandanten = useMemo(() => roh.map((m) => mitStandard(mitRegeln(m, status?.einstellungen.regeln), standard)), [roh, status?.einstellungen.regeln, standard]);
+  const setzeStandard = async (nummer: number, liste: string[] | null) => {
+    try {
+      setStandard(await kh().setzeStandardAdressen(nummer, liste));
+      toast.success(liste?.length ? "Standard-Adressen gespeichert" : "Wieder DATEV-Standard");
+      return true;
+    } catch (f) { toast.error("Nicht gespeichert", { description: fehlertext(f) }); return false; }
+  };
 
   const setzeTabelle = (a: AnsichtT) => {
     setTabelle(a);
@@ -242,10 +251,10 @@ export default function App() {
             <Mandanten mandanten={mandanten} stand={stand} laedt={laedt} scan={scan} fehler={ladefehler} status={status} protokoll={protokoll}
               auswahl={auswahl} setAuswahl={setAuswahl} gruppen={gruppen} quelle={quelle} ansicht={tabelle} setAnsicht={setzeTabelle}
               neuScannen={() => scanne(true)} anschreiben={() => setAnsicht("serienmail")} zuEinstellungen={() => setAnsicht("einstellungen")}
-              zuGruppe={zuGruppe} ausGruppe={ausGruppe} />
+              zuGruppe={zuGruppe} ausGruppe={ausGruppe} setzeStandard={setzeStandard} />
           )}
           {ansicht === "serienmail" && (
-            <Serienmail mandanten={mandanten} auswahl={auswahl} setAuswahl={setAuswahl} vorlagen={vorlagen} status={status} gruppen={gruppen}
+            <Serienmail mandanten={mandanten} auswahl={auswahl} setAuswahl={setAuswahl} vorlagen={vorlagen} status={status} gruppen={gruppen} setzeStandard={setzeStandard}
               entwurf={entwurf} setEntwurf={setEntwurf} zuMandanten={() => zeige({ art: "alle" })} nachVersand={ladeProtokoll} />
           )}
           {ansicht === "vorlagen" && <Vorlagen vorlagen={vorlagen} speichern={speichereVorlagen} />}

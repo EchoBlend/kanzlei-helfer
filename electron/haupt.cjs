@@ -233,6 +233,16 @@ handle("einstellungen:speichern", (_e, neu) => {
   return einstellungen;
 });
 
+// Standard-Adressen pro Mandant: nur Adressen, die DATEV beim Mandanten hat (letzter Scan)
+handle("standardAdressen", () => ablage.standardAdressen());
+handle("standardAdressen:setzen", (_e, nummer, liste) => {
+  const m = (mandanten || []).find((x) => x.nummer === nummer);
+  if (mandanten && !m) throw new Error(`Mandant ${nummer} nicht im letzten Scan`);
+  const erlaubt = m ? new Set((m.emails || []).map((e) => e.adresse)) : null;
+  const sauber = (Array.isArray(liste) ? liste : []).filter((a) => typeof a === "string" && (!erlaubt || erlaubt.has(a)));
+  return ablage.setzeStandardAdressen(nummer, sauber.length ? sauber : null);
+});
+
 handle("vorlagen", () => ablage.vorlagen());
 handle("vorlagen:speichern", (_e, liste) => ablage.speichereVorlagen(liste));
 handle("protokoll", () => ablage.protokoll());

@@ -24,7 +24,8 @@ export const SPALTEN: Spalte[] = [
   { id: "seit", titel: "Mandant seit", bereich: "Allgemein", breite: 110, gruppierbar: true, wert: (m) => datum(m.seit), gruppenWert: (m) => [jahr(m.seit)] },
   { id: "notiz", titel: "Notiz", bereich: "Allgemein", breite: 200, wert: (m) => m.notiz },
 
-  { id: "email", titel: "E-Mail", bereich: "Kontakt", breite: 230, wert: (m) => m.email },
+  // Standard für Mails: in der App festgelegte Adressen, sonst die Standard-Adresse aus DATEV
+  { id: "email", titel: "E-Mail", bereich: "Kontakt", breite: 260, wert: (m) => (m.festeAdressen?.length ? m.festeAdressen.join(", ") : m.email) },
   { id: "emails", titel: "Alle E-Mails", bereich: "Kontakt", breite: 320,
     wert: (m) => (m.emails ?? []).map((e) => `${e.adresse} (${mailText(e)})`),
     gruppierbar: true, gruppenWert: (m) => [...new Set((m.emails ?? []).map((e) => e.rolle))] },

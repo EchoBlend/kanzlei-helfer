@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld("kh", {
   ansicht: rufe("ansicht"),
   speichereAnsicht: rufe("ansicht:speichern"),
   protokoll: rufe("protokoll"),
+  standardAdressen: rufe("standardAdressen"),
+  setzeStandardAdressen: rufe("standardAdressen:setzen"),
   waehleDateien: rufe("dateien:waehlen"),
   // Pfade nur aus echten Datei-Objekten (Drag & Drop); beliebige Pfad-Texte nimmt die Brücke nicht an.
   dateiInfoVon: (dateien) => ipcRenderer.invoke("dateien:info", [...dateien].map((f) => webUtils.getPathForFile(f)).filter(Boolean)),
