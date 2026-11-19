@@ -108,7 +108,29 @@ export function Mandanten(p: Props) {
   const unter = p.laedt ? (p.scan?.gesamt ? `Scanne ${p.scan.fertig} von ${p.scan.gesamt} …` : "Scanne DATEV …")
     : p.fehler ? "Keine Verbindung"
     : `${ausQuelle.length} Mandanten${stand ? ` · gescannt ${stand} Uhr` : ""}${status?.einstellungen.demo ? " · Demodaten" : ""}`;
-  const breiten = [44, ...sichtbar.map((s) => s.breite)];
+  // Spaltenbreiten: gezogen (gespeichert in der Ansicht), sonst Standard; während des Ziehens nur lokal
+  const [ziehen, setZiehen] = useState<{ id: string; breite: number } | null>(null);
+  const breiteVon = (s: Spalte) => (ziehen?.id === s.id ? ziehen.breite : ansicht.breiten?.[s.id] ?? s.breite);
+  const breiten = [44, ...sichtbar.map(breiteVon)];
+  const setzeBreite = (id: string, b: number | null) => {
+    const neu = { ...ansicht.breiten };
+    if (b === null) delete neu[id]; else neu[id] = Math.round(Math.min(2000, Math.max(48, b)));
+    setze({ breiten: neu });
+  };
+  const zieheBreite = (s: Spalte, e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    const start = e.clientX, alt = breiteVon(s);
+    let jetzt = alt;
+    const bewege = (ev: MouseEvent) => { jetzt = Math.min(2000, Math.max(48, alt + ev.clientX - start)); setZiehen({ id: s.id, breite: jetzt }); };
+    const los = () => {
+      window.removeEventListener("mousemove", bewege); window.removeEventListener("mouseup", los);
+      document.body.style.removeProperty("cursor"); document.body.style.removeProperty("user-select");
+      setZiehen(null);
+      if (jetzt !== alt) setzeBreite(s.id, jetzt);
+    };
+    document.body.style.cursor = "col-resize"; document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", bewege); window.addEventListener("mouseup", los);
+  };
   const links = (i: number) => breiten.slice(0, i).reduce((a, b) => a + b, 0); // feste erste Spalten wie in DATEV
   const fest = (i: number) => i < 3;
   const kante = (i: number) => (i === 2 ? "shadow-[inset_-1px_0_0_var(--line)]" : "");
@@ -202,12 +224,19 @@ export function Mandanten(p: Props) {
                     <ContextMenu key={s.id}>
                       <ContextMenuTrigger asChild>
                         <th data-spalte={s.id} style={fest(i + 1) ? { left: links(i + 1) } : undefined}
-                          className={cn("h-9 border-b bg-surface/85 px-3 text-left text-xs font-semibold text-muted-foreground backdrop-blur-xl", fest(i + 1) && "sticky z-30", kante(i + 1))}>
+                          className={cn("group/kopf h-9 border-b bg-surface/85 px-3 text-left text-xs font-semibold text-muted-foreground backdrop-blur-xl", fest(i + 1) ? "sticky z-30" : "relative", kante(i + 1))}>
                           <button type="button" className="flex w-full items-center gap-1 truncate hover:text-foreground"
                             onClick={() => setze({ sort: { id: s.id, ab: sort.id === s.id ? !sort.ab : false } })}>
                             <span className="truncate">{s.titel}</span>
                             {sort.id === s.id && (sort.ab ? <ArrowDownIcon className="size-3.5 shrink-0" /> : <ArrowUpIcon className="size-3.5 shrink-0" />)}
                           </button>
+                          {/* Breite ziehen (Doppelklick: Standard), wie in Excel/DATEV; Pfeiltasten in 10er-Schritten */}
+                          <span role="separator" aria-orientation="vertical" aria-label={`Breite von „${s.titel}“ ändern`} tabIndex={0} data-spaltengriff={s.id}
+                            aria-valuenow={breiteVon(s)} aria-valuemin={48} aria-valuemax={2000}
+                            className={cn("absolute -right-1 top-0 z-10 flex h-full w-2.5 cursor-col-resize justify-center outline-none",
+                              "after:h-full after:w-0.5 after:bg-transparent hover:after:bg-brand focus-visible:after:bg-brand", ziehen?.id === s.id && "after:bg-brand")}
+                            onMouseDown={(e) => zieheBreite(s, e)} onClick={(e) => e.stopPropagation()} onDoubleClick={() => setzeBreite(s.id, null)}
+                            onKeyDown={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); setzeBreite(s.id, breiteVon(s) + (e.key === "ArrowLeft" ? -10 : 10)); } }} />
                         </th>
                       </ContextMenuTrigger>
                       <ContextMenuContent>
@@ -217,6 +246,7 @@ export function Mandanten(p: Props) {
                           {gruppe?.id === s.id
                             ? <ContextMenuItem onSelect={() => setze({ gruppe: null })}>Gruppierung aufheben</ContextMenuItem>
                             : <ContextMenuItem onSelect={() => { setZu(new Set()); setze({ gruppe: s.id }); }}>Nach „{s.titel}“ gruppieren</ContextMenuItem>}</>}
+                        {ansicht.breiten?.[s.id] !== undefined && <ContextMenuItem onSelect={() => setzeBreite(s.id, null)}>Spaltenbreite zurücksetzen</ContextMenuItem>}
                         {s.id !== "name" && <><ContextMenuSeparator />
                           <ContextMenuItem onSelect={() => setze({ spalten: sichtbar.map((x) => x.id).filter((x) => x !== s.id) })}>Spalte ausblenden</ContextMenuItem></>}
                       </ContextMenuContent>
@@ -373,9 +403,9 @@ function SpaltenWahl({ sichtbar, setze }: { sichtbar: string[]; setze: (s: strin
   return (
     <Popover>
       <PopoverTrigger asChild><Button variant="ghost" size="sm" data-knopf="spalten"><Columns3Icon />Spalten</Button></PopoverTrigger>
-      <PopoverContent align="start" className="w-80 p-0">
+      <PopoverContent align="start" className="w-80 min-w-64 max-w-[90vw] resize-x overflow-auto p-0">
         <div className="border-b p-2"><Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Feld suchen" className="h-8" aria-label="Feld suchen" /></div>
-        <div className="max-h-96 overflow-auto p-2">
+        <div className="max-h-[min(36rem,70vh)] overflow-auto p-2">
           {bereiche.map((b) => {
             const liste = SPALTEN.filter((s) => s.bereich === b && s.titel.toLowerCase().includes(q.toLowerCase()));
             if (!liste.length) return null;

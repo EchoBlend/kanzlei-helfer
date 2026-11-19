@@ -68,7 +68,9 @@ function saubereEinstellungen(roh) {
   return e;
 }
 const saubereVorlagen = (liste) => liste.filter(istObjekt).slice(0, 500)
-  .map((v) => ({ id: text(v.id, 100), name: text(v.name, 200), betreff: text(v.betreff, 1000), text: text(v.text, 100000) }));
+  .map((v) => ({ id: text(v.id, 100), name: text(v.name, 200), betreff: text(v.betreff, 1000), text: text(v.text, 100000),
+    // formatierte Fassung (Farben, eingebettete Bilder als data:) – nur wenn vorhanden
+    ...(typeof v.html === "string" && v.html ? { html: v.html.slice(0, 20 * 1024 * 1024) } : {}) }));
 const saubereGruppen = (liste) => liste.filter(istObjekt).slice(0, 500).map((g) => ({
   id: text(g.id, 100), name: text(g.name, 80).trim() || "Gruppe",
   mitglieder: [...new Set((Array.isArray(g.mitglieder) ? g.mitglieder : []).map(Number).filter(Number.isInteger))],
@@ -92,6 +94,11 @@ function saubereAnsicht(a) {
   if (typeof a.gruppe === "string" || a.gruppe === null) sauber.gruppe = a.gruppe === null ? null : a.gruppe.slice(0, 50);
   if (typeof a.filterzeile === "boolean") sauber.filterzeile = a.filterzeile;
   if (istObjekt(a.sort) && typeof a.sort.id === "string" && typeof a.sort.ab === "boolean") sauber.sort = { id: a.sort.id.slice(0, 50), ab: a.sort.ab };
+  // Spaltenbreiten (Pixel) je Spalte, vom Benutzer gezogen
+  if (istObjekt(a.breiten)) {
+    sauber.breiten = Object.fromEntries(Object.entries(a.breiten).filter(([k, v]) => k.length <= 50 && Number.isFinite(v))
+      .slice(0, 100).map(([k, v]) => [k, Math.round(Math.min(2000, Math.max(48, v)))]));
+  }
   return sauber;
 }
 

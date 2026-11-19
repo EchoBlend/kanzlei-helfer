@@ -171,7 +171,8 @@ try {
   await seite.click("[data-knopf=neue-vorlage]");
   await seite.fill("#v-name", "Test: Vollmacht anfordern");
   await seite.fill("#v-betreff", "Vollmacht für {{Name}}");
-  await seite.fill("#v-text", "{{Anrede}}\n\nbitte senden Sie uns die Vollmacht zurück.\n\n{{Grussformel}}\n{{Signatur}}");
+  await seite.click("#v-text"); // formatierter Editor: tippen statt fill (Eingabetaste = neuer Absatz)
+  await seite.keyboard.type("{{Anrede}}\n\nbitte senden Sie uns die Vollmacht zurück.\n\n{{Grussformel}}\n{{Signatur}}");
   await seite.click("[data-knopf=vorlage-speichern]");
   await seite.waitForSelector("[data-vorlage='Test: Vollmacht anfordern']");
   const vl = () => JSON.parse(fs.readFileSync(path.join(daten, "vorlagen.json"), "utf8"));

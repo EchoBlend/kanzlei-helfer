@@ -36,9 +36,12 @@ export interface Status {
   datev: boolean; meldung: string | null; einstellungen: Einstellungen; version: string; daten: string; ausgang: string;
   mica: boolean; auftragswesen: boolean | null; hinweise: string[];
 }
-export interface Vorlage { id: string; name: string; betreff: string; text: string }
+/** `text` = reiner Text (für Prüfungen und als Klartext-Teil der Mail); `html` = formatierte Fassung mit Farben und Bildern. */
+export interface Vorlage { id: string; name: string; betreff: string; text: string; html?: string }
+/** Fertige Fassung für einen Mandanten (Platzhalter schon ersetzt). */
+export interface Fassung { betreff: string; text: string; html: string }
 export interface Gruppe { id: string; name: string; mitglieder: number[] }
-export interface Ansicht { spalten?: string[]; gruppe?: string | null; filterzeile?: boolean; sort?: { id: string; ab: boolean } }
+export interface Ansicht { spalten?: string[]; gruppe?: string | null; filterzeile?: boolean; sort?: { id: string; ab: boolean }; breiten?: Record<string, number> }
 export interface Protokollzeile { Zeit: string; Modus: string; Vorlage: string; Mandantennr: string; Mandant: string; An: string; Betreff: string; Ergebnis: string; Anhaenge: string }
 export interface Datei { pfad: string; name: string; groesse: number }
 /** Mandantennummer → festgelegte Standard-Adressen (nur in der App gespeichert). */
@@ -61,9 +64,11 @@ interface Kh {
   standardAdressen(): Promise<StandardAdressen>;
   setzeStandardAdressen(nummer: number, liste: string[] | null): Promise<StandardAdressen>;
   waehleDateien(): Promise<Datei[]>;
+  /** Bild für die Mail wählen → data:-URL (bleibt in der App, geht als eingebettetes Bild in die Mail). */
+  waehleBild(): Promise<string | null>;
   /** Echte, ins Fenster gezogene Dateien; den Pfad bestimmt vorlade.cjs selbst. */
   dateiInfoVon(dateien: File[]): Promise<Datei[]>;
-  mails(a: { modus: "entwurf"; vorlage: string; mails: { nummer: number; name: string; an: string[]; betreff: string; text: string; anhaenge: string[] }[] }): Promise<{ versand: string; ergebnisse: MailErgebnis[] }>;
+  mails(a: { modus: "entwurf"; vorlage: string; mails: { nummer: number; name: string; an: string[]; betreff: string; text: string; html: string; anhaenge: string[] }[] }): Promise<{ versand: string; ergebnisse: MailErgebnis[] }>;
   exportiere(a: { name: string; inhalt: string }): Promise<string | null>;
   oeffneOrdner(welcher: "daten" | "ausgang"): Promise<string>;
 }
@@ -164,6 +169,27 @@ export function fuellen(text: string, m: Mandant, signatur: string) {
 /** Hat dieser Mandant etwas, das man ihn per Mail fragen kann? */
 export const hatMailLuecken = (m: Mandant) => m.luecken.some((f) => !NUR_INTERN.includes(f)) || m.fehlerhaft.some((f) => !NUR_INTERN.includes(f));
 export const braucheLuecken = (s: string) => /\{\{FehlendeAngaben\}\}/.test(s);
+
+// ---------- Formatierte Mails (HTML) ----------
+export const htmlSicher = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+/** Alter Klartext (Vorlagen bis 1.3.5) → Absätze wie im Editor. */
+export const textZuHtml = (text: string) => String(text ?? "").split(/\r?\n/).map((z) => `<p>${htmlSicher(z)}</p>`).join("");
+export const htmlVon = (v: { text: string; html?: string }) => (v.html ? v.html : textZuHtml(v.text));
+/** Platzhalter im HTML ersetzen; Werte aus DATEV werden maskiert, Zeilenumbrüche zu <br>. */
+export function fuellenHtml(html: string, m: Mandant, signatur: string) {
+  const w = platzhalterWerte(m, signatur);
+  return html.replace(/\{\{(\w+)\}\}/g, (ganz, k) => (k in w ? htmlSicher(w[k]).replace(/\n/g, "<br>") : ganz));
+}
+/** Klartext aus dem HTML (Absätze und <br> → Zeilen), für den Klartext-Teil der Mail und die Prüfungen. */
+export function htmlZuText(html: string) {
+  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
+  doc.querySelectorAll("br").forEach((b) => b.replaceWith("\n"));
+  doc.querySelectorAll("li").forEach((li) => (li.querySelector("p") ?? li).prepend("– "));
+  doc.querySelectorAll("img").forEach((i) => i.replaceWith("[Bild]"));
+  const zeilen: string[] = [];
+  doc.body.querySelectorAll("p, li").forEach((b) => { if (!b.querySelector("p")) zeilen.push(b.textContent ?? ""); });
+  return zeilen.length ? zeilen.join("\n") : (doc.body.textContent ?? "");
+}
 export const offenePlatzhalter = (s: string) => /\{\{\w+\}\}/.test(s);
 
 /** Anhang pro Mandant: Dateiname beginnt mit der Mandantennummer, z. B. „10004_Bescheid.pdf“. */

@@ -259,6 +259,17 @@ handle("dateien:waehlen", async () => {
   const r = await dialog.showOpenDialog(fenster, { title: "Anhänge auswählen", properties: ["openFile", "multiSelections"] });
   return r.canceled ? [] : r.filePaths.map(dateiInfo).filter(Boolean);
 });
+// Bild für eine formatierte Mail: vom Benutzer gewählt, als data:-URL in den Editor (wird beim Erstellen zum eingebetteten Bild).
+const BILDTYP = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp" };
+handle("bild:waehlen", async () => {
+  const r = await dialog.showOpenDialog(fenster, { title: "Bild einfügen", properties: ["openFile"], filters: [{ name: "Bilder", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] }] });
+  const p = !r.canceled && r.filePaths[0];
+  if (!p) return null;
+  const typ = BILDTYP[path.extname(p).toLowerCase()];
+  if (!typ) throw new Error("Nur PNG, JPG, GIF, WebP oder BMP");
+  if (fs.statSync(p).size > 5 * 1024 * 1024) throw new Error("Bild zu groß (max. 5 MB)");
+  return `data:${typ};base64,${fs.readFileSync(p).toString("base64")}`;
+});
 // Pfade kommen aus vorlade.cjs (webUtils.getPathForFile auf echten, ins Fenster gezogenen Dateien).
 handle("dateien:info", (_e, pfade) => (Array.isArray(pfade) ? pfade : []).filter((p) => typeof p === "string" && path.isAbsolute(p)).map(dateiInfo).filter(Boolean));
 
@@ -269,7 +280,7 @@ function pruefeAuftrag(auftrag) {
   const adressen = new Map((mandanten || []).map((m) => [m.nummer, new Set((m.emails || []).map((x) => x.adresse))]));
   const gut = [], schlecht = [];
   for (const m of auftrag.mails) {
-    if (!m || !Number.isInteger(m.nummer) || !text(m.name, 500) || !text(m.betreff, 2000) || !text(m.text, 200000) ||
+    if (!m || !Number.isInteger(m.nummer) || !text(m.name, 500) || !text(m.betreff, 2000) || !text(m.text, 200000) || (m.html !== undefined && !text(m.html, 40 * 1024 * 1024)) ||
       !Array.isArray(m.an) || !m.an.every((a) => text(a, 320)) || !Array.isArray(m.anhaenge) || !m.anhaenge.every((p) => text(p, 4000))) throw new Error("Ungültiger Auftrag");
     const fremd = m.an.find((a) => !adressen.get(m.nummer)?.has(a));
     const anhang = m.anhaenge.find((p) => !freigegeben.has(p));

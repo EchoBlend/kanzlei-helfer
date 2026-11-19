@@ -11,7 +11,7 @@ export type SetzeStandard = (nummer: number, liste: string[] | null) => Promise<
 /** Liste mit Häkchen; zeigt Herkunft, DATEV-Standard und festgelegten Standard. */
 function AdressListe({ m, an, um }: { m: Mandant; an: string[]; um: (adresse: string, an: boolean) => void }) {
   return (
-    <ul className="max-h-72 overflow-auto py-1">
+    <ul className="max-h-[min(28rem,60vh)] overflow-auto py-1">
       {gueltigeMails(m).map((e) => (
         <li key={e.adresse}>
           <label className="flex cursor-pointer items-start gap-2.5 px-3 py-1.5 hover:bg-accent" data-adresse={e.adresse}>
@@ -46,7 +46,7 @@ export function MailAdressWahl({ m, an, eigeneWahl, setze, setzeStandard }: {
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon-sm" aria-label={`Adressen für ${m.name} wählen`} data-knopf="adressen"><AtSignIcon /></Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-0">
+      <PopoverContent align="end" className="w-96 min-w-80 max-w-[90vw] resize-x overflow-auto p-0">
         <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">An wen geht die Mail an {m.name}?</div>
         <AdressListe m={m} an={an} um={(a, x) => setze(umschalten(an, a, x, alle))} />
         <div className="flex flex-wrap gap-1 border-t p-2">
@@ -71,7 +71,7 @@ export function StandardWahl({ m, setzeStandard }: { m: Mandant; setzeStandard: 
         <Button variant="ghost" size="icon-sm" className="-my-1 size-6 shrink-0 text-muted-foreground" aria-label={`Standard-Adressen für ${m.name}`} data-knopf="standard-adressen"
           onClick={(e) => e.stopPropagation()}><AtSignIcon /></Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-96 p-0" onClick={(e) => e.stopPropagation()}>
+      <PopoverContent align="start" className="w-96 min-w-80 max-w-[90vw] resize-x overflow-auto p-0" onClick={(e) => e.stopPropagation()}>
         <div className="border-b px-3 py-2">
           <div className="text-xs font-semibold text-muted-foreground">Standard-Adressen für {m.name}</div>
           <div className="text-xs text-muted-foreground">Bekommen jede Serienmail. Nur in der App gespeichert, DATEV bleibt unverändert.</div>

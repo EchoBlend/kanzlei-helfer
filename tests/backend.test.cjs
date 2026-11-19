@@ -221,3 +221,27 @@ test("Standard-Adressen pro Mandant: speichern, aufheben, kaputte Datei", () => 
   fs.writeFileSync(path.join(dir, "standard-adressen.json"), '{"abc": ["x@y.de"], "10002": "kein Array", "10003": ["ok@y.de"]}');
   assert.deepEqual(ab.standardAdressen(), { 10003: ["ok@y.de"] });
 });
+
+test("Formatierte Mail: Farben bleiben, Bilder eingebettet (cid), fremde Bilder und Skripte weg", () => {
+  const { baueEml, bereiteHtml } = require("../electron/versand.cjs");
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const html = `<p>Hallo <span style="color: #C00000">rot</span> <mark data-color="#FFFF00" style="background-color: #FFFF00; color: inherit">gelb</mark></p><p></p>` +
+    `<p style="text-align: center"><img src="data:image/png;base64,${png}" width="120" onerror="x()"><img src="https://tracker.example/p.png"></p><script>alert(1)</script>`;
+  const f = bereiteHtml(html);
+  assert.equal(f.bilder.length, 1);
+  assert.match(f.html, /<span style="color: #C00000">rot<\/span>/);
+  assert.match(f.html, /<span style="background-color: #FFFF00; color: inherit">gelb<\/span>/);
+  assert.match(f.html, new RegExp(`<img src="cid:${f.bilder[0].cid.replace(/\./g, "\\.")}" width="120">`));
+  assert.match(f.html, /<p style="margin:0"><br><\/p>/);
+  assert.match(f.html, /<p style="margin:0;text-align: center">/);
+  for (const weg of ["tracker.example", "<script", "onerror", "data:image"]) assert.ok(!f.html.includes(weg), weg);
+  assert.throws(() => bereiteHtml(`<img src="data:image/png;base64,${"A".repeat(21 * 1024 * 1024)}">`), /zu groß/);
+
+  const eml = baueEml({ an: ["a@x.de"], betreff: "Test", text: "Hallo rot gelb", formatiert: f }, []);
+  assert.match(eml, /Content-Type: multipart\/alternative/);
+  assert.match(eml, /Content-Type: text\/plain; charset=utf-8/);
+  assert.match(eml, /Content-Type: multipart\/related/);
+  assert.match(eml, new RegExp(`Content-ID: <${f.bilder[0].cid.replace(/\./g, "\\.")}>`));
+  // ohne html bleibt es reiner Text wie bisher
+  assert.ok(!/multipart/.test(baueEml({ an: ["a@x.de"], betreff: "T", text: "nur Text" }, [])));
+});

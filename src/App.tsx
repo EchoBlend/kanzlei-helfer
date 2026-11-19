@@ -10,11 +10,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from "@/components/ui/input";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupAction, SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
-  SidebarInset, SidebarMenu, SidebarMenuAction, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider,
+  SidebarInset, SidebarMenu, SidebarMenuAction, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, useSidebar,
 } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ampel, fehlertext, kannMail, kh, mitRegeln, mitStandard, type StandardAdressen, type Ansicht as AnsichtT, type Datei, type Gruppe, type Mandant, type Protokollzeile, type Status, type Vorlage, type Ziel } from "@/lib/kh";
+import { Teiler, useGroesse } from "@/components/Teiler";
+import { ampel, fehlertext, htmlVon, kannMail, kh, mitRegeln, mitStandard, type Fassung, type StandardAdressen, type Ansicht as AnsichtT, type Datei, type Gruppe, type Mandant, type Protokollzeile, type Status, type Vorlage, type Ziel } from "@/lib/kh";
 import { Mandanten, type Quelle } from "@/ansichten/Mandanten";
 import { Serienmail } from "@/ansichten/Serienmail";
 import { Vorlagen } from "@/ansichten/Vorlagen";
@@ -26,11 +27,11 @@ export type Ansicht = "mandanten" | "serienmail" | "vorlagen" | "protokoll" | "e
 
 /** Entwurf der Serienmail bleibt erhalten, wenn man zwischendurch die Ansicht wechselt. */
 export interface Entwurf {
-  vorlageId: string | null; betreff: string; text: string; alle: Datei[]; pro: Datei[];
+  vorlageId: string | null; betreff: string; text: string; html: string; alle: Datei[]; pro: Datei[];
   /** Regel für alle Empfänger; `wahl` überschreibt sie pro Mandant (Nummer → Adressen). */
   ziel: Ziel; wahl: Record<number, string[]>;
   /** Pro Mandant beim Durchgehen angepasste Fassung (fertiger Text, Platzhalter schon ersetzt). */
-  anpassung: Record<number, { betreff: string; text: string }>;
+  anpassung: Record<number, Fassung>;
 }
 
 export default function App() {
@@ -48,7 +49,8 @@ export default function App() {
   const [tabelle, setTabelle] = useState<AnsichtT>({});
   const [protokoll, setProtokoll] = useState<Protokollzeile[]>([]);
   const [standard, setStandard] = useState<StandardAdressen>({});
-  const [entwurf, setEntwurf] = useState<Entwurf>({ vorlageId: null, betreff: "", text: "", alle: [], pro: [], ziel: "standard", wahl: {}, anpassung: {} });
+  const seitenleiste = useGroesse("seitenleiste", 256, 200, () => 440);
+  const [entwurf, setEntwurf] = useState<Entwurf>({ vorlageId: null, betreff: "", text: "", html: "", alle: [], pro: [], ziel: "standard", wahl: {}, anpassung: {} });
   const [gruppenDialog, setGruppenDialog] = useState<{ id?: string; name: string; mitglieder: number[] } | null>(null);
   const [loeschen, setLoeschen] = useState<Gruppe | null>(null);
   const speicherTakt = useRef<number>(0);
@@ -81,7 +83,7 @@ export default function App() {
     kh().ansicht().then(setTabelle);
     kh().vorlagen().then((v) => {
       setVorlagen(v);
-      if (v[0]) setEntwurf((e) => (e.vorlageId ? e : { ...e, vorlageId: v[0].id, betreff: v[0].betreff, text: v[0].text }));
+      if (v[0]) setEntwurf((e) => (e.vorlageId ? e : { ...e, vorlageId: v[0].id, betreff: v[0].betreff, text: v[0].text, html: htmlVon(v[0]) }));
     });
     return ab;
   }, [ladeStatus, ladeProtokoll, scanne]);
@@ -152,8 +154,9 @@ export default function App() {
 
   return (
     <TooltipProvider delayDuration={400}>
-      <SidebarProvider className="bg-transparent">
+      <SidebarProvider className="bg-transparent" style={{ "--sidebar-width": `${seitenleiste.wert}px` } as React.CSSProperties}>
         <Sidebar collapsible="icon" className="border-r-0">
+          <SeitenleistenTeiler groesse={seitenleiste} />
           <SidebarHeader className="ziehen h-[52px] justify-center px-3">
             <div className="flex items-center gap-2.5 overflow-hidden">
               <Marke />
@@ -325,4 +328,11 @@ export function Kopf({ titel, unter, children }: { titel: string; unter?: React.
       <div className="ms-auto flex items-center gap-2">{children}</div>
     </header>
   );
+}
+
+/** Breite der Seitenleiste ziehen (nicht, wenn sie auf Symbole eingeklappt ist). */
+function SeitenleistenTeiler({ groesse }: { groesse: ReturnType<typeof useGroesse> }) {
+  const { state } = useSidebar();
+  if (state === "collapsed") return null;
+  return <div className="absolute inset-y-0 -right-1 z-20 flex"><Teiler richtung="x" groesse={groesse} label="Breite der Seitenleiste" className="h-full" /></div>;
 }
