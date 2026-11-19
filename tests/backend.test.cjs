@@ -69,7 +69,7 @@ test("Mehrere E-Mails mit Herkunft, Beziehungen, Gesellschafter-Mails", async ()
 
 test("Mail an mehrere Adressen", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kh-"));
-  assert.match(baueEml({ an: ["a@example.com", "b@example.com"], betreff: "x", text: "y" }), /\r\nTo: a@example.com, b@example.com\r\n/);
+  assert.match(baueEml({ an: ["a@example.com", "b@example.com"], betreff: "x", text: "y" }), /\r\nBcc: a@example.com, b@example.com\r\n/);
   const erg = await erstelleMails({ modus: "entwurf", mails: [
     { nummer: 1, name: "A", an: ["a@example.com", "b@example.com"], betreff: "B", text: "T", anhaenge: [] },
     { nummer: 2, name: "B", an: ["a@example.com", "kaputt"], betreff: "B", text: "T", anhaenge: [] },
@@ -97,7 +97,7 @@ test(".eml mit Anhängen und Umlauten", async () => {
   const a = path.join(dir, "Merkblatt Übersicht.pdf");
   fs.writeFileSync(a, "%PDF-1.4 Test");
   const eml = baueEml({ an: "x@example.com", betreff: "Prüfung", text: "Grüße\nZeile 2" }, [a]);
-  assert.match(eml, /^X-Unsent: 1\r\nTo: x@example.com\r\n/);
+  assert.match(eml, /^X-Unsent: 1\r\nBcc: x@example.com\r\n/);
   assert.match(eml, /multipart\/mixed/);
   assert.ok(eml.includes(Buffer.from("%PDF-1.4 Test").toString("base64")));
   assert.ok(eml.includes(Buffer.from("Merkblatt Übersicht.pdf").toString("base64")));
@@ -109,7 +109,7 @@ test(".eml mit Anhängen und Umlauten", async () => {
   ] }, { versand: "eml", ausgang: path.join(dir, "aus"), tmp: path.join(dir, "tmp") });
   assert.deepEqual(erg.map((e) => e.ok), [true, false, false]);
   assert.equal(fs.readdirSync(path.join(dir, "aus")).length, 1);
-  await assert.rejects(erstelleMails({ modus: "x", mails: [] }, { versand: "eml" }));
+  await assert.rejects(erstelleMails({ modus: "senden", mails: [] }, { versand: "eml" }));
 });
 
 test("Protokoll und Einstellungen", () => {

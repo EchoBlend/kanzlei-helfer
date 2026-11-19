@@ -52,7 +52,7 @@ interface Kh {
   protokoll(): Promise<Protokollzeile[]>;
   waehleDateien(): Promise<Datei[]>;
   dateiInfo(pfade: string[]): Promise<Datei[]>;
-  mails(a: { modus: "entwurf" | "senden"; vorlage: string; mails: { nummer: number; name: string; an: string[]; betreff: string; text: string; anhaenge: string[] }[] }): Promise<{ versand: string; ergebnisse: MailErgebnis[] }>;
+  mails(a: { modus: "entwurf"; vorlage: string; mails: { nummer: number; name: string; an: string[]; betreff: string; text: string; anhaenge: string[] }[] }): Promise<{ versand: string; ergebnisse: MailErgebnis[] }>;
   exportiere(a: { name: string; inhalt: string }): Promise<string | null>;
   oeffneOrdner(welcher: "daten" | "ausgang"): Promise<string>;
   pfadVon(f: File): string;

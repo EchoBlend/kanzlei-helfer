@@ -75,7 +75,7 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
               <Select value={e.versand} onValueChange={(v) => setE({ ...e, versand: v as E["versand"] })}>
                 <SelectTrigger id="e-versand" className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="outlook">Outlook (klassisch): Entwürfe anlegen oder direkt senden</SelectItem>
+                  <SelectItem value="outlook">Outlook (klassisch): Entwürfe anlegen (Empfänger in BCC)</SelectItem>
                   <SelectItem value="eml">.eml-Dateien im Datenordner, z. B. beim neuen Outlook</SelectItem>
                 </SelectContent>
               </Select>

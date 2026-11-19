@@ -16,9 +16,10 @@ const b64 = (s) => Buffer.from(s, "utf8").toString("base64");
 const zeilen76 = (s) => s.replace(/(.{76})/g, "$1\r\n");
 const crlf = (s) => String(s ?? "").replace(/\r?\n/g, "\r\n");
 
-/** .eml mit X-Unsent: 1 — Outlook öffnet die Datei als Entwurf mit Senden-Knopf. */
+/** Empfänger stehen immer in BCC (Datenschutz: Empfänger sehen einander nie).
+ * .eml mit X-Unsent: 1 — Outlook öffnet die Datei als Entwurf mit Senden-Knopf. */
 function baueEml(m, anhaenge = []) {
-  const kopf = `X-Unsent: 1\r\nTo: ${[].concat(m.an).join(", ")}\r\nSubject: =?utf-8?B?${b64(m.betreff)}?=\r\nMIME-Version: 1.0\r\n`;
+  const kopf = `X-Unsent: 1\r\nBcc: ${[].concat(m.an).join(", ")}\r\nSubject: =?utf-8?B?${b64(m.betreff)}?=\r\nMIME-Version: 1.0\r\n`;
   const text = `Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${zeilen76(b64(crlf(m.text)))}\r\n`;
   if (!anhaenge.length) return kopf + text;
   const g = "KH_" + Math.random().toString(16).slice(2) + Date.now().toString(16);
@@ -54,9 +55,9 @@ try { $ol = New-Object -ComObject Outlook.Application } catch {
 foreach ($x in $auftrag.mails) {
   try {
     $i = $ol.CreateItem(0)
-    $i.To = (@($x.an) -join '; ');$i.Subject = $x.betreff; $i.Body = $x.text; $i.Categories = 'Kanzlei-Helfer'
+    $i.BCC = (@($x.an) -join '; '); $i.Subject = $x.betreff; $i.Body = $x.text; $i.Categories = 'Kanzlei-Helfer'
     foreach ($p in @($x.anhaenge)) { if ($p) { [void]$i.Attachments.Add([string]$p) } }
-    if ($auftrag.modus -eq 'senden') { $i.Send() } else { $i.Save() }
+    $i.Save()  # nie Send(): Die App legt nur Entwürfe an
     $erg += @{ nummer = $x.nummer; ok = $true; info = '' }
   } catch { $erg += @{ nummer = $x.nummer; ok = $false; info = $_.Exception.Message } }
 }
@@ -88,7 +89,7 @@ function viaOutlook(mails, modus, tmpOrdner) {
  * scheitern einzeln, der Rest geht trotzdem.
  */
 async function erstelleMails({ modus, mails }, { versand, ausgang, tmp }) {
-  if (modus !== "entwurf" && modus !== "senden") throw new Error("Modus unbekannt");
+  if (modus !== "entwurf") throw new Error("Nur Entwürfe: Die App versendet nie selbst");
   const ergebnisse = new Map();
   const bereit = [];
   for (const m of mails) {

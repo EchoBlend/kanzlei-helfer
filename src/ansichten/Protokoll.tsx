@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Kopf } from "@/App";
 import { kh, type Protokollzeile, type Status } from "@/lib/kh";
 
-const ART: Record<string, string> = { entwurf: "Entwurf", senden: "Gesendet", eml: ".eml-Datei" };
+const ART: Record<string, string> = { entwurf: "Entwurf", eml: ".eml-Datei" };
 const SPALTEN: [string, number | undefined][] = [["Zeit", 150], ["Art", 100], ["Vorlage", 190], ["Nr.", 76], ["Mandant", 200], ["An", 210], ["Betreff", undefined], ["Anhänge", 170], ["Ergebnis", 96]];
 
 export function Protokoll({ zeilen, neuLaden, status }: { zeilen: Protokollzeile[]; neuLaden: () => void; status: Status | null }) {
