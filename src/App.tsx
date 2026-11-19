@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ampel, kannMail, kh, mitRegeln, type Ansicht as AnsichtT, type Datei, type Gruppe, type Mandant, type Protokollzeile, type Status, type Vorlage, type Ziel } from "@/lib/kh";
+import { ampel, fehlertext, kannMail, kh, mitRegeln, type Ansicht as AnsichtT, type Datei, type Gruppe, type Mandant, type Protokollzeile, type Status, type Vorlage, type Ziel } from "@/lib/kh";
 import { Mandanten, type Quelle } from "@/ansichten/Mandanten";
 import { Serienmail } from "@/ansichten/Serienmail";
 import { Vorlagen } from "@/ansichten/Vorlagen";
@@ -68,7 +68,7 @@ export default function App() {
       if (neu) toast.success(`${d.mandanten.length} Mandanten gescannt`, { description: d.hinweise.join(" · ") || undefined });
     } catch (f) {
       setRoh([]);
-      setLadefehler(f instanceof Error ? f.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, "") : String(f));
+      setLadefehler(fehlertext(f));
     } finally { setLaedt(false); setScan(null); ladeStatus(); }
   }, [ladeStatus]);
 
@@ -94,11 +94,11 @@ export default function App() {
   };
   const speichereGruppen = async (liste: Gruppe[]) => {
     try { setGruppen(await kh().speichereGruppen(liste)); return true; }
-    catch (f) { toast.error("Gruppen nicht gespeichert", { description: String(f) }); return false; }
+    catch (f) { toast.error("Gruppen nicht gespeichert", { description: fehlertext(f) }); return false; }
   };
   const speichereVorlagen = async (liste: Vorlage[]) => {
     try { setVorlagen(await kh().speichereVorlagen(liste)); return true; }
-    catch (f) { toast.error("Vorlagen nicht gespeichert", { description: String(f) }); return false; }
+    catch (f) { toast.error("Vorlagen nicht gespeichert", { description: fehlertext(f) }); return false; }
   };
 
   const zuGruppe = (id: string | null, nummern: number[]) => {

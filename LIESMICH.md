@@ -3,9 +3,9 @@
 Desktop-App: prüft Mandanten-Stammdaten aus DATEV, zeigt Leistungen und Zuständigkeiten, gruppiert Mandanten und schreibt sie per Vorlage an (Serienmail mit Anhängen, als Vorlagen für Outlook – die App sendet nie selbst).
 
 ## Installieren (Kanzlei-PC)
-- `Kanzlei-Helfer-Setup-1.3.2.exe` (GitHub-Release) auf den PC kopieren und doppelklicken. Ein Klick, keine Fragen, **keine Adminrechte** (der Installer kann gar keine anfordern): landet in `%LOCALAPPDATA%\Programs\Kanzlei-Helfer`, Verknüpfung auf Desktop und im Startmenü, startet danach. Eine ältere Fassung wird ersetzt, Vorlagen, Gruppen und Protokoll bleiben.
+- `Kanzlei-Helfer-Setup-1.3.3.exe` (GitHub-Release) auf den PC kopieren und doppelklicken. Ein Klick, keine Fragen, **keine Adminrechte** (der Installer kann gar keine anfordern): landet in `%LOCALAPPDATA%\Programs\Kanzlei-Helfer`, Verknüpfung auf Desktop und im Startmenü, startet danach. Eine ältere Fassung wird ersetzt, Vorlagen, Gruppen und Protokoll bleiben.
 - Windows warnt beim ersten Mal („Der Computer wurde durch Windows geschützt“), weil das Programm nicht gekauft signiert ist: **Weitere Informationen → Trotzdem ausführen**. Sperrt die IT unsignierte Programme, braucht es ihre Freigabe.
-- Erster Start: **Einstellungen** → DATEVconnect-Adresse prüfen (Standard `https://LIZENZSERVER:58452/datev/api/master-data/v1`) → Speichern. Bis 1.3.1 stand hier `http://…:58454`; diese Einstellung stellt die App selbst um. Keine Anmeldung, kein Konto.
+- Erster Start: **Einstellungen** → DATEVconnect-Adresse prüfen (Standard `https://LIZENZSERVER:58452/datev/api/master-data/v1`) → Speichern. Bis 1.3.1 stand hier `http://…:58454`; diese Einstellung stellt die App selbst um. Die Adresse wird ohne Prüfung übernommen; eine aus dem Browser kopierte Adresse (`…/v1/clients?…`) kürzt die App auf `…/v1`. Keine Anmeldung, kein Konto.
 - Ist schon eine ältere Fassung (1.2/1.3.0) installiert: vorher über Windows-Einstellungen → Apps deinstallieren.
 - Zu Hause ausprobieren: Einstellungen → **Demodaten verwenden** (27 erfundene Mandanten).
 

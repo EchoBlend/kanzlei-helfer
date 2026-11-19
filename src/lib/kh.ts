@@ -59,6 +59,8 @@ interface Kh {
 }
 declare global { interface Window { kh: Kh } }
 export const kh = () => window.kh;
+/** Fehler aus dem Hauptprozess ohne Electrons Vorspann „Error invoking remote method '…': Error: “. */
+export const fehlertext = (f: unknown) => (f instanceof Error ? f.message : String(f)).replace(/^(Error: )?Error invoking remote method '[^']+': (Error: )?/, "");
 
 export const FELD: Record<Feld, string> = {
   email: "E-Mail", telefon: "Telefon", anschrift: "Anschrift", briefanrede: "Briefanrede", geburtsdatum: "Geburtsdatum",

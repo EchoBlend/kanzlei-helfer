@@ -171,14 +171,15 @@ test("Kaputte Dateien im Datenordner legen die App nicht lahm", () => {
 });
 
 test("Netz: nur DATEVconnect im eigenen Netz, ohne Anmeldung", async () => {
-  const { erlaubteDatevAdresse, datevAdresse, privateAdresse, pruefeImKanzleinetz, sichererAbruf, DATEV_STANDARD } = require("../electron/netz.cjs");
-  for (const ok of ["https://LIZENZSERVER:58452/datev/api/master-data/v1", "http://LIZENZSERVER:58454/datev/api/master-data/v1", "http://localhost:58454/datev/api/master-data/v1/", "http://192.168.1.5:58454/datev/api/master-data/v1"]) assert.ok(erlaubteDatevAdresse(ok), ok);
-  for (const nein of ["https://u:p@LIZENZSERVER:58452/datev/api/master-data/v1", "http://u:p@LIZENZSERVER:58454/datev/api/master-data/v1",
-    "http://LIZENZSERVER:58454/datev/api/master-data/v1?x=1", "http://LIZENZSERVER:58454/LEAK/daten/master-data/v1", "ftp://x/datev/api/master-data/v1", "quatsch"]) assert.ok(!erlaubteDatevAdresse(nein), nein);
-  assert.equal(datevAdresse("http://evil.example/x"), DATEV_STANDARD);
+  const { datevAdresse, privateAdresse, pruefeImKanzleinetz, sichererAbruf, DATEV_STANDARD } = require("../electron/netz.cjs");
+  // Adresse: keine Prüfung der Eingabe; Browser-Adresse → Basisadresse, ohne Schema → https, leer/alter Standard → neuer Standard
   assert.equal(DATEV_STANDARD, "https://LIZENZSERVER:58452/datev/api/master-data/v1");
-  assert.equal(datevAdresse("http://LIZENZSERVER:58454/datev/api/master-data/v1"), DATEV_STANDARD, "alter Standard wird umgestellt");
-  assert.equal(datevAdresse("http://192.168.1.5:58454/datev/api/master-data/v1"), "http://192.168.1.5:58454/datev/api/master-data/v1");
+  const basis = "https://lizenzserver:58452/datev/api/master-data/v1";
+  for (const e of ["https://lizenzserver:58452/datev/api/master-data/v1/clients?select=number,name&filter=status%20eq%20active",
+    "lizenzserver:58452/datev/api/master-data/v1", "  https://lizenzserver:58452/datev/api/master-data/v1/  ", "https://LIZENZSERVER:58452/datev/api/master-data/v1#x"]) assert.equal(datevAdresse(e), basis, e);
+  assert.equal(datevAdresse("http://192.168.1.5:58454/datev/api/master-data/v1/clients"), "http://192.168.1.5:58454/datev/api/master-data/v1");
+  assert.equal(datevAdresse("http://srv:8080/anderer/pfad/"), "http://srv:8080/anderer/pfad", "Eigenes bleibt, wie eingetragen");
+  for (const e of ["", "   ", "http://LIZENZSERVER:58454/datev/api/master-data/v1", "http://lizenzserver:58454/datev/api/master-data/v1/"]) assert.equal(datevAdresse(e), DATEV_STANDARD, e);
   for (const ip of ["10.0.0.1", "172.16.0.1", "172.31.255.255", "192.168.178.20", "127.0.0.1", "169.254.1.1", "::1", "fd00::1", "fe80::1", "::ffff:192.168.0.1"]) assert.ok(privateAdresse(ip), ip);
   for (const ip of ["8.8.8.8", "172.32.0.1", "100.64.0.1", "2a00:1450::1", "::ffff:8.8.8.8", "0.0.0.0"]) assert.ok(!privateAdresse(ip), ip);
   await pruefeImKanzleinetz("LIZENZSERVER", async () => [{ address: "192.168.0.10" }]);

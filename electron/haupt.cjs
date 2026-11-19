@@ -13,7 +13,7 @@ const { pathToFileURL } = require("node:url");
 const { oeffneAblage } = require("./ablage.cjs");
 const { demoQuelle, netzQuelle, ladeMandanten } = require("./datev.cjs");
 const { erstelleMails } = require("./versand.cjs");
-const { datevAdresse, erlaubteDatevAdresse, sichererAbruf } = require("./netz.cjs");
+const { datevAdresse, sichererAbruf } = require("./netz.cjs");
 
 const NAME = "Kanzlei-Helfer";
 const URSPRUNG = "app://kanzlei-helfer/";
@@ -47,7 +47,7 @@ if (!app.requestSingleInstanceLock()) app.quit();
 
 const ablage = oeffneAblage(app.getPath("userData"));
 ablage.raeumeTmp(); // Reste eines abgebrochenen Outlook-Laufs (enthalten Adressen und Texte)
-// DATEVconnect-Adresse: nur http(s)://<Server>:<Port>/datev/api/master-data/v1; Unzulässiges fällt auf LIZENZSERVER zurück.
+// DATEVconnect-Adresse wie eingetragen (leer → LIZENZSERVER).
 const mitGueltigerAdresse = (e) => ({ ...e, datevconnect: datevAdresse(e.datevconnect) });
 let einstellungen = mitGueltigerAdresse(ablage.einstellungen());
 // Keine Windows-/Firmen-Anmeldung, an niemanden: Die Liste der Server, denen Chromium das Windows-Konto
@@ -64,7 +64,7 @@ let hinweise = [];
 const abruf = sichererAbruf((u, o) => net.fetch(u, o), () => datevUrsprung(),
   { nachschlagen: async (host) => (await net.resolveHost(host)).endpoints.map((e) => ({ address: e.address })) });
 const quelle = () => (einstellungen.demo ? demoQuelle() : netzQuelle(abruf, einstellungen.datevconnect));
-const datevUrsprung = () => new URL(einstellungen.datevconnect).origin;
+const datevUrsprung = () => { try { return new URL(einstellungen.datevconnect).origin; } catch { return null; } };
 const DIST_URL = pathToFileURL(WURZEL).href + "/";
 const themenQuelle = (d) => ({ hell: "light", dunkel: "dark" })[d] || "system";
 // Windows 11 (ab 22H2, Build 22621) hat das Material „Mica“ – das Gegenstück zur macOS-Vibrancy.
@@ -191,9 +191,8 @@ handle("ansicht:speichern", (_e, a) => ablage.speichereAnsicht(a));
 handle("einstellungen:speichern", (_e, neu) => {
   const alt = einstellungen;
   neu = neu && typeof neu === "object" ? neu : {};
-  if ("datevconnect" in neu && !erlaubteDatevAdresse(neu.datevconnect)) {
-    throw new Error("Adresse muss so aussehen: https://SERVER:PORT/datev/api/master-data/v1 (oder http://…; Server im eigenen Netz, keine Zugangsdaten)");
-  }
+  // Adresse: was der Benutzer einträgt (nur Browser-Adressen auf …/master-data/v1 gekürzt), keine Prüfung
+  if ("datevconnect" in neu) neu = { ...neu, datevconnect: datevAdresse(neu.datevconnect) };
   einstellungen = mitGueltigerAdresse(ablage.speichereEinstellungen(neu));
   if (alt.demo !== einstellungen.demo || alt.datevconnect !== einstellungen.datevconnect || alt.nurAktive !== einstellungen.nurAktive) mandanten = null;
   nativeTheme.themeSource = themenQuelle(einstellungen.design);

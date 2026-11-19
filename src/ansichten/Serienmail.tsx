@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Kopf, type Entwurf } from "@/App";
 import {
-  adressenFuer, braucheLuecken, fuellen, groesse, gueltigeMails, hatMailLuecken, kannMail, kh, nrAusName, offenePlatzhalter, PLATZHALTER, platzhalterWerte, ZIEL_TEXT,
+  adressenFuer, braucheLuecken, fehlertext, fuellen, groesse, gueltigeMails, hatMailLuecken, kannMail, kh, nrAusName, offenePlatzhalter, PLATZHALTER, platzhalterWerte, ZIEL_TEXT,
   type Datei, type Gruppe, type Mandant, type MailErgebnis, type Status, type Vorlage, type Ziel,
 } from "@/lib/kh";
 import { cn } from "@/lib/utils";
@@ -131,7 +131,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       if (!fehl.length) { setAuswahl(new Set()); setGesehen(new Set()); setEntwurf((e) => ({ ...e, alle: [], pro: [], wahl: {}, anpassung: {} })); }
       await nachVersand();
     } catch (f) {
-      toast.error("Mails nicht erstellt", { description: String(f) });
+      toast.error("Mails nicht erstellt", { description: fehlertext(f) });
     } finally {
       setLaeuft(false);
     }

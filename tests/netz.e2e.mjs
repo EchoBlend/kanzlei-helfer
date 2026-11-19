@@ -79,10 +79,9 @@ try {
   pruefe(v.node, "Oberfläche ohne Node-Zugriff");
   pruefe(seite.url().startsWith("app://") && app.windows().length === 1, "Navigation und neue Fenster blockiert");
 
-  // DATEV-Adresse über die Schnittstelle verbiegen: Daten im Pfad und Internet-Adresse müssen scheitern
+  // DATEV-Adresse auf eine Internet-Adresse verbiegen: keine Verbindung
   const ein = await seite.evaluate(async (p) => {
     const r = {};
-    try { await window.kh.speichereEinstellungen({ datevconnect: `http://127.0.0.1:${p}/LEAK/10001-Muster/master-data/v1` }); r.pfad = false; } catch { r.pfad = true; }
     await window.kh.speichereEinstellungen({ datevconnect: "http://93.184.215.14/datev/api/master-data/v1" });
     const s = await window.kh.status();
     r.extern = !s.datev && /nicht im eigenen Netz/.test(s.meldung || "");
@@ -90,7 +89,6 @@ try {
     r.zurueck = (await window.kh.status()).datev;
     return r;
   }, port);
-  pruefe(ein.pfad, "Adresse mit fremdem Pfad abgelehnt");
   pruefe(ein.extern, "Internet-Adresse: keine Verbindung aufgebaut");
   pruefe(ein.zurueck, "zurück auf DATEVconnect im eigenen Netz");
 
