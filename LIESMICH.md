@@ -3,9 +3,9 @@
 Desktop-App: prüft Mandanten-Stammdaten aus DATEV, zeigt Leistungen und Zuständigkeiten, gruppiert Mandanten und schreibt sie per Vorlage an (Serienmail mit Anhängen, Outlook-Entwürfe).
 
 ## Installieren (Kanzlei-PC)
-- `paket\Kanzlei-Helfer-Setup-1.2.0.exe` auf den PC kopieren und starten. Keine Adminrechte nötig (Installation pro Benutzer). Eine ältere Fassung wird ersetzt, Vorlagen, Gruppen und Protokoll bleiben.
+- `paket\Kanzlei-Helfer-Setup-1.3.0.exe` auf den PC kopieren und starten. Keine Adminrechte nötig (Installation pro Benutzer). Eine ältere Fassung wird ersetzt, Vorlagen, Gruppen und Protokoll bleiben.
 - Windows warnt beim ersten Mal („Der Computer wurde durch Windows geschützt“), weil das Programm nicht gekauft signiert ist: **Weitere Informationen → Trotzdem ausführen**. Sperrt die IT unsignierte Programme, braucht es ihre Freigabe.
-- Erster Start: **Einstellungen** → DATEVconnect-Adresse prüfen (Standard `http://localhost:58454/datev/api/master-data/v1`) → Speichern. Anmeldung läuft mit dem Windows-Konto.
+- Erster Start: **Einstellungen** → DATEVconnect-Adresse prüfen (Standard `http://LIZENZSERVER:58454/datev/api/master-data/v1`) → Speichern. Anmeldung läuft mit dem Windows-Konto.
 - Zu Hause ausprobieren: Einstellungen → **Demodaten verwenden** (27 erfundene Mandanten).
 
 ## Was die App kann

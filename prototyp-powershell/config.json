@@ -1,5 +1,5 @@
 {
-  "datevconnect": "http://localhost:58454/datev/api/master-data/v1",
+  "datevconnect": "http://LIZENZSERVER:58454/datev/api/master-data/v1",
   "port": 8790,
   "nurAktiveMandanten": true,
   "versand": "outlook",

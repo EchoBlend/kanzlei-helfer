@@ -1,0 +1,33 @@
+# Baut den Windows-Installer und veröffentlicht ihn als GitHub-Release, sobald ein Tag v* gepusht wird.
+name: Release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run pruefe
+      - run: npm run bau
+      - run: npm run installer
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Prüfsumme
+        shell: pwsh
+        run: |
+          $f = Get-ChildItem paket/Kanzlei-Helfer-Setup-*.exe | Select-Object -First 1
+          $h = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower()
+          "$h  $($f.Name)" | Out-File -Encoding ascii "$($f.FullName).sha256"
+      - name: Release anlegen
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" (Get-ChildItem paket/Kanzlei-Helfer-Setup-*) --title "Kanzlei-Helfer ${{ github.ref_name }}" --notes "Windows-Installer (pro Benutzer, ohne Adminrechte, nicht signiert: SmartScreen → Weitere Informationen → Trotzdem ausführen). Mails werden nur als Outlook-Entwürfe angelegt, Empfänger immer in BCC."

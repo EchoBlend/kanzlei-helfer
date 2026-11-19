@@ -8,7 +8,7 @@ const path = require("node:path");
 const { FELDER } = require("./pruefung.cjs");
 
 const STANDARD = {
-  datevconnect: "http://localhost:58454/datev/api/master-data/v1",
+  datevconnect: "http://LIZENZSERVER:58454/datev/api/master-data/v1",
   versand: "outlook", // "outlook" | "eml"
   signatur: "Ihr Team der Steuerkanzlei",
   nurAktive: true,

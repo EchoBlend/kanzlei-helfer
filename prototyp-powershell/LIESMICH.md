@@ -21,7 +21,7 @@ Prüft Mandanten-Stammdaten aus DATEV auf Lücken und schreibt Mandanten per Vor
 - Mandantendaten bleiben im Arbeitsspeicher, nichts geht ins Internet
 
 ## Einstellungen (`config.json`)
-- `datevconnect`: Adresse der Schnittstelle, Standard `http://localhost:58454/datev/api/master-data/v1` (bei Kanzlei-Server: Servername statt localhost)
+- `datevconnect`: Adresse der Schnittstelle, Standard `http://LIZENZSERVER:58454/datev/api/master-data/v1`
 - `versand`: `outlook` (klassisches Outlook per COM) oder `eml` (Dateien in `daten\ausgang`, z. B. wenn das neue Outlook genutzt wird)
 - `signatur`: Text für `{{Signatur}}`
 - `nurAktiveMandanten`, `port`
