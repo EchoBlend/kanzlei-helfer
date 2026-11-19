@@ -1,8 +1,10 @@
-# Baut den Windows-Installer und veröffentlicht ihn als GitHub-Release, sobald ein Tag v* gepusht wird.
+# Baut den Windows-Installer und veröffentlicht ihn als GitHub-Release:
+# bei einem Tag v* oder von Hand (Actions → Release → Run workflow); dann legt das Release den Tag v<Version> selbst an.
 name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 permissions:
   contents: write
 jobs:
@@ -30,4 +32,7 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" (Get-ChildItem paket/Kanzlei-Helfer-Setup-*) --title "Kanzlei-Helfer ${{ github.ref_name }}" --notes "Windows-Installer (pro Benutzer, ohne Adminrechte, nicht signiert: SmartScreen → Weitere Informationen → Trotzdem ausführen). Mails werden nur als Outlook-Entwürfe angelegt, Empfänger immer in BCC."
+        run: |
+          $v = "v" + (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $notes = "Windows-Installer (pro Benutzer, ohne Adminrechte, nicht signiert: SmartScreen → Weitere Informationen → Trotzdem ausführen). Mails werden nur als Outlook-Entwürfe angelegt, Empfänger immer in BCC. DATEVconnect-Standard: LIZENZSERVER."
+          gh release create $v (Get-ChildItem paket/Kanzlei-Helfer-Setup-*) --target "${{ github.sha }}" --title "Kanzlei-Helfer $v" --notes $notes
