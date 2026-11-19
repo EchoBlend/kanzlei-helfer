@@ -15,7 +15,8 @@ contextBridge.exposeInMainWorld("kh", {
   speichereAnsicht: rufe("ansicht:speichern"),
   protokoll: rufe("protokoll"),
   waehleDateien: rufe("dateien:waehlen"),
-  dateiInfo: rufe("dateien:info"),
+  // Pfade nur aus echten Datei-Objekten (Drag & Drop); beliebige Pfad-Texte nimmt die Brücke nicht an.
+  dateiInfoVon: (dateien) => ipcRenderer.invoke("dateien:info", [...dateien].map((f) => webUtils.getPathForFile(f)).filter(Boolean)),
   mails: rufe("mails"),
   exportiere: rufe("export"),
   oeffneOrdner: rufe("ordner"),
@@ -25,6 +26,4 @@ contextBridge.exposeInMainWorld("kh", {
     ipcRenderer.on("scan", h);
     return () => ipcRenderer.removeListener("scan", h);
   },
-  // Drag & Drop: echter Dateipfad zu einem File-Objekt aus dem Fenster
-  pfadVon: (datei) => webUtils.getPathForFile(datei),
 });

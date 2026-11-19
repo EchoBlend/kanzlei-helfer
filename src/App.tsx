@@ -29,6 +29,8 @@ export interface Entwurf {
   vorlageId: string | null; betreff: string; text: string; alle: Datei[]; pro: Datei[];
   /** Regel für alle Empfänger; `wahl` überschreibt sie pro Mandant (Nummer → Adressen). */
   ziel: Ziel; wahl: Record<number, string[]>;
+  /** Pro Mandant beim Durchgehen angepasste Fassung (fertiger Text, Platzhalter schon ersetzt). */
+  anpassung: Record<number, { betreff: string; text: string }>;
 }
 
 export default function App() {
@@ -45,7 +47,7 @@ export default function App() {
   const [gruppen, setGruppen] = useState<Gruppe[]>([]);
   const [tabelle, setTabelle] = useState<AnsichtT>({});
   const [protokoll, setProtokoll] = useState<Protokollzeile[]>([]);
-  const [entwurf, setEntwurf] = useState<Entwurf>({ vorlageId: null, betreff: "", text: "", alle: [], pro: [], ziel: "standard", wahl: {} });
+  const [entwurf, setEntwurf] = useState<Entwurf>({ vorlageId: null, betreff: "", text: "", alle: [], pro: [], ziel: "standard", wahl: {}, anpassung: {} });
   const [gruppenDialog, setGruppenDialog] = useState<{ id?: string; name: string; mitglieder: number[] } | null>(null);
   const [loeschen, setLoeschen] = useState<Gruppe | null>(null);
   const speicherTakt = useRef<number>(0);
@@ -249,7 +251,7 @@ export default function App() {
           {ansicht === "vorlagen" && <Vorlagen vorlagen={vorlagen} speichern={speichereVorlagen} />}
           {ansicht === "protokoll" && <Protokoll zeilen={protokoll} neuLaden={ladeProtokoll} status={status} />}
           {ansicht === "einstellungen" && (
-            <Einstellungen status={status} gespeichert={async () => { await ladeStatus(); await scanne(true); }} pruefen={ladeStatus} />
+            <Einstellungen status={status} gespeichert={async () => { await ladeStatus(); await scanne(false); }} pruefen={ladeStatus} />
           )}
         </SidebarInset>
       </SidebarProvider>

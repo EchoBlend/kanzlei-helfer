@@ -69,13 +69,31 @@ test("Mehrere E-Mails mit Herkunft, Beziehungen, Gesellschafter-Mails", async ()
 
 test("Mail an mehrere Adressen", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kh-"));
-  assert.match(baueEml({ an: ["a@example.com", "b@example.com"], betreff: "x", text: "y" }), /\r\nBcc: a@example.com, b@example.com\r\n/);
+  assert.match(baueEml({ an: ["a@example.com", "b@example.com"], betreff: "x", text: "y" }), /\r\nBcc: a@example.com,\r\n b@example.com\r\n/);
   const erg = await erstelleMails({ modus: "entwurf", mails: [
     { nummer: 1, name: "A", an: ["a@example.com", "b@example.com"], betreff: "B", text: "T", anhaenge: [] },
     { nummer: 2, name: "B", an: ["a@example.com", "kaputt"], betreff: "B", text: "T", anhaenge: [] },
     { nummer: 3, name: "C", an: [], betreff: "B", text: "T", anhaenge: [] },
   ] }, { versand: "eml", ausgang: dir, tmp: dir });
   assert.deepEqual(erg.map((e) => e.ok), [true, false, false]);
+});
+
+test(".eml: lange Betreffs gefaltet, Adressen mit Trennern abgelehnt, Outlook-Abbruch meldet jede Mail", async () => {
+  const eml = baueEml({ an: ["a@example.com"], betreff: "Ä".repeat(600), text: "y" });
+  assert.ok(eml.split("\r\n").every((z) => z.length <= 78), "keine Kopfzeile über 78 Zeichen");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kh-"));
+  const erg = await erstelleMails({ modus: "entwurf", mails: [
+    { nummer: 1, name: "A", an: ["a@x.de;Müller"], betreff: "B", text: "T", anhaenge: [] },
+    { nummer: 2, name: "B", an: ["<a@x.de>"], betreff: "B", text: "T", anhaenge: [] },
+  ] }, { versand: "eml", ausgang: dir, tmp: dir });
+  assert.deepEqual(erg.map((e) => e.ok), [false, false]);
+  await assert.rejects(erstelleMails({ modus: "senden", mails: [] }, { versand: "eml", ausgang: dir, tmp: dir }), /Nur Entwürfe/);
+  // Ohne PowerShell/Outlook (hier Linux): jede Mail kommt mit Nummer als Fehler zurück, Zwischendatei ist weg
+  const tmp = path.join(dir, "tmp");
+  const o = await erstelleMails({ modus: "entwurf", mails: [{ nummer: 7, name: "X", an: ["a@x.de"], betreff: "B", text: "T", anhaenge: [] }] }, { versand: "outlook", ausgang: dir, tmp });
+  assert.equal(o[0].nummer, 7);
+  assert.equal(o[0].ok, false);
+  assert.deepEqual(fs.readdirSync(tmp), []);
 });
 
 test("Register nur bei Pflicht, Auftragswesen fehlt ohne Absturz", async () => {
@@ -117,7 +135,60 @@ test("Protokoll und Einstellungen", () => {
   const ab = oeffneAblage(dir);
   ab.protokolliere([{ Zeit: "1", Modus: "eml", Vorlage: "V", Mandantennr: 5, Mandant: 'Krümel "GmbH"; Test', An: "a@b.de", Betreff: "x", Ergebnis: "ok", Anhaenge: "a.pdf" }]);
   assert.deepEqual(ab.protokoll()[0].Mandant, 'Krümel "GmbH"; Test');
-  assert.equal(ab.speichereEinstellungen({ versand: "quatsch", demo: 1 }).versand, "outlook");
+  assert.equal(ab.speichereEinstellungen({ versand: "quatsch", demo: true }).versand, "eml");
   assert.equal(ab.einstellungen().demo, true);
   assert.equal(ab.vorlagen().length, 2);
+});
+
+test("Excel-Formeln im Protokoll entschärft, beim Lesen unverändert", () => {
+  const { csvZeile } = require("../electron/ablage.cjs");
+  assert.equal(csvZeile(['=HYPERLINK("http://x?"&A2)', "+49 341 1", "@SUM(1)", "-2", "ok"]), `"'=HYPERLINK(""http://x?""&A2)";"'+49 341 1";"'@SUM(1)";"'-2";"ok"`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kh-"));
+  const ab = oeffneAblage(dir);
+  ab.protokolliere([{ Zeit: "1", Mandant: "=1+1", Betreff: "+SUM(1)" }]);
+  assert.equal(ab.protokoll()[0].Mandant, "=1+1");
+  assert.ok(fs.readFileSync(path.join(dir, "protokoll.csv"), "utf8").includes(`"'=1+1"`));
+});
+
+test("Kaputte Dateien im Datenordner legen die App nicht lahm", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kh-"));
+  fs.writeFileSync(path.join(dir, "ansicht.json"), JSON.stringify({ spalten: "abc", sort: { id: 1 }, gruppe: 5, boese: "<img>" }));
+  fs.writeFileSync(path.join(dir, "vorlagen.json"), JSON.stringify([null, { id: 1, name: { x: 1 } }]));
+  fs.writeFileSync(path.join(dir, "gruppen.json"), JSON.stringify([{ id: "g", name: "", mitglieder: "1,2" }]));
+  fs.writeFileSync(path.join(dir, "einstellungen.json"), JSON.stringify({ demo: "false", versand: ["eml"], regeln: { email: "nein", quatsch: false } }));
+  const ab = oeffneAblage(dir);
+  assert.deepEqual(ab.ansicht(), {});
+  assert.deepEqual(ab.vorlagen(), [{ id: "1", name: "[object Object]", betreff: "", text: "" }]);
+  assert.deepEqual(ab.gruppen(), [{ id: "g", name: "Gruppe", mitglieder: [] }]);
+  const e = ab.einstellungen();
+  assert.equal(e.demo, false);
+  assert.equal(e.versand, "eml");
+  assert.deepEqual(e.regeln, {});
+  fs.mkdirSync(path.join(dir, "tmp"));
+  fs.writeFileSync(path.join(dir, "tmp", "auftrag-1.json"), "{}");
+  ab.raeumeTmp();
+  assert.ok(!fs.existsSync(path.join(dir, "tmp")));
+});
+
+test("Netz: nur DATEVconnect im eigenen Netz, ohne Anmeldung", async () => {
+  const { erlaubteDatevAdresse, datevAdresse, privateAdresse, pruefeImKanzleinetz, sichererAbruf, DATEV_STANDARD } = require("../electron/netz.cjs");
+  for (const ok of ["http://LIZENZSERVER:58454/datev/api/master-data/v1", "http://localhost:58454/datev/api/master-data/v1/", "http://192.168.1.5:58454/datev/api/master-data/v1"]) assert.ok(erlaubteDatevAdresse(ok), ok);
+  for (const nein of ["https://LIZENZSERVER:58452/datev/api/master-data/v1", "http://u:p@LIZENZSERVER:58454/datev/api/master-data/v1",
+    "http://LIZENZSERVER:58454/datev/api/master-data/v1?x=1", "http://LIZENZSERVER:58454/LEAK/daten/master-data/v1", "ftp://x/datev/api/master-data/v1", "quatsch"]) assert.ok(!erlaubteDatevAdresse(nein), nein);
+  assert.equal(datevAdresse("http://evil.example/x"), DATEV_STANDARD);
+  for (const ip of ["10.0.0.1", "172.16.0.1", "172.31.255.255", "192.168.178.20", "127.0.0.1", "169.254.1.1", "::1", "fd00::1", "fe80::1", "::ffff:192.168.0.1"]) assert.ok(privateAdresse(ip), ip);
+  for (const ip of ["8.8.8.8", "172.32.0.1", "100.64.0.1", "2a00:1450::1", "::ffff:8.8.8.8", "0.0.0.0"]) assert.ok(!privateAdresse(ip), ip);
+  await pruefeImKanzleinetz("LIZENZSERVER", async () => [{ address: "192.168.0.10" }]);
+  await assert.rejects(pruefeImKanzleinetz("LIZENZSERVER", async () => [{ address: "192.168.0.10" }, { address: "52.1.2.3" }]), /nicht im eigenen Netz/);
+  await assert.rejects(pruefeImKanzleinetz("x", async () => []), /nicht im eigenen Netz/);
+  // Abruf: falscher Ursprung gesperrt; sonst GET, ohne Weiterleitung, ohne Anmeldung
+  const aufrufe = [];
+  const abruf = sichererAbruf(async (u, o) => { aufrufe.push([u, o]); return { status: 200 }; }, () => "http://lizenzserver:58454", { nachschlagen: async () => [{ address: "10.0.0.2" }] });
+  await abruf("http://lizenzserver:58454/datev/api/master-data/v1/clients", { method: "POST" });
+  assert.equal(aufrufe[0][1].method, "GET");
+  assert.equal(aufrufe[0][1].redirect, "error");
+  assert.equal(aufrufe[0][1].credentials, "omit");
+  await assert.rejects(abruf("http://evil.example/datev/api/master-data/v1/clients"), /Gesperrt/);
+  const mitAnmeldung = sichererAbruf(async () => ({ status: 401 }), () => "http://lizenzserver:58454", { nachschlagen: async () => [{ address: "10.0.0.2" }] });
+  await assert.rejects(mitAnmeldung("http://lizenzserver:58454/datev/api/master-data/v1/version"), /Anmeldung/);
 });

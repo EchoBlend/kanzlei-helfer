@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import { AtSignIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, UploadIcon, UsersIcon, XIcon } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AtSignIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, PencilIcon, RotateCcwIcon, UploadIcon, UsersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Kopf, type Entwurf } from "@/App";
 import {
-  adressenFuer, braucheLuecken, fuellen, groesse, gueltigeMails, hatMailLuecken, kannMail, kh, nrAusName, offenePlatzhalter, PLATZHALTER, ZIEL_TEXT,
+  adressenFuer, braucheLuecken, fuellen, groesse, gueltigeMails, hatMailLuecken, kannMail, kh, nrAusName, offenePlatzhalter, PLATZHALTER, platzhalterWerte, ZIEL_TEXT,
   type Datei, type Gruppe, type Mandant, type MailErgebnis, type Status, type Vorlage, type Ziel,
 } from "@/lib/kh";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,12 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
   const textRef = useRef<HTMLTextAreaElement>(null);
   const betreffRef = useRef<HTMLInputElement>(null);
   const zuletzt = useRef<"betreff" | "text">("text");
+  // Durchgehen: Mail eines Mandanten anpassen; wer schon angesehen wurde
+  const [bearbeiten, setBearbeiten] = useState(false);
+  const [gesehen, setGesehen] = useState<Set<number>>(new Set());
+  const eigenTextRef = useRef<HTMLTextAreaElement>(null);
+  const eigenBetreffRef = useRef<HTMLInputElement>(null);
+  const eigenZuletzt = useRef<"betreff" | "text">("text");
 
   const signatur = status?.einstellungen.signatur ?? "";
   const alsEml = !status || status.einstellungen.versand === "eml" || status.einstellungen.demo;
@@ -48,6 +54,29 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
   const anhaengeFuer = (m: Mandant) => [...entwurf.alle, ...entwurf.pro.filter((d) => nrAusName(d.name) === m.nummer)];
   const i = Math.min(blick, Math.max(gehen.length - 1, 0));
   const v = gehen[i]?.m, vAn = gehen[i]?.an ?? [];
+  /** Was dieser Mandant bekommt: eigene Fassung, sonst die Vorlage mit seinen Werten. */
+  const fassung = (m: Mandant) => entwurf.anpassung[m.nummer] ?? { betreff: fuellen(entwurf.betreff, m, signatur), text: fuellen(entwurf.text, m, signatur) };
+  const setzeAnpassung = (nr: number, f: { betreff: string; text: string } | null) => setEntwurf((e) => {
+    const anpassung = { ...e.anpassung };
+    if (f) anpassung[nr] = f; else delete anpassung[nr];
+    return { ...e, anpassung };
+  });
+  useEffect(() => { if (v) setGesehen((g) => (g.has(v.nummer) ? g : new Set(g).add(v.nummer))); }, [v]);
+  const durchgesehen = gehen.filter((e) => gesehen.has(e.m.nummer)).length;
+  const angepasst = gehen.filter((e) => entwurf.anpassung[e.m.nummer]).length;
+
+  /** Im Anpassen-Modus fügen die Platzhalter-Knöpfe gleich den Wert dieses Mandanten ein. */
+  const wertEinfuegen = (p: string) => {
+    if (!v) return;
+    const f = fassung(v), ins = platzhalterWerte(v, signatur)[p] ?? "";
+    const imBetreff = eigenZuletzt.current === "betreff";
+    const ziel = imBetreff ? eigenBetreffRef.current : eigenTextRef.current;
+    const alt = imBetreff ? f.betreff : f.text;
+    const a = ziel?.selectionStart ?? alt.length, b = ziel?.selectionEnd ?? a;
+    const neu = alt.slice(0, a) + ins + alt.slice(b);
+    setzeAnpassung(v.nummer, imBetreff ? { ...f, betreff: neu } : { ...f, text: neu });
+    requestAnimationFrame(() => { if (ziel) { ziel.focus(); ziel.selectionStart = ziel.selectionEnd = a + ins.length; } });
+  };
   const setzeWahl = (nr: number, adressen: string[] | null) => setEntwurf((e) => {
     const wahl = { ...e.wahl };
     if (adressen) wahl[nr] = adressen; else delete wahl[nr];
@@ -91,8 +120,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       const vorlage = vorlagen.find((x) => x.id === entwurf.vorlageId);
       const { versand, ergebnisse } = await kh().mails({
         modus: "entwurf", vorlage: vorlage?.name ?? "(frei)",
-        mails: gehen.map(({ m, an }) => ({ nummer: m.nummer, name: m.name, an, betreff: fuellen(entwurf.betreff, m, signatur),
-          text: fuellen(entwurf.text, m, signatur), anhaenge: anhaengeFuer(m).map((d) => d.pfad) })),
+        mails: gehen.map(({ m, an }) => ({ nummer: m.nummer, name: m.name, an, ...fassung(m), anhaenge: anhaengeFuer(m).map((d) => d.pfad) })),
       });
       const ok = ergebnisse.filter((e) => e.ok).length;
       const fehl = ergebnisse.filter((e) => !e.ok);
@@ -100,7 +128,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       if (fehl.length) toast.warning(`${ok} von ${ergebnisse.length} ${wo}`, { description: `${fehl.length} fehlgeschlagen, Details unten.` });
       else toast.success(`${ok} ${ok === 1 ? "Mail" : "Mails"} ${wo}`, { description: versand === "eml" ? status?.ausgang : "Kategorie „Kanzlei-Helfer“" });
       setFehlschlaege(fehl);
-      if (!fehl.length) { setAuswahl(new Set()); setEntwurf((e) => ({ ...e, alle: [], pro: [], wahl: {} })); }
+      if (!fehl.length) { setAuswahl(new Set()); setGesehen(new Set()); setEntwurf((e) => ({ ...e, alle: [], pro: [], wahl: {}, anpassung: {} })); }
       await nachVersand();
     } catch (f) {
       toast.error("Mails nicht erstellt", { description: String(f) });
@@ -150,7 +178,8 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
               </div>
               <Textarea id="text" ref={textRef} value={entwurf.text} rows={15} onFocus={() => (zuletzt.current = "text")}
                 onChange={(e) => setze({ text: e.target.value })} className="min-h-72 text-base leading-relaxed" />
-              <Platzhalter einfuegen={einfuegen} />
+              <Platzhalter einfuegen={einfuegen} beispiel={v ? (p) => platzhalterWerte(v, signatur)[p] : undefined} />
+              {angepasst > 0 && <p className="text-xs text-warn">{angepasst} {angepasst === 1 ? "Mandant hat" : "Mandanten haben"} eine eigene Fassung – Änderungen hier gelten für {angepasst === 1 ? "ihn" : "sie"} nicht mehr.</p>}
             </div>
 
             <div className="grid gap-3 pt-2">
@@ -199,6 +228,8 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
                   </div>
                 </div>
                 {grund && <span className="shrink-0 rounded-[4px] bg-warn-soft px-1.5 py-px text-xs font-medium text-warn">{grund}</span>}
+                {!grund && entwurf.anpassung[m.nummer] && <span className="shrink-0 rounded-[4px] bg-brand-soft px-1.5 py-px text-xs font-medium text-brand" data-angepasst>angepasst</span>}
+                {!grund && !entwurf.anpassung[m.nummer] && gesehen.has(m.nummer) && <CheckIcon className="size-3.5 shrink-0 text-ok" aria-label="durchgesehen" />}
                 {gueltigeMails(m).length > 1 && <AdressWahl m={m} an={an} eigeneWahl={!!entwurf.wahl[m.nummer]} setze={(a) => setzeWahl(m.nummer, a)} />}
                 <Button variant="ghost" size="icon-sm" aria-label={`${m.name} entfernen`}
                   onClick={() => { const s = new Set(auswahl); s.delete(m.nummer); setAuswahl(s); }}><XIcon /></Button>
@@ -207,21 +238,48 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
           </ul>
 
           <div className="mt-6 mb-2 flex items-center gap-2">
-            <h2 className="flex-1 text-xs font-semibold text-muted-foreground">Vorschau{v ? <span className="zahl"> {i + 1} von {gehen.length}</span> : null}</h2>
+            <h2 className="flex-1 text-xs font-semibold text-muted-foreground">Durchgehen{v ? <span className="zahl"> · {i + 1} von {gehen.length}</span> : null}</h2>
+            {v && !bearbeiten && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setBearbeiten(true)} data-knopf="anpassen"><PencilIcon />Für diesen Mandanten anpassen</Button>}
             <Button variant="outline" size="icon-sm" aria-label="Vorheriger Empfänger" disabled={i <= 0} onClick={() => setBlick(i - 1)}><ChevronLeftIcon /></Button>
             <Button variant="outline" size="icon-sm" aria-label="Nächster Empfänger" disabled={i >= gehen.length - 1} onClick={() => setBlick(i + 1)}><ChevronRightIcon /></Button>
           </div>
           <div className="flex-none rounded-lg border bg-background" data-vorschau>
             {v ? (() => {
-              const betreff = fuellen(entwurf.betreff, v, signatur), text = fuellen(entwurf.text, v, signatur), anh = anhaengeFuer(v);
+              const { betreff, text } = fassung(v), anh = anhaengeFuer(v), eigen = !!entwurf.anpassung[v.nummer];
               return (
                 <>
                   <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1 border-b px-4 py-3 text-sm">
+                    <dt className="text-muted-foreground">An</dt><dd className="font-medium">{v.name} <span className="kennung text-xs text-muted-foreground">{v.nummer}</span></dd>
                     <dt className="text-muted-foreground">BCC</dt><dd className="break-all">{vAn.join(", ")}</dd>
-                    <dt className="text-muted-foreground">Betreff</dt><dd className="font-medium">{betreff}</dd>
+                    {!bearbeiten && <><dt className="text-muted-foreground">Betreff</dt><dd className="font-medium">{betreff}</dd></>}
                     {anh.length > 0 && <><dt className="text-muted-foreground">Anhänge</dt><dd className="text-xs">{anh.map((d) => d.name).join(", ")}</dd></>}
                   </dl>
-                  <div className="lesetext px-4 py-4" lang="de">{text}</div>
+                  {bearbeiten ? (
+                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 px-4 py-3" data-anpassen>
+                      <Label htmlFor="eigen-betreff" className="text-xs">Betreff nur für {v.name}</Label>
+                      <Input id="eigen-betreff" ref={eigenBetreffRef} value={betreff} onFocus={() => (eigenZuletzt.current = "betreff")}
+                        onChange={(e) => setzeAnpassung(v.nummer, { betreff: e.target.value, text })} />
+                      <Label htmlFor="eigen-text" className="mt-1 text-xs">Text nur für {v.name}</Label>
+                      <Textarea id="eigen-text" ref={eigenTextRef} value={text} rows={12} onFocus={() => (eigenZuletzt.current = "text")}
+                        onChange={(e) => setzeAnpassung(v.nummer, { betreff, text: e.target.value })} className="text-sm leading-relaxed" />
+                      <Platzhalter einfuegen={wertEinfuegen} beispiel={(p) => platzhalterWerte(v, signatur)[p]} titel="Wert einfügen:" />
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <Button size="sm" onClick={() => setBearbeiten(false)} data-knopf="anpassen-fertig"><CheckIcon />Fertig</Button>
+                        {i < gehen.length - 1 && <Button size="sm" variant="outline" onClick={() => setBlick(i + 1)}>Nächster Mandant<ChevronRightIcon /></Button>}
+                        {eigen && <Button size="sm" variant="ghost" className="ms-auto" onClick={() => setzeAnpassung(v.nummer, null)}><RotateCcwIcon />Wie Vorlage</Button>}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="lesetext px-4 py-4" lang="de">{text}</div>
+                      {eigen && (
+                        <div className="flex items-center gap-2 border-t px-4 py-2 text-xs">
+                          <span className="font-medium text-brand">Eigene Fassung für diesen Mandanten</span>
+                          <Button size="sm" variant="ghost" className="ms-auto h-6 text-xs" onClick={() => setzeAnpassung(v.nummer, null)}><RotateCcwIcon />Wie Vorlage</Button>
+                        </div>
+                      )}
+                    </>
+                  )}
                   {offenePlatzhalter(betreff + text) && <p className="border-t px-4 py-2 text-xs font-medium text-warn">Unbekannter Platzhalter – bitte prüfen.</p>}
                 </>
               );
@@ -231,8 +289,9 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       </div>
 
       <footer className="flex items-center justify-end gap-2 border-t bg-background px-8 py-3">
-        <span className="me-auto text-sm text-muted-foreground zahl">
+        <span className="me-auto text-sm text-muted-foreground zahl" data-durchgesehen={durchgesehen}>
           {gehen.length} {gehen.length === 1 ? "Mail" : "Mails"}{entwurf.alle.length + entwurf.pro.length ? ` · ${entwurf.alle.length + entwurf.pro.length} Anhänge` : ""}
+          {gehen.length > 1 ? ` · ${durchgesehen} von ${gehen.length} durchgesehen` : ""}{angepasst ? ` · ${angepasst} angepasst` : ""}
         </span>
         <Button disabled={!gehen.length || laeuft} onClick={() => erstellen()} data-knopf="erstellen">
           {alsEml ? "Als .eml-Dateien speichern" : "Als Entwürfe in Outlook anlegen"}
@@ -275,12 +334,14 @@ function AdressWahl({ m, an, eigeneWahl, setze }: { m: Mandant; an: string[]; ei
   );
 }
 
-export function Platzhalter({ einfuegen }: { einfuegen: (p: string) => void }) {
+/** Platzhalter-Knöpfe; `beispiel` zeigt beim Darüberfahren den Wert für den gerade angezeigten Mandanten. */
+export function Platzhalter({ einfuegen, beispiel, titel = "Einfügen:" }: { einfuegen: (p: string) => void; beispiel?: (p: string) => string | undefined; titel?: string }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5 pt-1">
-      <span className="me-1 text-xs text-muted-foreground">Einfügen:</span>
+      <span className="me-1 text-xs text-muted-foreground">{titel}</span>
       {PLATZHALTER.map((p) => (
-        <button key={p} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => einfuegen(p)}
+        <button key={p} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => einfuegen(p)} data-platzhalter={p}
+          title={beispiel ? `${p}: ${beispiel(p) || "(leer)"}` : undefined}
           className="kennung rounded-[4px] border bg-background px-1.5 py-0.5 text-xs text-muted-foreground hover:border-brand hover:text-foreground">
           {p}
         </button>
@@ -297,8 +358,8 @@ function Ablage({ titel, hinweis, dateien, art, dazu, weg, zuordnung }: {
   const fallen = async (e: React.DragEvent) => {
     e.preventDefault();
     setUeber(false);
-    const pfade = [...e.dataTransfer.files].map((f) => kh().pfadVon(f)).filter(Boolean);
-    if (pfade.length) dazu(await kh().dateiInfo(pfade));
+    const dateien = [...e.dataTransfer.files];
+    if (dateien.length) dazu(await kh().dateiInfoVon(dateien));
   };
   return (
     <div data-ablage={art}

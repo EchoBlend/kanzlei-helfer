@@ -1,7 +1,8 @@
 /**
  * Alles, was der Kanzlei-Helfer auf die Platte schreibt, liegt in einem Ordner
- * (%APPDATA%\Kanzlei-Helfer): Einstellungen, Vorlagen, Protokoll, .eml-Ausgang.
- * Mandantendaten aus DATEV werden nie gespeichert, sie leben nur im Arbeitsspeicher.
+ * (%APPDATA%\Kanzlei-Helfer): Einstellungen, Vorlagen, Gruppen (nur Mandantennummern), Ansicht,
+ * Protokoll (Zeit, Mandantennr., Name, Empfänger, Betreff, Anhangnamen) und .eml-Ausgang.
+ * Die DATEV-Stammdaten selbst leben nur im Arbeitsspeicher. Deinstallieren löscht den Ordner.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -9,7 +10,7 @@ const { FELDER } = require("./pruefung.cjs");
 
 const STANDARD = {
   datevconnect: "http://LIZENZSERVER:58454/datev/api/master-data/v1",
-  versand: "outlook", // "outlook" | "eml"
+  versand: "eml", // "eml" (rein lokal) | "outlook" (Entwurf im Postfach, wird mit Exchange/M365 abgeglichen)
   signatur: "Ihr Team der Steuerkanzlei",
   nurAktive: true,
   demo: false,
@@ -18,8 +19,12 @@ const STANDARD = {
 };
 const SPALTEN = ["Zeit", "Modus", "Vorlage", "Mandantennr", "Mandant", "An", "Betreff", "Ergebnis", "Anhaenge"];
 
+// Excel führt Zellen, die mit = + - @ (oder Tab/CR) beginnen, als Formel aus (z. B. =HYPERLINK(...) mit Mandantendaten).
+// Solche Werte bekommen ein ' vorangestellt – Excel zeigt sie dann als Text.
+const FORMEL = /^[=+\-@\t\r\uFF1D\uFF0B\uFF0D\uFF20]/;
+const entschaerfe = (w) => (FORMEL.test(w) ? "'" + w : w);
 function csvZeile(werte) {
-  return werte.map((w) => '"' + String(w ?? "").replace(/[\r\n]+/g, " ").replace(/"/g, '""') + '"').join(";");
+  return werte.map((w) => '"' + entschaerfe(String(w ?? "").replace(/[\r\n]+/g, " ")).replace(/"/g, '""') + '"').join(";");
 }
 
 /** Liest Zeilen, die csvZeile geschrieben hat (Felder in "", ; als Trenner). */
@@ -40,9 +45,40 @@ function csvLesen(text) {
       else f += c;
     }
     felder.push(f);
-    zeilen.push(Object.fromEntries(SPALTEN.map((s, i) => [s, felder[i] ?? ""])));
+    zeilen.push(Object.fromEntries(SPALTEN.map((s, i) => [s, (felder[i] ?? "").replace(/^'(?=[=+\-@\t\r\uFF1D\uFF0B\uFF0D\uFF20])/, "")])));
   }
   return zeilen;
+}
+
+const istObjekt = (x) => !!x && typeof x === "object" && !Array.isArray(x);
+const text = (x, max) => String(x ?? "").slice(0, max);
+
+function saubereEinstellungen(roh) {
+  const r = istObjekt(roh) ? roh : {};
+  const e = { ...STANDARD };
+  for (const k of Object.keys(STANDARD)) {
+    if (!(k in r)) continue;
+    if (k === "regeln") e.regeln = Object.fromEntries(Object.entries(istObjekt(r.regeln) ? r.regeln : {}).filter(([n, v]) => FELDER.includes(n) && typeof v === "boolean"));
+    else e[k] = typeof STANDARD[k] === "boolean" ? r[k] === true : text(r[k], 2000);
+  }
+  if (!["outlook", "eml"].includes(e.versand)) e.versand = STANDARD.versand;
+  if (!["system", "hell", "dunkel"].includes(e.design)) e.design = STANDARD.design;
+  return e;
+}
+const saubereVorlagen = (liste) => liste.filter(istObjekt).slice(0, 500)
+  .map((v) => ({ id: text(v.id, 100), name: text(v.name, 200), betreff: text(v.betreff, 1000), text: text(v.text, 100000) }));
+const saubereGruppen = (liste) => liste.filter(istObjekt).slice(0, 500).map((g) => ({
+  id: text(g.id, 100), name: text(g.name, 80).trim() || "Gruppe",
+  mitglieder: [...new Set((Array.isArray(g.mitglieder) ? g.mitglieder : []).map(Number).filter(Number.isInteger))],
+}));
+function saubereAnsicht(a) {
+  if (!istObjekt(a)) return {};
+  const sauber = {};
+  if (Array.isArray(a.spalten)) sauber.spalten = a.spalten.filter((x) => typeof x === "string").slice(0, 100).map((x) => x.slice(0, 50));
+  if (typeof a.gruppe === "string" || a.gruppe === null) sauber.gruppe = a.gruppe === null ? null : a.gruppe.slice(0, 50);
+  if (typeof a.filterzeile === "boolean") sauber.filterzeile = a.filterzeile;
+  if (istObjekt(a.sort) && typeof a.sort.id === "string" && typeof a.sort.ab === "boolean") sauber.sort = { id: a.sort.id.slice(0, 50), ab: a.sort.ab };
+  return sauber;
 }
 
 function oeffneAblage(ordner) {
@@ -59,28 +95,22 @@ function oeffneAblage(ordner) {
     tmp: datei("tmp"),
 
     einstellungen() {
-      return { ...STANDARD, ...liesJson("einstellungen.json", {}) };
+      return saubereEinstellungen(liesJson("einstellungen.json", {}));
     },
     speichereEinstellungen(neu) {
-      const e = { ...this.einstellungen() };
-      for (const k of Object.keys(STANDARD)) {
-        if (!(k in neu)) continue;
-        if (k === "regeln") e.regeln = Object.fromEntries(Object.entries(neu.regeln || {}).filter(([r, v]) => FELDER.includes(r) && typeof v === "boolean"));
-        else e[k] = typeof STANDARD[k] === "boolean" ? !!neu[k] : String(neu[k]);
-      }
-      if (!["outlook", "eml"].includes(e.versand)) e.versand = STANDARD.versand;
-      if (!["system", "hell", "dunkel"].includes(e.design)) e.design = STANDARD.design;
+      const e = saubereEinstellungen({ ...this.einstellungen(), ...(neu && typeof neu === "object" ? neu : {}) });
       schreibJson("einstellungen.json", e);
       return e;
     },
 
+    // Beim Lesen wie beim Speichern geprüft: Eine kaputte oder fremde Datei darf die App nicht lahmlegen.
     vorlagen() {
       const v = liesJson("vorlagen.json", null);
-      return Array.isArray(v) ? v : JSON.parse(fs.readFileSync(path.join(__dirname, "standard-vorlagen.json"), "utf8"));
+      return Array.isArray(v) ? saubereVorlagen(v) : JSON.parse(fs.readFileSync(path.join(__dirname, "standard-vorlagen.json"), "utf8"));
     },
     speichereVorlagen(liste) {
       if (!Array.isArray(liste)) throw new Error("Vorlagen: Liste erwartet");
-      const sauber = liste.map((v) => ({ id: String(v.id), name: String(v.name), betreff: String(v.betreff ?? ""), text: String(v.text ?? "") }));
+      const sauber = saubereVorlagen(liste);
       schreibJson("vorlagen.json", sauber);
       return sauber;
     },
@@ -88,27 +118,28 @@ function oeffneAblage(ordner) {
     /** Eigene Mandantengruppen, nur in der App (DATEV bleibt unverändert). */
     gruppen() {
       const g = liesJson("gruppen.json", []);
-      return Array.isArray(g) ? g : [];
+      return Array.isArray(g) ? saubereGruppen(g) : [];
     },
     speichereGruppen(liste) {
       if (!Array.isArray(liste)) throw new Error("Gruppen: Liste erwartet");
-      const sauber = liste.map((g) => ({
-        id: String(g.id), name: String(g.name).trim().slice(0, 80) || "Gruppe",
-        mitglieder: [...new Set((g.mitglieder || []).map(Number).filter(Number.isFinite))],
-      }));
+      const sauber = saubereGruppen(liste);
       schreibJson("gruppen.json", sauber);
       return sauber;
     },
 
     /** Tabellenansicht (sichtbare Spalten, Gruppierung, Filterzeile) überdauert den Neustart. */
     ansicht() {
-      const a = liesJson("ansicht.json", {});
-      return a && typeof a === "object" && !Array.isArray(a) ? a : {};
+      return saubereAnsicht(liesJson("ansicht.json", {}));
     },
     speichereAnsicht(a) {
-      if (!a || typeof a !== "object" || Array.isArray(a) || JSON.stringify(a).length > 20000) throw new Error("Ansicht ungültig");
-      schreibJson("ansicht.json", a);
-      return a;
+      const sauber = saubereAnsicht(a);
+      schreibJson("ansicht.json", sauber);
+      return sauber;
+    },
+
+    /** Zwischendateien für Outlook (Adressen, Texte) – beim Start und Beenden weg. */
+    raeumeTmp() {
+      try { fs.rmSync(datei("tmp"), { recursive: true, force: true }); } catch { /* nächstes Mal */ }
     },
 
     protokoll() {

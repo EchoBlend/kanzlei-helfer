@@ -51,11 +51,11 @@ interface Kh {
   speichereAnsicht(a: Ansicht): Promise<Ansicht>;
   protokoll(): Promise<Protokollzeile[]>;
   waehleDateien(): Promise<Datei[]>;
-  dateiInfo(pfade: string[]): Promise<Datei[]>;
+  /** Echte, ins Fenster gezogene Dateien; den Pfad bestimmt vorlade.cjs selbst. */
+  dateiInfoVon(dateien: File[]): Promise<Datei[]>;
   mails(a: { modus: "entwurf"; vorlage: string; mails: { nummer: number; name: string; an: string[]; betreff: string; text: string; anhaenge: string[] }[] }): Promise<{ versand: string; ergebnisse: MailErgebnis[] }>;
   exportiere(a: { name: string; inhalt: string }): Promise<string | null>;
   oeffneOrdner(welcher: "daten" | "ausgang"): Promise<string>;
-  pfadVon(f: File): string;
 }
 declare global { interface Window { kh: Kh } }
 export const kh = () => window.kh;
@@ -90,7 +90,8 @@ export const mitRegeln = (m: Mandant, regeln: Partial<Record<Feld, boolean>> = {
 
 export type Ampel = "ok" | "pruefen" | "fehlt";
 export const ampel = (m: Mandant): Ampel => (m.luecken.length ? "fehlt" : m.fehlerhaft.length || m.abruffehler ? "pruefen" : "ok");
-const MAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+// Gleiche Regel wie electron/pruefung.cjs: keine Trenner (, ; :), Klammern, Anführungszeichen, Steuerzeichen, kein „..“
+const MAIL_RE = /^(?!.*\.\.)[^\s@,;:<>()[\]\\"\x00-\x1f\x7f]+@[^\s@,;:<>()[\]\\"\x00-\x1f\x7f.][^\s@,;:<>()[\]\\"\x00-\x1f\x7f]*\.[^\s@,;:<>()[\]\\"\x00-\x1f\x7f]+$/;
 export const gueltigeMails = (m: Mandant) => (m.emails ?? []).filter((e) => MAIL_RE.test(e.adresse));
 /** Anschreibbar, sobald irgendeine gültige Adresse da ist – auch nur die eines Gesellschafters. */
 export const kannMail = (m: Mandant) => gueltigeMails(m).length > 0;
@@ -115,19 +116,26 @@ export function adressenFuer(m: Mandant, ziel: Ziel, wahl?: string[]): string[] 
 }
 export const mailText = (e: Mail) => `${e.rolle}${e.eigen ? "" : " " + e.wer}${e.notiz ? " · " + e.notiz : ""}`;
 
-export const PLATZHALTER = ["Anrede", "Name", "Vorname", "Nachname", "Mandantennummer", "FehlendeAngaben", "Grussformel", "Datum", "Jahr", "Vorjahr", "Signatur"] as const;
+export const PLATZHALTER = ["Anrede", "Name", "Vorname", "Nachname", "Firma", "Strasse", "PLZ", "Ort", "Mandantennummer", "FehlendeAngaben", "Grussformel", "Datum", "Jahr", "Vorjahr", "Signatur"] as const;
 
-export function fuellen(text: string, m: Mandant, signatur: string) {
+/** Werte aller Platzhalter für einen Mandanten. */
+export function platzhalterWerte(m: Mandant, signatur: string): Record<string, string> {
   const fehlend = [
     ...m.luecken.filter((f) => !NUR_INTERN.includes(f)).map((f) => "– " + FELD_MAIL[f]),
     ...m.fehlerhaft.filter((f) => !NUR_INTERN.includes(f)).map((f) => "– " + FELD_MAIL[f] + " (bitte noch einmal prüfen)"),
   ].join("\n");
   const d = new Date();
-  const w: Record<string, string> = {
+  return {
     Anrede: m.anrede || "Sehr geehrte Damen und Herren,", Name: m.name, Vorname: m.vorname || "", Nachname: m.nachname || m.firma || m.name,
+    Firma: m.firma || (m.typ === "natural_person" ? "" : m.name), Strasse: m.strasse || "", PLZ: m.plz || "", Ort: m.ort || "",
     Mandantennummer: String(m.nummer), FehlendeAngaben: fehlend, Grussformel: m.grussformel || "Mit freundlichen Grüßen",
     Datum: d.toLocaleDateString("de-DE"), Jahr: String(d.getFullYear()), Vorjahr: String(d.getFullYear() - 1), Signatur: signatur,
   };
+}
+
+/** Platzhalter in einem Durchgang ersetzen (ein Wert aus DATEV mit „{{…}}“ wird nicht noch einmal ersetzt). */
+export function fuellen(text: string, m: Mandant, signatur: string) {
+  const w = platzhalterWerte(m, signatur);
   return text.replace(/\{\{(\w+)\}\}/g, (ganz, k) => (k in w ? w[k] : ganz));
 }
 /** Hat dieser Mandant etwas, das man ihn per Mail fragen kann? */
