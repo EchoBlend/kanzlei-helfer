@@ -52,16 +52,14 @@ async function pruefeImKanzleinetz(host, nachschlagen = dns.promises.lookup) {
  * Abruf für DATEVconnect: prüft Ursprung und Namensauflösung vor jeder Anfrage.
  * @param holen z. B. electron.net.fetch
  * @param ursprung () => erlaubter Ursprung (aus der eingestellten Adresse)
+ * @param nachschlagen (host) => [{ address }] – Namensauflösung für die Netzprüfung
  */
 function sichererAbruf(holen, ursprung, { nachschlagen } = {}) {
-  const geprueft = new Map(); // host → Zeitpunkt der letzten erfolgreichen Prüfung
   return async (adresse, optionen = {}) => {
     const u = new URL(adresse);
     if (u.protocol !== "http:" || u.origin !== ursprung()) throw new Error(`Gesperrt: ${u.origin} ist nicht die eingestellte DATEVconnect-Adresse`);
-    if (!(Date.now() - (geprueft.get(u.hostname) || 0) < 30000)) {
-      await pruefeImKanzleinetz(u.hostname, nachschlagen);
-      geprueft.set(u.hostname, Date.now());
-    }
+    // bei jeder Anfrage; in der App mit Chromiums eigenem Resolver (net.resolveHost) – derselbe Cache wie beim Abruf
+    await pruefeImKanzleinetz(u.hostname, nachschlagen);
     const r = await holen(adresse, { ...optionen, method: "GET", redirect: "error", credentials: "omit", signal: AbortSignal.timeout(ZEITLIMIT_MS) });
     if (r.status === 401 || r.status === 407) throw new Error("DATEVconnect verlangt eine Anmeldung – die App meldet sich bewusst bei niemandem an");
     return r;

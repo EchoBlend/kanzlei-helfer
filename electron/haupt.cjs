@@ -6,7 +6,7 @@
  * - Nichts geht hinaus: Das Fenster darf nur die App selbst laden; der einzige Netzweg
  *   ist DATEVconnect auf dem LIZENZSERVER (fest, siehe netz.cjs), und den fragt nur der Hauptprozess ab.
  */
-const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, net, protocol, session, shell } = require("electron");
+const { app, BrowserWindow, Menu, crashReporter, dialog, ipcMain, nativeTheme, net, protocol, session, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
@@ -28,12 +28,19 @@ if (app.isPackaged && ["remote-debugging-port", "remote-debugging-pipe", "inspec
 app.setName(NAME);
 // KH_DATEN nur für automatische Tests: eigener Ordner, Timos Daten bleiben unberührt.
 app.setPath("userData", process.env.KH_DATEN || path.join(app.getPath("appData"), NAME));
+// Abstürze: Bericht nur lokal im Datenordner – nie hochladen, nicht an die Windows-Fehlerberichterstattung
+// (deren Speicherabbilder könnten Mandantendaten enthalten). Alte Berichte beim Start löschen.
+try { fs.rmSync(app.getPath("crashDumps"), { recursive: true, force: true }); } catch { /* egal */ }
+crashReporter.start({ uploadToServer: false, ignoreSystemCrashHandler: true });
 // Kein HTTP-Cache: DATEV-Antworten (Mandantendaten) landen sonst je nach Server-Kopfzeilen
 // in %APPDATA%\Kanzlei-Helfer\Cache auf der Platte.
 app.commandLine.appendSwitch("disable-http-cache");
 // Immer direkt zu DATEVconnect im Kanzlei-Netz: kein Proxy (auch kein Cloud-Proxy aus den Windows-Einstellungen)
 // und keine automatische Proxy-Suche (WPAD/PAC).
 app.commandLine.appendSwitch("no-proxy-server");
+// Kein DNS-Vorabruf, kein WebRTC über UDP (STUN) – beides läge außerhalb von CSP und Anfrage-Sperre.
+app.commandLine.appendSwitch("dns-prefetch-disable");
+app.commandLine.appendSwitch("force-webrtc-ip-handling-policy", "disable_non_proxied_udp");
 protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -54,7 +61,8 @@ let fenster = null;
 let auftragswesen = null;
 let hinweise = [];
 
-const abruf = sichererAbruf((u, o) => net.fetch(u, o), () => datevUrsprung());
+const abruf = sichererAbruf((u, o) => net.fetch(u, o), () => datevUrsprung(),
+  { nachschlagen: async (host) => (await net.resolveHost(host)).endpoints.map((e) => ({ address: e.address })) });
 const quelle = () => (einstellungen.demo ? demoQuelle() : netzQuelle(abruf, einstellungen.datevconnect));
 const datevUrsprung = () => new URL(einstellungen.datevconnect).origin;
 const DIST_URL = pathToFileURL(WURZEL).href + "/";
@@ -81,6 +89,7 @@ function oeffneFenster() {
     webPreferences: { preload: path.join(__dirname, "vorlade.cjs"), contextIsolation: true, sandbox: true, spellcheck: false },
   });
   nativeTheme.on("updated", () => { try { fenster?.setTitleBarOverlay(fensterknoepfe()); } catch { /* Fenster zu */ } });
+  fenster.webContents.setWebRTCIPHandlingPolicy("disable_non_proxied_udp");
   fenster.webContents.on("will-navigate", (e, url) => { if (!url.startsWith(URSPRUNG)) e.preventDefault(); });
   fenster.webContents.on("will-redirect", (e, url) => { if (!url.startsWith(URSPRUNG)) e.preventDefault(); });
   if (!process.env.KH_TEST) fenster.maximize();
@@ -99,6 +108,8 @@ app.on("login", (e, _wc, _details, _auth, weiter) => { e.preventDefault(); weite
 app.on("will-quit", () => ablage.raeumeTmp());
 
 app.whenReady().then(() => {
+  // Namen nur über Windows auflösen (wie jedes Programm), nie per DNS-über-HTTPS an Google/Cloudflare & Co.
+  app.configureHostResolver({ secureDnsMode: "off", enableBuiltInResolver: false });
   Menu.setApplicationMenu(null);
   // Rechtschreibprüfung ganz aus. Chromium lädt sonst selbst bei abgeschalteter Prüfung das Wörterbuch
   // der Systemsprache von Google (gemessen per NetLog). Keine Sprachen = kein Download; die Adresse
@@ -238,9 +249,17 @@ handle("mails", async (_e, auftrag) => {
 handle("export", async (_e, auftrag) => {
   const name = path.basename(String(auftrag?.name || "Mandanten.csv")).replace(/[^\w .()-]/g, "_").replace(/(\.csv)?$/i, ".csv");
   const inhalt = String(auftrag?.inhalt ?? "");
-  const r = await dialog.showSaveDialog(fenster, { title: "Liste speichern", defaultPath: path.join(app.getPath("documents"), name),
+  // Downloads statt Dokumente: „Dokumente“ wird bei vielen Windows-PCs automatisch mit OneDrive abgeglichen.
+  const r = await dialog.showSaveDialog(fenster, { title: "Liste speichern", defaultPath: path.join(app.getPath("downloads"), name),
     filters: [{ name: "Excel (CSV)", extensions: ["csv"] }] });
   if (r.canceled || !r.filePath) return null;
+  const wolke = [process.env.OneDrive, process.env.OneDriveCommercial, process.env.OneDriveConsumer]
+    .filter(Boolean).some((o) => r.filePath.toLowerCase().startsWith(path.resolve(o).toLowerCase() + path.sep));
+  if (wolke) {
+    const w = await dialog.showMessageBox(fenster, { type: "warning", buttons: ["Abbrechen", "Trotzdem speichern"], defaultId: 0, cancelId: 0,
+      title: "OneDrive-Ordner", message: "Dieser Ordner wird mit OneDrive abgeglichen.", detail: "Die Mandantenliste würde damit in die Cloud hochgeladen. Besser einen Ordner außerhalb von OneDrive wählen." });
+    if (w.response !== 1) return null;
+  }
   fs.writeFileSync(r.filePath, "\ufeff" + inhalt, "utf8");
   return r.filePath;
 });
