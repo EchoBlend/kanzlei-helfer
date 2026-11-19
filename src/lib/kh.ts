@@ -116,19 +116,26 @@ export function adressenFuer(m: Mandant, ziel: Ziel, wahl?: string[]): string[] 
 }
 export const mailText = (e: Mail) => `${e.rolle}${e.eigen ? "" : " " + e.wer}${e.notiz ? " · " + e.notiz : ""}`;
 
-export const PLATZHALTER = ["Anrede", "Name", "Vorname", "Nachname", "Mandantennummer", "FehlendeAngaben", "Grussformel", "Datum", "Jahr", "Vorjahr", "Signatur"] as const;
+export const PLATZHALTER = ["Anrede", "Name", "Vorname", "Nachname", "Firma", "Strasse", "PLZ", "Ort", "Mandantennummer", "FehlendeAngaben", "Grussformel", "Datum", "Jahr", "Vorjahr", "Signatur"] as const;
 
-export function fuellen(text: string, m: Mandant, signatur: string) {
+/** Werte aller Platzhalter für einen Mandanten. */
+export function platzhalterWerte(m: Mandant, signatur: string): Record<string, string> {
   const fehlend = [
     ...m.luecken.filter((f) => !NUR_INTERN.includes(f)).map((f) => "– " + FELD_MAIL[f]),
     ...m.fehlerhaft.filter((f) => !NUR_INTERN.includes(f)).map((f) => "– " + FELD_MAIL[f] + " (bitte noch einmal prüfen)"),
   ].join("\n");
   const d = new Date();
-  const w: Record<string, string> = {
+  return {
     Anrede: m.anrede || "Sehr geehrte Damen und Herren,", Name: m.name, Vorname: m.vorname || "", Nachname: m.nachname || m.firma || m.name,
+    Firma: m.firma || (m.typ === "natural_person" ? "" : m.name), Strasse: m.strasse || "", PLZ: m.plz || "", Ort: m.ort || "",
     Mandantennummer: String(m.nummer), FehlendeAngaben: fehlend, Grussformel: m.grussformel || "Mit freundlichen Grüßen",
     Datum: d.toLocaleDateString("de-DE"), Jahr: String(d.getFullYear()), Vorjahr: String(d.getFullYear() - 1), Signatur: signatur,
   };
+}
+
+/** Platzhalter in einem Durchgang ersetzen (ein Wert aus DATEV mit „{{…}}“ wird nicht noch einmal ersetzt). */
+export function fuellen(text: string, m: Mandant, signatur: string) {
+  const w = platzhalterWerte(m, signatur);
   return text.replace(/\{\{(\w+)\}\}/g, (ganz, k) => (k in w ? w[k] : ganz));
 }
 /** Hat dieser Mandant etwas, das man ihn per Mail fragen kann? */

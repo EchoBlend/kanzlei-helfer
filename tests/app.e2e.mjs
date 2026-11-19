@@ -153,6 +153,16 @@ try {
   await bild(seite, "6-adresswahl-hell.png");
   await seite.keyboard.press("Escape");
   pruefe(await an(10026) === "buchhaltung.nowak-maschinenbau@example.com;ralf.nowak@example.com", `eigene Wahl pro Mandant (${await an(10026)})`);
+  // ---- 8c. Durchgehen: Mail für einen Mandanten anpassen, Wert per Platzhalter-Knopf ----
+  await seite.click("[data-knopf=anpassen]");
+  await seite.click("#eigen-text");
+  await seite.keyboard.press("Control+End");
+  await seite.keyboard.type("\nPS für ");
+  await seite.click("[data-anpassen] [data-platzhalter=Name]");
+  await seite.click("[data-knopf=anpassen-fertig]");
+  const angepasst = await seite.$$eval("[data-empfaenger] li", (li) => li.filter((l) => l.querySelector("[data-angepasst]")).length);
+  pruefe(angepasst === 1 && (await seite.textContent("[data-vorschau]")).includes("PS für "), "eigene Fassung für einen Mandanten");
+  await bild(seite, "7-durchgehen-hell.png");
   for (const n of [10002, 10026]) await seite.click(`[data-empfaenger] li[data-nummer="${n}"] button[aria-label$=entfernen]`);
   await seite.click("[data-ansicht=mandanten]");
 
