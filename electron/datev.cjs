@@ -43,7 +43,9 @@ function netzQuelle(holen, basis) {
   const hole = (wurzel) => async (pfad) => {
     const r = await holen(wurzel + pfad, { headers: { Accept: "application/json" } });
     if (!r.ok) throw Object.assign(new Error(`DATEVconnect antwortet ${r.status}${r.statusText ? " " + r.statusText : ""}`), { status: r.status });
-    return r.json();
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch { throw new Error(`DATEVconnect antwortet nicht mit JSON (${text.trimStart().startsWith("<") ? "XML/HTML" : "unbekannt"}) bei ${pfad}`); }
   };
   return { stamm: hole(stammWurzel), auftrag: hole(auftragWurzel) };
 }

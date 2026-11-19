@@ -4,7 +4,8 @@
  * - Fester Ursprung app://kanzlei-helfer/ und fester Datenordner %APPDATA%\Kanzlei-Helfer.
  * - Nur eine Instanz.
  * - Nichts geht hinaus: Das Fenster darf nur die App selbst laden; der einzige Netzweg
- *   ist DATEVconnect auf dem LIZENZSERVER (fest, siehe netz.cjs), und den fragt nur der Hauptprozess ab.
+ *   ist die eingestellte DATEVconnect-Adresse (Standard LIZENZSERVER, siehe netz.cjs), und die fragt nur der Hauptprozess ab –
+ *   mit dem Windows-Konto wie der Browser, nur bei diesem Server.
  */
 const { app, BrowserWindow, Menu, crashReporter, dialog, ipcMain, nativeTheme, net, protocol, session, shell } = require("electron");
 const path = require("node:path");
@@ -13,7 +14,7 @@ const { pathToFileURL } = require("node:url");
 const { oeffneAblage } = require("./ablage.cjs");
 const { demoQuelle, netzQuelle, ladeMandanten } = require("./datev.cjs");
 const { erstelleMails } = require("./versand.cjs");
-const { datevAdresse, sichererAbruf } = require("./netz.cjs");
+const { datevAdresse, datevBasis, sichererAbruf } = require("./netz.cjs");
 
 const NAME = "Kanzlei-Helfer";
 const URSPRUNG = "app://kanzlei-helfer/";
@@ -50,9 +51,9 @@ ablage.raeumeTmp(); // Reste eines abgebrochenen Outlook-Laufs (enthalten Adress
 // DATEVconnect-Adresse wie eingetragen (leer → LIZENZSERVER).
 const mitGueltigerAdresse = (e) => ({ ...e, datevconnect: datevAdresse(e.datevconnect) });
 let einstellungen = mitGueltigerAdresse(ablage.einstellungen());
-// Keine Windows-/Firmen-Anmeldung, an niemanden: Die Liste der Server, denen Chromium das Windows-Konto
-// automatisch anbieten darf, enthält nur einen Namen, den es nicht geben kann (.invalid, RFC 2606).
-// Zusätzlich fragt die App DATEV mit credentials: "omit" ab (netz.cjs).
+// Windows-Anmeldung (Kerberos/NTLM) wie im Browser – aber nur beim eingestellten DATEV-Server:
+// Bis die App bereit ist, darf Chromium das Windows-Konto niemandem anbieten (.invalid, RFC 2606);
+// danach genau diesem einen Servernamen (erlaubeWindowsKonto, bei jeder Adressänderung neu).
 app.commandLine.appendSwitch("auth-server-allowlist", "niemand.invalid");
 let mandanten = null;
 let stand = null;
@@ -61,10 +62,41 @@ let fenster = null;
 let auftragswesen = null;
 let hinweise = [];
 
-const abruf = sichererAbruf((u, o) => net.fetch(u, o), () => datevUrsprung(),
+/**
+ * Ein GET an DATEVconnect über net.request: ohne credentials-Angabe schickt Electron die Windows-Anmeldung
+ * (nur an Server aus erlaubeWindowsKonto), aber keine Cookies und speichert auch keine.
+ */
+function holeMitWindowsKonto(adresse, { headers = {}, signal } = {}) {
+  return new Promise((fertig, fehler) => {
+    const anfrage = net.request({ url: adresse, method: "GET", redirect: "error" });
+    for (const [k, v] of Object.entries(headers)) anfrage.setHeader(k, v);
+    // Nie nach Benutzername/Kennwort fragen (Basic-Anmeldung o. Ä.) → 401 → Meldung in netz.cjs
+    anfrage.on("login", (_info, weiter) => weiter());
+    anfrage.on("response", (antwort) => {
+      const teile = [];
+      antwort.on("data", (t) => teile.push(t));
+      antwort.on("error", fehler);
+      antwort.on("end", () => {
+        const text = Buffer.concat(teile).toString("utf8");
+        fertig({ ok: antwort.statusCode >= 200 && antwort.statusCode < 300, status: antwort.statusCode, statusText: antwort.statusMessage,
+          text: async () => text, json: async () => JSON.parse(text) });
+      });
+    });
+    anfrage.on("error", fehler);
+    signal?.addEventListener("abort", () => { anfrage.abort(); fehler(new Error("DATEVconnect antwortet nicht (Zeitlimit 30 s)")); });
+    anfrage.end();
+  });
+}
+const abruf = sichererAbruf(holeMitWindowsKonto, () => datevUrsprung(),
   { nachschlagen: async (host) => (await net.resolveHost(host)).endpoints.map((e) => ({ address: e.address })) });
-const quelle = () => (einstellungen.demo ? demoQuelle() : netzQuelle(abruf, einstellungen.datevconnect));
-const datevUrsprung = () => { try { return new URL(einstellungen.datevconnect).origin; } catch { return null; } };
+const quelle = () => (einstellungen.demo ? demoQuelle() : netzQuelle(abruf, datevBasis(einstellungen.datevconnect)));
+const datevUrsprung = () => { try { return new URL(datevBasis(einstellungen.datevconnect)).origin; } catch { return null; } };
+/** Windows-Konto nur dem eingestellten DATEV-Server anbieten (Demo: niemandem). */
+function erlaubeWindowsKonto() {
+  let host = "niemand.invalid";
+  try { if (!einstellungen.demo) host = new URL(datevBasis(einstellungen.datevconnect)).hostname || host; } catch { /* bleibt niemand */ }
+  session.defaultSession.allowNTLMCredentialsForDomains(host);
+}
 const DIST_URL = pathToFileURL(WURZEL).href + "/";
 const themenQuelle = (d) => ({ hell: "light", dunkel: "dark" })[d] || "system";
 // Windows 11 (ab 22H2, Build 22621) hat das Material „Mica“ – das Gegenstück zur macOS-Vibrancy.
@@ -139,6 +171,7 @@ app.whenReady().then(() => {
     antwort({ cancel: !erlaubt });
   });
   // Keine Rechte: Kamera, Mikrofon, Standort, Benachrichtigungen, Zwischenablage-Lesen, USB/HID/Seriell …
+  erlaubeWindowsKonto();
   session.defaultSession.setPermissionRequestHandler((_w, _p, ok) => ok(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   session.defaultSession.setDevicePermissionHandler(() => false);
@@ -191,10 +224,11 @@ handle("ansicht:speichern", (_e, a) => ablage.speichereAnsicht(a));
 handle("einstellungen:speichern", (_e, neu) => {
   const alt = einstellungen;
   neu = neu && typeof neu === "object" ? neu : {};
-  // Adresse: was der Benutzer einträgt (nur Browser-Adressen auf …/master-data/v1 gekürzt), keine Prüfung
+  // Adresse: genau wie eingetragen, keine Prüfung (die Abfragen nehmen davon die Basis, datevBasis)
   if ("datevconnect" in neu) neu = { ...neu, datevconnect: datevAdresse(neu.datevconnect) };
   einstellungen = mitGueltigerAdresse(ablage.speichereEinstellungen(neu));
   if (alt.demo !== einstellungen.demo || alt.datevconnect !== einstellungen.datevconnect || alt.nurAktive !== einstellungen.nurAktive) mandanten = null;
+  erlaubeWindowsKonto();
   nativeTheme.themeSource = themenQuelle(einstellungen.design);
   return einstellungen;
 });

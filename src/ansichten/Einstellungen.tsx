@@ -39,7 +39,7 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
             <div className="grid gap-1.5">
               <Label htmlFor="e-url">Adresse von DATEVconnect (Stammdaten)</Label>
               <Input id="e-url" className="kennung" value={e.datevconnect} onChange={(x) => setE({ ...e, datevconnect: x.target.value })} disabled={e.demo} />
-              <p className="text-xs text-muted-foreground">Standard in dieser Kanzlei: <span className="kennung">https://LIZENZSERVER:58452/datev/api/master-data/v1</span>. Eine aus dem Browser kopierte Adresse (…/clients?…) kürzt die App selbst auf …/master-data/v1. Verbinden nur mit Servern im eigenen Netz (z. B. localhost, LIZENZSERVER, 192.168.…).</p>
+              <p className="text-xs text-muted-foreground">Standard in dieser Kanzlei: <span className="kennung">https://LIZENZSERVER:58452/datev/api/master-data/v1</span>. Auch der Link aus dem Browser (…/clients?…) geht – die App fragt denselben Server ab. Anmeldung mit dem Windows-Konto wie im Browser, nur bei diesem Server; nur Server im eigenen Netz.</p>
             </div>
             <div className="flex items-center gap-3 rounded-lg border px-4 py-3 text-sm" data-verbindungstest>
               {status.einstellungen.demo ? <span className="text-muted-foreground">Demodaten aktiv, DATEV wird nicht abgefragt.</span>

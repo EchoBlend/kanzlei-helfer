@@ -1,4 +1,4 @@
-// Ende-zu-Ende: echte App (Electron) gegen den Fake-DATEVconnect (ohne Anmeldung; zum Schluss: App meldet sich nie an).
+// Ende-zu-Ende: echte App (Electron) gegen den Fake-DATEVconnect (ohne Anmeldung; zum Schluss: mit Windows-Anmeldung wie in der Kanzlei).
 // Start: npm run pruefe:app   (startet den Fake selbst, eigener Datenordner, Timos Daten bleiben unberührt)
 import { _electron as electron } from "playwright-core";
 import { spawn } from "node:child_process";
@@ -208,12 +208,12 @@ try {
   pruefe((await seite.getAttribute("[data-verbindung]", "data-verbindung")) === "aus", "Fehlerbild bei toter Adresse");
   await app.close();
 
-  // ---- 12b. Server verlangt Windows-Anmeldung → App meldet sich NICHT an ----
+  // ---- 12b. Server verlangt Windows-Anmeldung → App meldet sich mit dem Windows-Konto an (nur bei diesem Server) ----
   const mitAnmeldung = await starteFake(PORT + 1, true);
   try {
-    ({ app, seite } = await starteApp(daten, { ...basis, datevconnect: `http://localhost:${PORT + 1}/datev/api/master-data/v1` }));
-    await seite.waitForSelector("[role=alert]", { timeout: 20000 });
-    pruefe((await seite.textContent("[role=alert]")).includes("Anmeldung"), "keine Windows-Anmeldung: Server mit Anmeldung bleibt zu");
+    ({ app, seite } = await starteApp(daten, { ...basis, datevconnect: `http://localhost:${PORT + 1}/datev/api/master-data/v1/clients?select=number,name` }));
+    await seite.waitForSelector("tr[data-nummer]", { timeout: 20000 });
+    pruefe((await seite.getAttribute("[data-verbindung]", "data-verbindung")) === "ok", "Windows-Anmeldung: Server mit Anmeldung liefert Daten");
     await app.close();
   } finally { mitAnmeldung.kill(); }
 

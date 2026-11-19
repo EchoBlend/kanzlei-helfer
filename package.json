@@ -1,7 +1,7 @@
 {
   "name": "kanzlei-helfer",
   "private": true,
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "Prüft Mandanten-Stammdaten aus DATEV und schreibt Mandanten per Vorlage an.",
   "author": "Timo Bergmann",
   "type": "module",
