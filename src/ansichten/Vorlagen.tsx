@@ -7,21 +7,25 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichText, type RichTextGriff } from "@/components/RichText";
+import { Teiler, useGroesse } from "@/components/Teiler";
 import { Kopf } from "@/App";
 import { Platzhalter } from "@/ansichten/Serienmail";
-import type { Vorlage } from "@/lib/kh";
+import { htmlVon, type Vorlage } from "@/lib/kh";
 import { cn } from "@/lib/utils";
 
 export function Vorlagen({ vorlagen, speichern }: { vorlagen: Vorlage[]; speichern: (v: Vorlage[]) => Promise<boolean> }) {
   const [id, setId] = useState<string | null>(vorlagen[0]?.id ?? null);
-  const [form, setForm] = useState<Vorlage>({ id: "", name: "", betreff: "", text: "" });
-  const textRef = useRef<HTMLTextAreaElement>(null);
+  const leer = { id: "", name: "", betreff: "", text: "", html: "" };
+  const [form, setForm] = useState<Vorlage & { html: string }>(leer);
+  const textRef = useRef<RichTextGriff>(null);
+  const liste = useGroesse("vorlagen.liste", 288, 200, () => 560);
   const aktuell = vorlagen.find((v) => v.id === id) ?? null;
   const neu = id === null;
-  const geaendert = neu ? !!(form.name || form.betreff || form.text) : !!aktuell && (aktuell.name !== form.name || aktuell.betreff !== form.betreff || aktuell.text !== form.text);
+  const geaendert = neu ? !!(form.name || form.betreff || form.text.trim())
+    : !!aktuell && (aktuell.name !== form.name || aktuell.betreff !== form.betreff || htmlVon(aktuell) !== form.html);
 
-  useEffect(() => { if (aktuell) setForm(aktuell); }, [aktuell]);
+  useEffect(() => { if (aktuell) setForm({ ...aktuell, html: htmlVon(aktuell) }); }, [aktuell]);
 
   const sichern = async () => {
     if (!form.name.trim()) { toast.error("Bitte einen Namen eingeben"); return; }
@@ -34,21 +38,16 @@ export function Vorlagen({ vorlagen, speichern }: { vorlagen: Vorlage[]; speiche
     const liste = vorlagen.filter((v) => v.id !== aktuell.id);
     if (await speichern(liste)) { setId(liste[0]?.id ?? null); toast.success(`„${aktuell.name}“ gelöscht`); }
   };
-  const neueVorlage = (vorgabe?: Vorlage) => { setId(null); setForm(vorgabe ?? { id: "", name: "", betreff: "", text: "" }); };
-  const einfuegen = (p: string) => {
-    const t = textRef.current; if (!t) return;
-    const ins = `{{${p}}}`, a = t.selectionStart ?? t.value.length, b = t.selectionEnd ?? a;
-    setForm((f) => ({ ...f, text: f.text.slice(0, a) + ins + f.text.slice(b) }));
-    requestAnimationFrame(() => { t.focus(); t.selectionStart = t.selectionEnd = a + ins.length; });
-  };
+  const neueVorlage = (vorgabe?: Vorlage & { html: string }) => { setId(null); setForm(vorgabe ?? leer); };
+  const einfuegen = (p: string) => textRef.current?.einfuegen(`{{${p}}}`);
 
   return (
     <div className="flex h-svh flex-col">
       <Kopf titel="Vorlagen" unter={`${vorlagen.length} Vorlagen · Platzhalter werden je Mandant ersetzt`}>
         <Button variant="outline" onClick={() => neueVorlage()} data-knopf="neue-vorlage"><PlusIcon />Neue Vorlage</Button>
       </Kopf>
-      <div className="grid min-h-0 flex-1 grid-cols-[18rem_minmax(0,1fr)]">
-        <nav className="min-h-0 overflow-auto border-r bg-surface p-3" aria-label="Vorlagen">
+      <div className="grid min-h-0 flex-1" style={{ gridTemplateColumns: `${liste.wert}px auto minmax(0,1fr)` }}>
+        <nav className="min-h-0 overflow-auto bg-surface p-3" aria-label="Vorlagen">
           <ul className="space-y-0.5">
             {vorlagen.map((v) => (
               <li key={v.id}>
@@ -62,14 +61,16 @@ export function Vorlagen({ vorlagen, speichern }: { vorlagen: Vorlage[]; speiche
             {neu && <li><div className="rounded-md bg-background px-3 py-2 text-sm font-medium ring-1 ring-line">{form.name || "Neue Vorlage"}</div></li>}
           </ul>
         </nav>
+        <Teiler richtung="x" groesse={liste} label="Breite der Vorlagenliste" />
         <section className="min-h-0 overflow-auto px-8 py-6">
-          <div className="grid max-w-3xl gap-5">
+          <div className="grid max-w-4xl gap-5">
             <div className="grid gap-1.5"><Label htmlFor="v-name">Name der Vorlage</Label>
               <Input id="v-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="z. B. Vollmacht anfordern" /></div>
             <div className="grid gap-1.5"><Label htmlFor="v-betreff">Betreff</Label>
               <Input id="v-betreff" value={form.betreff} onChange={(e) => setForm({ ...form, betreff: e.target.value })} /></div>
             <div className="grid gap-1.5"><Label htmlFor="v-text">Text</Label>
-              <Textarea id="v-text" ref={textRef} rows={16} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} className="min-h-80 text-base leading-relaxed" />
+              <RichText id="v-text" label="Text der Vorlage" ref={textRef} html={form.html} hoehe="26rem"
+                aendern={(html, text) => setForm((f) => ({ ...f, html, text }))} />
               <Platzhalter einfuegen={einfuegen} />
               <p className="text-xs text-muted-foreground">{"{{FehlendeAngaben}}"} listet die Lücken aus der Stammdaten-Prüfung. Mandanten ohne Lücken bekommen eine solche Vorlage nicht.</p>
             </div>

@@ -4,33 +4,58 @@
  * - Fester Ursprung app://kanzlei-helfer/ und fester Datenordner %APPDATA%\Kanzlei-Helfer.
  * - Nur eine Instanz.
  * - Nichts geht hinaus: Das Fenster darf nur die App selbst laden; der einzige Netzweg
- *   ist die eingestellte DATEVconnect-Adresse, und die fragt nur der Hauptprozess ab.
+ *   ist die eingestellte DATEVconnect-Adresse (Standard LIZENZSERVER, siehe netz.cjs), und die fragt nur der Hauptprozess ab –
+ *   mit dem Windows-Konto wie der Browser, nur bei diesem Server.
  */
-const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, net, protocol, session, shell } = require("electron");
+const { app, BrowserWindow, Menu, crashReporter, dialog, ipcMain, nativeTheme, net, protocol, safeStorage, session, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
 const { oeffneAblage } = require("./ablage.cjs");
 const { demoQuelle, netzQuelle, ladeMandanten } = require("./datev.cjs");
-const { erstelleMails } = require("./versand.cjs");
+const { erstelleMails, smtpTest } = require("./versand.cjs");
+const { MAIL_RE } = require("./pruefung.cjs");
+const { datevAdresse, datevBasis, sichererAbruf } = require("./netz.cjs");
 
 const NAME = "Kanzlei-Helfer";
 const URSPRUNG = "app://kanzlei-helfer/";
 const WURZEL = path.join(__dirname, "..", "dist");
 const GRUND = { hell: "#F6FAFB", dunkel: "#0B1316" };
+const CSP = "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; " +
+  "connect-src 'self'; object-src 'none'; frame-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'";
+
+// Fernsteuerung der fertigen App (Debug-Port) verweigern; die Tests nutzen die ungepackte App.
+if (app.isPackaged && ["remote-debugging-port", "remote-debugging-pipe", "inspect", "inspect-brk"].some((s) => app.commandLine.hasSwitch(s))) app.exit(1);
 
 app.setName(NAME);
 // KH_DATEN nur für automatische Tests: eigener Ordner, Timos Daten bleiben unberührt.
 app.setPath("userData", process.env.KH_DATEN || path.join(app.getPath("appData"), NAME));
-// Windows-Anmeldung (NTLM/Kerberos) gegenüber DATEVconnect. ponytail: "*" statt Hostliste —
-// der Hauptprozess ruft ohnehin nur die eingestellte DATEVconnect-Adresse ab (Sperre unten).
-app.commandLine.appendSwitch("auth-server-allowlist", "*");
+// Abstürze: Bericht nur lokal im Datenordner – nie hochladen, nicht an die Windows-Fehlerberichterstattung
+// (deren Speicherabbilder könnten Mandantendaten enthalten). Alte Berichte beim Start löschen.
+try { fs.rmSync(app.getPath("crashDumps"), { recursive: true, force: true }); } catch { /* egal */ }
+crashReporter.start({ uploadToServer: false, ignoreSystemCrashHandler: true });
+// Kein HTTP-Cache: DATEV-Antworten (Mandantendaten) landen sonst je nach Server-Kopfzeilen
+// in %APPDATA%\Kanzlei-Helfer\Cache auf der Platte.
+app.commandLine.appendSwitch("disable-http-cache");
+// Immer direkt zu DATEVconnect im Kanzlei-Netz: kein Proxy (auch kein Cloud-Proxy aus den Windows-Einstellungen)
+// und keine automatische Proxy-Suche (WPAD/PAC).
+app.commandLine.appendSwitch("no-proxy-server");
+// Kein DNS-Vorabruf, kein WebRTC über UDP (STUN) – beides läge außerhalb von CSP und Anfrage-Sperre.
+app.commandLine.appendSwitch("dns-prefetch-disable");
+app.commandLine.appendSwitch("force-webrtc-ip-handling-policy", "disable_non_proxied_udp");
 protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
 const ablage = oeffneAblage(app.getPath("userData"));
-let einstellungen = ablage.einstellungen();
+ablage.raeumeTmp(); // Reste eines abgebrochenen Outlook-Laufs (enthalten Adressen und Texte)
+// DATEVconnect-Adresse wie eingetragen (leer → LIZENZSERVER).
+const mitGueltigerAdresse = (e) => ({ ...e, datevconnect: datevAdresse(e.datevconnect) });
+let einstellungen = mitGueltigerAdresse(ablage.einstellungen());
+// Windows-Anmeldung (Kerberos/NTLM) wie im Browser – aber nur beim eingestellten DATEV-Server:
+// Bis die App bereit ist, darf Chromium das Windows-Konto niemandem anbieten (.invalid, RFC 2606);
+// danach genau diesem einen Servernamen (erlaubeWindowsKonto, bei jeder Adressänderung neu).
+app.commandLine.appendSwitch("auth-server-allowlist", "niemand.invalid");
 let mandanten = null;
 let stand = null;
 let fenster = null;
@@ -38,8 +63,42 @@ let fenster = null;
 let auftragswesen = null;
 let hinweise = [];
 
-const quelle = () => (einstellungen.demo ? demoQuelle() : netzQuelle((u, o) => net.fetch(u, o), einstellungen.datevconnect));
-const datevUrsprung = () => { try { return new URL(einstellungen.datevconnect).origin; } catch { return null; } };
+/**
+ * Ein GET an DATEVconnect über net.request: ohne credentials-Angabe schickt Electron die Windows-Anmeldung
+ * (nur an Server aus erlaubeWindowsKonto), aber keine Cookies und speichert auch keine.
+ */
+function holeMitWindowsKonto(adresse, { headers = {}, signal } = {}) {
+  return new Promise((fertig, fehler) => {
+    const anfrage = net.request({ url: adresse, method: "GET", redirect: "error" });
+    for (const [k, v] of Object.entries(headers)) anfrage.setHeader(k, v);
+    // Nie nach Benutzername/Kennwort fragen (Basic-Anmeldung o. Ä.) → 401 → Meldung in netz.cjs
+    anfrage.on("login", (_info, weiter) => weiter());
+    anfrage.on("response", (antwort) => {
+      const teile = [];
+      antwort.on("data", (t) => teile.push(t));
+      antwort.on("error", fehler);
+      antwort.on("end", () => {
+        const text = Buffer.concat(teile).toString("utf8");
+        fertig({ ok: antwort.statusCode >= 200 && antwort.statusCode < 300, status: antwort.statusCode, statusText: antwort.statusMessage,
+          text: async () => text, json: async () => JSON.parse(text) });
+      });
+    });
+    anfrage.on("error", fehler);
+    signal?.addEventListener("abort", () => { anfrage.abort(); fehler(new Error("DATEVconnect antwortet nicht (Zeitlimit 30 s)")); });
+    anfrage.end();
+  });
+}
+const abruf = sichererAbruf(holeMitWindowsKonto, () => datevUrsprung(),
+  { nachschlagen: async (host) => (await net.resolveHost(host)).endpoints.map((e) => ({ address: e.address })) });
+const quelle = () => (einstellungen.demo ? demoQuelle() : netzQuelle(abruf, datevBasis(einstellungen.datevconnect)));
+const datevUrsprung = () => { try { return new URL(datevBasis(einstellungen.datevconnect)).origin; } catch { return null; } };
+/** Windows-Konto nur dem eingestellten DATEV-Server anbieten (Demo: niemandem). */
+function erlaubeWindowsKonto() {
+  let host = "niemand.invalid";
+  try { if (!einstellungen.demo) host = new URL(datevBasis(einstellungen.datevconnect)).hostname || host; } catch { /* bleibt niemand */ }
+  session.defaultSession.allowNTLMCredentialsForDomains(host);
+}
+const DIST_URL = pathToFileURL(WURZEL).href + "/";
 const themenQuelle = (d) => ({ hell: "light", dunkel: "dark" })[d] || "system";
 // Windows 11 (ab 22H2, Build 22621) hat das Material „Mica“ – das Gegenstück zur macOS-Vibrancy.
 const MICA = process.platform === "win32" && Number(require("node:os").release().split(".")[2]) >= 22621 && !process.env.KH_OHNE_MICA;
@@ -58,35 +117,66 @@ function oeffneFenster() {
     // Eigene Titelleiste wie bei macOS-Apps: Inhalt bis oben, Windows-Knöpfe als Überlagerung
     titleBarStyle: "hidden", titleBarOverlay: fensterknoepfe(),
     ...(MICA ? { backgroundMaterial: "mica", backgroundColor: "#00000000" } : { backgroundColor: nativeTheme.shouldUseDarkColors ? GRUND.dunkel : GRUND.hell }),
-    webPreferences: { preload: path.join(__dirname, "vorlade.cjs"), contextIsolation: true, sandbox: true, spellcheck: true },
+    // Rechtschreibprüfung aus: Sie lädt ihr Wörterbuch beim Start von Google (redirector.gvt1.com).
+    // Outlook prüft die Rechtschreibung im Entwurf ohnehin.
+    webPreferences: { preload: path.join(__dirname, "vorlade.cjs"), contextIsolation: true, sandbox: true, spellcheck: false },
   });
   nativeTheme.on("updated", () => { try { fenster?.setTitleBarOverlay(fensterknoepfe()); } catch { /* Fenster zu */ } });
-  fenster.webContents.session.setSpellCheckerLanguages(["de-DE"]);
-  fenster.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  fenster.webContents.setWebRTCIPHandlingPolicy("disable_non_proxied_udp");
   fenster.webContents.on("will-navigate", (e, url) => { if (!url.startsWith(URSPRUNG)) e.preventDefault(); });
+  fenster.webContents.on("will-redirect", (e, url) => { if (!url.startsWith(URSPRUNG)) e.preventDefault(); });
   if (!process.env.KH_TEST) fenster.maximize();
   fenster.show();
   fenster.loadURL(URSPRUNG + "index.html");
 }
 
 app.on("second-instance", () => { if (fenster) { if (fenster.isMinimized()) fenster.restore(); fenster.focus(); } });
+// Für jedes Fenster/jeden Inhalt: keine neuen Fenster, keine eingebetteten Webviews.
+app.on("web-contents-created", (_e, wc) => {
+  wc.setWindowOpenHandler(() => ({ action: "deny" }));
+  wc.on("will-attach-webview", (e) => e.preventDefault());
+});
+// Nie nach Benutzername/Passwort fragen und keine gespeicherten Zugangsdaten senden.
+app.on("login", (e, _wc, _details, _auth, weiter) => { e.preventDefault(); weiter(); });
+// Auch kein Client-Zertifikat aus dem Windows-Speicher (Electron nähme sonst das erste).
+app.on("select-client-certificate", (e, _wc, _url, _liste, weiter) => { e.preventDefault(); weiter(); });
+app.on("will-quit", () => ablage.raeumeTmp());
 
 app.whenReady().then(() => {
+  // Namen nur über Windows auflösen (wie jedes Programm), nie per DNS-über-HTTPS an Google/Cloudflare & Co.
+  app.configureHostResolver({ secureDnsMode: "off", enableBuiltInResolver: false });
   Menu.setApplicationMenu(null);
-  protocol.handle("app", (req) => {
+  // Rechtschreibprüfung ganz aus. Chromium lädt sonst selbst bei abgeschalteter Prüfung das Wörterbuch
+  // der Systemsprache von Google (gemessen per NetLog). Keine Sprachen = kein Download; die Adresse
+  // zeigt zur Sicherheit ins Leere auf diesem PC.
+  session.defaultSession.setSpellCheckerDictionaryDownloadURL("http://127.0.0.1:9/");
+  session.defaultSession.setSpellCheckerLanguages([]);
+  session.defaultSession.setSpellCheckerEnabled(false);
+  protocol.handle("app", async (req) => {
     const rel = decodeURIComponent(new URL(req.url).pathname).replace(/^\/+/, "") || "index.html";
     const datei = path.normalize(path.join(WURZEL, rel));
-    if (!datei.startsWith(WURZEL) || !fs.existsSync(datei)) return new Response("Nicht gefunden", { status: 404 });
-    return net.fetch(pathToFileURL(datei).toString());
+    if (!datei.startsWith(WURZEL + path.sep) || !fs.existsSync(datei) || !fs.statSync(datei).isFile()) return new Response("Nicht gefunden", { status: 404 });
+    const r = await net.fetch(pathToFileURL(datei).toString());
+    const kopf = new Headers(r.headers);
+    kopf.set("Content-Security-Policy", CSP);
+    return new Response(r.body, { status: r.status, headers: kopf });
   });
-  // Sperre: nur die App selbst und die eingestellte DATEVconnect-Adresse.
+  // Sperre: nur die App selbst (app://, Dateien aus dist) und DATEVconnect auf dem LIZENZSERVER (exakter Ursprung).
   session.defaultSession.webRequest.onBeforeRequest((d, antwort) => {
     const u = d.url;
-    const erlaubt = u.startsWith(URSPRUNG) || u.startsWith("file:") || u.startsWith("data:") || u.startsWith("blob:") ||
-      u.startsWith("devtools:") || (datevUrsprung() && u.startsWith(datevUrsprung()));
+    let erlaubt = u.startsWith(URSPRUNG) || u.startsWith(DIST_URL) || u.startsWith("data:") || u.startsWith("blob:");
+    // DATEV nur vom Hauptprozess (keine webContentsId) und nur lesend
+    if (!erlaubt && /^https?:/i.test(u) && d.method === "GET" && d.webContentsId === undefined) {
+      try { erlaubt = new URL(u).origin === datevUrsprung(); } catch { erlaubt = false; }
+    }
     antwort({ cancel: !erlaubt });
   });
+  // Keine Rechte: Kamera, Mikrofon, Standort, Benachrichtigungen, Zwischenablage-Lesen, USB/HID/Seriell …
+  erlaubeWindowsKonto();
   session.defaultSession.setPermissionRequestHandler((_w, _p, ok) => ok(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
+  session.defaultSession.setDevicePermissionHandler(() => false);
+  session.defaultSession.on("will-download", (e) => e.preventDefault());
   oeffneFenster();
 });
 app.on("window-all-closed", () => app.quit());
@@ -95,15 +185,26 @@ app.on("window-all-closed", () => app.quit());
 
 const fehlerText = (f) => (f && f.message) || String(f);
 
-ipcMain.handle("status", async () => {
+/** Nur die eigene Oberfläche (app://kanzlei-helfer) darf die Schnittstelle benutzen. */
+function handle(kanal, f) {
+  ipcMain.handle(kanal, (e, ...a) => {
+    if (!e.senderFrame || !e.senderFrame.url.startsWith(URSPRUNG)) throw new Error("Nicht erlaubt");
+    return f(e, ...a);
+  });
+}
+
+handle("status", async () => {
   let datev = true, meldung = null;
-  try { await quelle().stamm("/version"); } catch (f) { datev = false; meldung = fehlerText(f); }
-  return { datev, meldung, einstellungen, version: app.getVersion(), daten: ablage.ordner, ausgang: ablage.ausgang, mica: MICA, auftragswesen, hinweise };
+  try {
+    // /version kennt nicht jede DATEVconnect-Fassung; dann reicht die Mandantenliste (nur Nummern) als Lebenszeichen.
+    await quelle().stamm("/version").catch((f) => { if (f.status === 404) return quelle().stamm("/clients?select=number"); throw f; });
+  } catch (f) { datev = false; meldung = fehlerText(f); }
+  return { datev, meldung, einstellungen, smtpPasswort: ablage.hatSmtpPasswort(), version: app.getVersion(), daten: ablage.ordner, ausgang: ablage.ausgang, mica: MICA, auftragswesen, hinweise };
 });
 
 // Scan: alle Mandanten neu aus DATEV lesen und prüfen; Fortschritt geht als Ereignis „scan“ ans Fenster.
 let laufenderScan = null;
-ipcMain.handle("mandanten", async (e, neu) => {
+handle("mandanten", async (e, neu) => {
   if (!mandanten || neu) {
     laufenderScan ??= ladeMandanten(quelle(), einstellungen.nurAktive, (fertig, gesamt) => e.sender.send("scan", { fertig, gesamt }))
       .finally(() => { laufenderScan = null; });
@@ -116,52 +217,134 @@ ipcMain.handle("mandanten", async (e, neu) => {
   return { stand, mandanten, auftragswesen, hinweise };
 });
 
-ipcMain.handle("gruppen", () => ablage.gruppen());
-ipcMain.handle("gruppen:speichern", (_e, liste) => ablage.speichereGruppen(liste));
-ipcMain.handle("ansicht", () => ablage.ansicht());
-ipcMain.handle("ansicht:speichern", (_e, a) => ablage.speichereAnsicht(a));
+handle("gruppen", () => ablage.gruppen());
+handle("gruppen:speichern", (_e, liste) => ablage.speichereGruppen(liste));
+handle("ansicht", () => ablage.ansicht());
+handle("ansicht:speichern", (_e, a) => ablage.speichereAnsicht(a));
 
-ipcMain.handle("einstellungen:speichern", (_e, neu) => {
+handle("einstellungen:speichern", (_e, neu) => {
   const alt = einstellungen;
-  einstellungen = ablage.speichereEinstellungen(neu || {});
+  neu = neu && typeof neu === "object" ? neu : {};
+  // Adresse: genau wie eingetragen, keine Prüfung (die Abfragen nehmen davon die Basis, datevBasis)
+  if ("datevconnect" in neu) neu = { ...neu, datevconnect: datevAdresse(neu.datevconnect) };
+  einstellungen = mitGueltigerAdresse(ablage.speichereEinstellungen(neu));
   if (alt.demo !== einstellungen.demo || alt.datevconnect !== einstellungen.datevconnect || alt.nurAktive !== einstellungen.nurAktive) mandanten = null;
+  erlaubeWindowsKonto();
   nativeTheme.themeSource = themenQuelle(einstellungen.design);
   return einstellungen;
 });
 
-ipcMain.handle("vorlagen", () => ablage.vorlagen());
-ipcMain.handle("vorlagen:speichern", (_e, liste) => ablage.speichereVorlagen(liste));
-ipcMain.handle("protokoll", () => ablage.protokoll());
-
-ipcMain.handle("dateien:waehlen", async () => {
-  const r = await dialog.showOpenDialog(fenster, { title: "Anhänge auswählen", properties: ["openFile", "multiSelections"] });
-  return r.canceled ? [] : r.filePaths.map(dateiInfo);
+// Standard-Adressen pro Mandant: nur Adressen, die DATEV beim Mandanten hat (letzter Scan)
+handle("standardAdressen", () => ablage.standardAdressen());
+handle("standardAdressen:setzen", (_e, nummer, liste) => {
+  const m = (mandanten || []).find((x) => x.nummer === nummer);
+  if (mandanten && !m) throw new Error(`Mandant ${nummer} nicht im letzten Scan`);
+  const erlaubt = m ? new Set((m.emails || []).map((e) => e.adresse)) : null;
+  const sauber = (Array.isArray(liste) ? liste : []).filter((a) => typeof a === "string" && (!erlaubt || erlaubt.has(a)));
+  return ablage.setzeStandardAdressen(nummer, sauber.length ? sauber : null);
 });
-ipcMain.handle("dateien:info", (_e, pfade) => (pfade || []).filter((p) => fs.existsSync(p)).map(dateiInfo));
-function dateiInfo(p) { return { pfad: p, name: path.basename(p), groesse: fs.statSync(p).size }; }
 
-ipcMain.handle("mails", async (_e, auftrag) => {
-  const versand = einstellungen.demo && einstellungen.versand === "outlook" ? "eml" : einstellungen.versand;
-  const erg = await erstelleMails(auftrag, { versand, ausgang: ablage.ausgang, tmp: ablage.tmp });
+handle("vorlagen", () => ablage.vorlagen());
+handle("vorlagen:speichern", (_e, liste) => ablage.speichereVorlagen(liste));
+handle("protokoll", () => ablage.protokoll());
+
+// Anhänge: nur Dateien, die der Benutzer in dieser Sitzung selbst gewählt oder ins Fenster gezogen hat.
+const freigegeben = new Set();
+function dateiInfo(p) {
+  const st = fs.statSync(p, { throwIfNoEntry: false });
+  if (!st || !st.isFile()) return null;
+  freigegeben.add(p);
+  return { pfad: p, name: path.basename(p), groesse: st.size };
+}
+handle("dateien:waehlen", async () => {
+  const r = await dialog.showOpenDialog(fenster, { title: "Anhänge auswählen", properties: ["openFile", "multiSelections"] });
+  return r.canceled ? [] : r.filePaths.map(dateiInfo).filter(Boolean);
+});
+// Bild für eine formatierte Mail: vom Benutzer gewählt, als data:-URL in den Editor (wird beim Erstellen zum eingebetteten Bild).
+const BILDTYP = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp" };
+handle("bild:waehlen", async () => {
+  const r = await dialog.showOpenDialog(fenster, { title: "Bild einfügen", properties: ["openFile"], filters: [{ name: "Bilder", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] }] });
+  const p = !r.canceled && r.filePaths[0];
+  if (!p) return null;
+  const typ = BILDTYP[path.extname(p).toLowerCase()];
+  if (!typ) throw new Error("Nur PNG, JPG, GIF, WebP oder BMP");
+  if (fs.statSync(p).size > 5 * 1024 * 1024) throw new Error("Bild zu groß (max. 5 MB)");
+  return `data:${typ};base64,${fs.readFileSync(p).toString("base64")}`;
+});
+// Pfade kommen aus vorlade.cjs (webUtils.getPathForFile auf echten, ins Fenster gezogenen Dateien).
+handle("dateien:info", (_e, pfade) => (Array.isArray(pfade) ? pfade : []).filter((p) => typeof p === "string" && path.isAbsolute(p)).map(dateiInfo).filter(Boolean));
+
+/** Prüft einen Mail-Auftrag der Oberfläche gegen den letzten Scan: Adressen müssen die des Mandanten aus DATEV sein. */
+function pruefeAuftrag(auftrag) {
+  const text = (v, max) => typeof v === "string" && v.length <= max;
+  const smtpAn = einstellungen.versand === "smtp" && !einstellungen.demo;
+  if (!auftrag || auftrag.modus !== (smtpAn ? "senden" : "entwurf") || !text(auftrag.vorlage, 500) || !Array.isArray(auftrag.mails) || auftrag.mails.length > 5000) throw new Error("Ungültiger Auftrag");
+  const adressen = new Map((mandanten || []).map((m) => [m.nummer, new Set((m.emails || []).map((x) => x.adresse))]));
+  const gut = [], schlecht = [];
+  for (const m of auftrag.mails) {
+    if (!m || !Number.isInteger(m.nummer) || !text(m.name, 500) || !text(m.betreff, 2000) || !text(m.text, 200000) || (m.html !== undefined && !text(m.html, 40 * 1024 * 1024)) ||
+      !Array.isArray(m.an) || !m.an.every((a) => text(a, 320)) || !Array.isArray(m.anhaenge) || !m.anhaenge.every((p) => text(p, 4000))) throw new Error("Ungültiger Auftrag");
+    // Von Hand eingegebene Adressen (bearbeitet, ergänzt, weitere Empfänger) stehen zusätzlich in `von_hand` und müssen eine gültige Adresse sein;
+    // alle anderen müssen die des Mandanten aus DATEV sein.
+    if (m.von_hand !== undefined && (!Array.isArray(m.von_hand) || !m.von_hand.every((a) => text(a, 320) && MAIL_RE.test(a)))) throw new Error("Ungültiger Auftrag");
+    const hand = new Set(m.von_hand || []);
+    const fremd = m.an.find((a) => !hand.has(a) && !adressen.get(m.nummer)?.has(a));
+    const anhang = m.anhaenge.find((p) => !freigegeben.has(p));
+    if (fremd) schlecht.push({ nummer: m.nummer, ok: false, info: `Adresse gehört nicht zu Mandant ${m.nummer} in DATEV: ${fremd}`, anhaenge: [] });
+    else if (anhang) schlecht.push({ nummer: m.nummer, ok: false, info: `Anhang nicht freigegeben: ${path.basename(anhang)}`, anhaenge: [] });
+    else gut.push(m);
+  }
+  return { gut, schlecht };
+}
+
+const smtpDaten = () => ({ host: einstellungen.smtpHost.trim(), port: Number(einstellungen.smtpPort) || 465, benutzer: (einstellungen.smtpBenutzer || einstellungen.smtpAbsender).trim(),
+  absender: einstellungen.smtpAbsender.trim(), name: einstellungen.smtpName.trim(), bcc: einstellungen.smtpBcc.trim() });
+handle("smtp:passwort", (_e, pw) => ablage.speichereSmtpPasswort(safeStorage, typeof pw === "string" ? pw : ""));
+handle("smtp:test", async () => {
+  const d = smtpDaten(), pw = ablage.smtpPasswort(safeStorage);
+  if (!d.host || !d.absender || !pw) return { nummer: 0, ok: false, info: "Server, Absender und Passwort fehlen" };
+  return smtpTest(d, pw);
+});
+
+handle("mails", async (_e, auftrag) => {
+  const { gut, schlecht } = pruefeAuftrag(auftrag);
+  const versand = einstellungen.demo && einstellungen.versand !== "eml" ? "eml" : einstellungen.versand;
+  const erg = [...(gut.length ? await erstelleMails({ modus: auftrag.modus, mails: gut }, { versand, ausgang: ablage.ausgang, tmp: ablage.tmp,
+    smtp: smtpDaten(), passwort: versand === "smtp" ? ablage.smtpPasswort(safeStorage) : "" }) : []), ...schlecht];
   const zeit = new Date().toLocaleString("de-DE");
-  const modus = versand === "eml" ? "eml" : auftrag.modus;
+  const modus = versand === "eml" ? "eml" : versand === "smtp" ? "smtp" : "entwurf";
   ablage.protokolliere(erg.map((e) => {
     const m = auftrag.mails.find((x) => x.nummer === e.nummer) || {};
-    return { Zeit: zeit, Modus: modus, Vorlage: auftrag.vorlage, Mandantennr: m.nummer, Mandant: m.name, An: [].concat(m.an || []).join("; "), Betreff: m.betreff,
-      Ergebnis: e.ok ? "ok" : `Fehler: ${e.info}`, Anhaenge: e.anhaenge.join(", ") };
+    return { Zeit: zeit, Modus: modus, Vorlage: auftrag.vorlage, Mandantennr: m.nummer > 0 ? m.nummer : "", Mandant: m.name, An: [].concat(m.an || []).join("; "), Betreff: m.betreff,
+      Ergebnis: e.ok ? "ok" : `Fehler: ${e.info}`, Anhaenge: (e.anhaenge || []).join(", ") };
   }));
   return { versand, ergebnisse: erg };
 });
 
-ipcMain.handle("export", async (_e, { name, inhalt }) => {
-  const r = await dialog.showSaveDialog(fenster, { title: "Liste speichern", defaultPath: path.join(app.getPath("documents"), name),
+handle("export", async (_e, auftrag) => {
+  const name = path.basename(String(auftrag?.name || "Mandanten.csv")).replace(/[^\w .()-]/g, "_").replace(/(\.csv)?$/i, ".csv");
+  const inhalt = String(auftrag?.inhalt ?? "");
+  // Downloads statt Dokumente: „Dokumente“ wird bei vielen Windows-PCs automatisch mit OneDrive abgeglichen.
+  const r = await dialog.showSaveDialog(fenster, { title: "Liste speichern", defaultPath: path.join(app.getPath("downloads"), name),
     filters: [{ name: "Excel (CSV)", extensions: ["csv"] }] });
   if (r.canceled || !r.filePath) return null;
-  fs.writeFileSync(r.filePath, "﻿" + inhalt, "utf8");
+  const wolke = [process.env.OneDrive, process.env.OneDriveCommercial, process.env.OneDriveConsumer]
+    .filter(Boolean).some((o) => r.filePath.toLowerCase().startsWith(path.resolve(o).toLowerCase() + path.sep));
+  if (wolke) {
+    const w = await dialog.showMessageBox(fenster, { type: "warning", buttons: ["Abbrechen", "Trotzdem speichern"], defaultId: 0, cancelId: 0,
+      title: "OneDrive-Ordner", message: "Dieser Ordner wird mit OneDrive abgeglichen.", detail: "Die Mandantenliste würde damit in die Cloud hochgeladen. Besser einen Ordner außerhalb von OneDrive wählen." });
+    if (w.response !== 1) return null;
+  }
+  fs.writeFileSync(r.filePath, "\ufeff" + inhalt, "utf8");
   return r.filePath;
 });
 
-ipcMain.handle("ordner", (_e, welcher) => {
+handle("ordner:waehlen", async () => {
+  const r = await dialog.showOpenDialog(fenster, { title: "Ordner für .eml-Dateien wählen", defaultPath: ablage.ausgang, properties: ["openDirectory", "createDirectory"] });
+  return r.canceled || !r.filePaths[0] ? null : r.filePaths[0];
+});
+
+handle("ordner", (_e, welcher) => {
   const ziel = welcher === "ausgang" ? ablage.ausgang : ablage.ordner;
   fs.mkdirSync(ziel, { recursive: true });
   return shell.openPath(ziel);

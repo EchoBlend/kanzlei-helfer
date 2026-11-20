@@ -8,22 +8,34 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Kopf } from "@/App";
-import { FELD, FELD_ERKLAERUNG, FELDER, kh, type Einstellungen as E, type Status } from "@/lib/kh";
+import { FELD, FELD_ERKLAERUNG, FELDER, fehlertext, kh, type Einstellungen as E, type Status } from "@/lib/kh";
 
 export function Einstellungen({ status, gespeichert, pruefen }: { status: Status | null; gespeichert: () => Promise<void>; pruefen: () => Promise<void> }) {
   const [e, setE] = useState<E | null>(status?.einstellungen ?? null);
   const [laeuft, setLaeuft] = useState(false);
+  const [pw, setPw] = useState("");
   useEffect(() => { if (status && !e) setE(status.einstellungen); }, [status, e]);
   if (!e || !status) return null;
 
-  const geaendert = JSON.stringify(e) !== JSON.stringify(status.einstellungen);
+  const geaendert = JSON.stringify(e) !== JSON.stringify(status.einstellungen) || !!pw;
   const sichern = async () => {
     setLaeuft(true);
     try {
       setE(await kh().speichereEinstellungen(e));
+      if (pw) { await kh().speichereSmtpPasswort(pw); setPw(""); }
       await gespeichert();
       toast.success("Einstellungen gespeichert");
-    } catch (f) { toast.error("Nicht gespeichert", { description: String(f) }); }
+    } catch (f) { toast.error("Nicht gespeichert", { description: fehlertext(f) }); }
+    finally { setLaeuft(false); }
+  };
+
+  const testen = async () => {
+    setLaeuft(true);
+    try {
+      const r = await kh().smtpTest();
+      if (r.ok) toast.success("Testmail gesendet", { description: "Bitte im Postfach des Absenders nachsehen." });
+      else toast.error("Test fehlgeschlagen", { description: r.info });
+    } catch (f) { toast.error("Test fehlgeschlagen", { description: fehlertext(f) }); }
     finally { setLaeuft(false); }
   };
 
@@ -35,11 +47,11 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
       </Kopf>
       <div className="min-h-0 flex-1 overflow-auto px-8 py-8">
         <div className="grid max-w-3xl gap-12">
-          <Abschnitt titel="DATEV" text="DATEVconnect läuft im DATEV-Arbeitsplatz. Angemeldet wird mit Ihrem Windows-Konto.">
+          <Abschnitt titel="DATEV" text="Die App liest nur (GET), meldet sich bei niemandem an und verbindet sich ausschließlich mit dieser Adresse – und nur, wenn der Server im eigenen Netz liegt.">
             <div className="grid gap-1.5">
               <Label htmlFor="e-url">Adresse von DATEVconnect (Stammdaten)</Label>
               <Input id="e-url" className="kennung" value={e.datevconnect} onChange={(x) => setE({ ...e, datevconnect: x.target.value })} disabled={e.demo} />
-              <p className="text-xs text-muted-foreground">Auf dem eigenen PC und bei DATEV ASP: <span className="kennung">http://localhost:58454/datev/api/master-data/v1</span>. Bei einem Kanzlei-Server dessen Namen statt localhost.</p>
+              <p className="text-xs text-muted-foreground">Standard in dieser Kanzlei: <span className="kennung">https://LIZENZSERVER:58452/datev/api/master-data/v1</span>. Auch der Link aus dem Browser (…/clients?…) geht – die App fragt denselben Server ab. Anmeldung mit dem Windows-Konto wie im Browser, nur bei diesem Server; nur Server im eigenen Netz.</p>
             </div>
             <div className="flex items-center gap-3 rounded-lg border px-4 py-3 text-sm" data-verbindungstest>
               {status.einstellungen.demo ? <span className="text-muted-foreground">Demodaten aktiv, DATEV wird nicht abgefragt.</span>
@@ -69,16 +81,48 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
             {status.hinweise.length > 0 && <ul className="list-disc ps-5 text-xs text-muted-foreground">{status.hinweise.map((h) => <li key={h}>{h}</li>)}</ul>}
           </Abschnitt>
 
-          <Abschnitt titel="Versand" text="Wie aus der Serienmail fertige Mails werden.">
+          <Abschnitt titel="Versand" text="Standard: Die App sendet nie selbst, sie legt nur Vorlagen an. Nur wenn Sie unten „Direkt senden über SMTP“ wählen, geht die Mail von der App aus an den Mail-Server.">
             <div className="grid gap-1.5">
               <Label htmlFor="e-versand">Ausgabe</Label>
               <Select value={e.versand} onValueChange={(v) => setE({ ...e, versand: v as E["versand"] })}>
                 <SelectTrigger id="e-versand" className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="outlook">Outlook (klassisch): Entwürfe anlegen oder direkt senden</SelectItem>
-                  <SelectItem value="eml">.eml-Dateien im Datenordner, z. B. beim neuen Outlook</SelectItem>
+                  <SelectItem value="eml">.eml-Vorlagen im Datenordner – rein lokal, Doppelklick öffnet sie in Outlook (Empfehlung)</SelectItem>
+                  <SelectItem value="outlook">Outlook-Entwürfe im Postfach – werden sofort mit Exchange/Microsoft 365 abgeglichen</SelectItem>
+                  <SelectItem value="smtp">Direkt senden über SMTP – ohne Outlook, nach der Kontrolle in einem Schritt (verlässt den PC)</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            {e.versand === "smtp" && (
+              <div className="grid gap-4 rounded-lg border p-4" data-smtp>
+                <div className="grid grid-cols-[1fr_6rem] gap-3">
+                  <div className="grid gap-1.5"><Label htmlFor="e-sh">SMTP-Server</Label><Input id="e-sh" className="kennung" value={e.smtpHost} onChange={(x) => setE({ ...e, smtpHost: x.target.value })} /></div>
+                  <div className="grid gap-1.5"><Label htmlFor="e-sp">Port</Label><Input id="e-sp" className="kennung" value={e.smtpPort} onChange={(x) => setE({ ...e, smtpPort: x.target.value })} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5"><Label htmlFor="e-sa">Absenderadresse</Label><Input id="e-sa" type="email" value={e.smtpAbsender} onChange={(x) => setE({ ...e, smtpAbsender: x.target.value })} /></div>
+                  <div className="grid gap-1.5"><Label htmlFor="e-sn">Absendername (optional)</Label><Input id="e-sn" value={e.smtpName} onChange={(x) => setE({ ...e, smtpName: x.target.value })} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5"><Label htmlFor="e-sb">Benutzername</Label><Input id="e-sb" placeholder="leer = Absenderadresse" value={e.smtpBenutzer} onChange={(x) => setE({ ...e, smtpBenutzer: x.target.value })} /></div>
+                  <div className="grid gap-1.5"><Label htmlFor="e-spw">Passwort</Label>
+                    <Input id="e-spw" type="password" autoComplete="off" value={pw} placeholder={status.smtpPasswort ? "gespeichert (leer lassen = behalten)" : ""} onChange={(x) => setPw(x.target.value)} /></div>
+                </div>
+                <div className="grid gap-1.5"><Label htmlFor="e-sc">Kopie an (Blindkopie, optional)</Label><Input id="e-sc" type="email" placeholder="z. B. die eigene Adresse, als Beleg im Postfach" value={e.smtpBcc} onChange={(x) => setE({ ...e, smtpBcc: x.target.value })} /></div>
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" size="sm" disabled={geaendert || laeuft} onClick={testen} data-knopf="smtp-test">Testmail an Absender</Button>
+                  <p className="text-xs text-muted-foreground">Erst speichern, dann testen. Das Passwort wird verschlüsselt im Windows-Konto abgelegt. Empfänger stehen immer in BCC.</p>
+                </div>
+              </div>
+            )}
+            <div className="grid gap-1.5">
+              <Label htmlFor="e-eml">Speicherort der .eml-Dateien</Label>
+              <div className="flex gap-2">
+                <Input id="e-eml" className="kennung" readOnly value={e.emlOrdner || status.ausgang} />
+                <Button variant="outline" data-knopf="eml-ordner" onClick={async () => { const p = await kh().waehleOrdner(); if (p) setE({ ...e, emlOrdner: p }); }}><FolderOpenIcon />Wählen</Button>
+                {e.emlOrdner && <Button variant="ghost" onClick={() => setE({ ...e, emlOrdner: "" })}>Standard</Button>}
+              </div>
+              <p className="text-xs text-muted-foreground">Gilt für die Ausgabe als .eml-Datei und für die Demodaten. Ohne Auswahl: Unterordner „ausgang“ im Datenordner.</p>
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="e-sig">Signatur für <span className="kennung">{"{{Signatur}}"}</span></Label>

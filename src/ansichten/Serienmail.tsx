@@ -1,57 +1,109 @@
-import { useMemo, useRef, useState } from "react";
-import { AtSignIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, SendIcon, UploadIcon, UsersIcon, XIcon } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, PencilIcon, RotateCcwIcon, SendIcon, UploadIcon, UserPlusIcon, UsersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Kopf, type Entwurf } from "@/App";
+import { RichAnsicht, RichText, type RichTextGriff } from "@/components/RichText";
+import { Teiler, useGroesse } from "@/components/Teiler";
+import { Kopf, type Entwurf, type Weiterer } from "@/App";
+import { MailAdressWahl, type SetzeStandard } from "@/ansichten/AdressWahl";
 import {
-  adressenFuer, braucheLuecken, fuellen, groesse, gueltigeMails, hatMailLuecken, kannMail, kh, nrAusName, offenePlatzhalter, PLATZHALTER, ZIEL_TEXT,
-  type Datei, type Gruppe, type Mandant, type MailErgebnis, type Status, type Vorlage, type Ziel,
+  adressenFuer, braucheLuecken, fehlertext, fuellen, fuellenHtml, groesse, gueltigeMails, hatMailLuecken, htmlVon, istMail, KEINE_ANPASSUNG, htmlZuText, kannMail, kh, nrAusName, offenePlatzhalter,
+  PLATZHALTER, platzhalterWerte, ZIEL_TEXT, type Anpassung, type Datei, type Fassung, type Gruppe, type Mandant, type MailErgebnis, type Status, type Vorlage, type Ziel,
 } from "@/lib/kh";
 import { cn } from "@/lib/utils";
 
+const PAECKCHEN = 5;
+
 interface Props {
   mandanten: Mandant[]; auswahl: Set<number>; setAuswahl: (s: Set<number>) => void; vorlagen: Vorlage[]; status: Status | null; gruppen: Gruppe[];
+  setzeStandard: SetzeStandard;
   entwurf: Entwurf; setEntwurf: (f: (e: Entwurf) => Entwurf) => void; zuMandanten: () => void; nachVersand: () => Promise<void>;
 }
 
-export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, gruppen, entwurf, setEntwurf, zuMandanten, nachVersand }: Props) {
+export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, gruppen, setzeStandard, entwurf, setEntwurf, zuMandanten, nachVersand }: Props) {
   const [blick, setBlick] = useState(0);
   const [laeuft, setLaeuft] = useState(false);
   const [bestaetigen, setBestaetigen] = useState(false);
+  const [fortschritt, setFortschritt] = useState(0);
+  const [stoppt, setStoppt] = useState(false);
+  const abbruch = useRef(false);
   const [fehlschlaege, setFehlschlaege] = useState<MailErgebnis[]>([]);
-  const textRef = useRef<HTMLTextAreaElement>(null);
+  const textRef = useRef<RichTextGriff>(null);
   const betreffRef = useRef<HTMLInputElement>(null);
   const zuletzt = useRef<"betreff" | "text">("text");
+  // Durchgehen: Mail eines Mandanten anpassen; wer schon angesehen wurde
+  const [bearbeiten, setBearbeiten] = useState(false);
+  const [gesehen, setGesehen] = useState<Set<number>>(new Set());
+  const eigenTextRef = useRef<RichTextGriff>(null);
+  const eigenBetreffRef = useRef<HTMLInputElement>(null);
+  const eigenZuletzt = useRef<"betreff" | "text">("text");
 
+  const rechts = useGroesse("serienmail.rechts", 440, 340, () => Math.max(340, window.innerWidth - 640));
+  const listeHoehe = useGroesse("serienmail.empfaenger", 288, 96, () => Math.max(96, window.innerHeight - 220));
   const signatur = status?.einstellungen.signatur ?? "";
-  const alsEml = !status || status.einstellungen.versand === "eml" || status.einstellungen.demo;
+  const smtp = !!status && status.einstellungen.versand === "smtp" && !status.einstellungen.demo;
+  const alsEml = !status || (!smtp && (status.einstellungen.versand === "eml" || status.einstellungen.demo));
   const setze = (teil: Partial<Entwurf>) => setEntwurf((e) => ({ ...e, ...teil }));
 
   const empfaenger = useMemo(() => {
     const brauchtLuecken = braucheLuecken(entwurf.betreff + entwurf.text);
-    return mandanten.filter((m) => auswahl.has(m.nummer)).map((m) => ({
-      m, an: adressenFuer(m, entwurf.ziel, entwurf.wahl[m.nummer]),
-    })).map(({ m, an }) => ({
-      m, an,
-      grund: !kannMail(m) ? "keine gültige E-Mail" : !an.length ? "keine Adresse gewählt"
+    const echte = mandanten.filter((m) => auswahl.has(m.nummer)).map((m) => ({
+      m, an: adressenFuer(m, entwurf.ziel, entwurf.wahl[m.nummer], entwurf.adressen[m.nummer]), weiterer: false,
+    })).map(({ m, an, weiterer }) => ({
+      m, an, weiterer,
+      grund: !an.length ? (kannMail(m) ? "keine Adresse gewählt" : "keine gültige E-Mail")
         : brauchtLuecken && !hatMailLuecken(m) ? "keine Lücken"
         : entwurf.pro.length && !entwurf.pro.some((d) => nrAusName(d.name) === m.nummer) ? "kein eigener Anhang" : "",
     }));
+    // Von Hand ergänzte Empfänger: eigene Mail ohne Mandantendaten (Standard-Anrede, keine Lücken, nur Anhänge für alle).
+    const weitere = entwurf.weitere.map((w) => ({ m: weitererAlsMandant(w), an: istMail(w.adresse) ? [w.adresse.trim()] : [], weiterer: true, grund: istMail(w.adresse) ? "" : "keine gültige E-Mail" }));
+    return [...echte, ...weitere];
   }, [mandanten, auswahl, entwurf]);
   const gehen = empfaenger.filter((e) => !e.grund);
-  const anhaengeFuer = (m: Mandant) => [...entwurf.alle, ...entwurf.pro.filter((d) => nrAusName(d.name) === m.nummer)];
+  const anhaengeFuer = (m: Mandant) => [...entwurf.alle, ...(m.nummer > 0 ? entwurf.pro.filter((d) => nrAusName(d.name) === m.nummer) : [])];
   const i = Math.min(blick, Math.max(gehen.length - 1, 0));
   const v = gehen[i]?.m, vAn = gehen[i]?.an ?? [];
+  /** Was dieser Mandant bekommt: eigene Fassung, sonst die Vorlage mit seinen Werten. */
+  const fassung = (m: Mandant): Fassung => {
+    const eigen = entwurf.anpassung[m.nummer];
+    if (eigen) return eigen;
+    const html = fuellenHtml(entwurf.html, m, signatur);
+    return { betreff: fuellen(entwurf.betreff, m, signatur), html, text: htmlZuText(html) };
+  };
+  const setzeAnpassung = (nr: number, f: Fassung | null) => setEntwurf((e) => {
+    const anpassung = { ...e.anpassung };
+    if (f) anpassung[nr] = f; else delete anpassung[nr];
+    return { ...e, anpassung };
+  });
+  const setzeAdressen = (nr: number, f: (a: Anpassung) => Anpassung) => setEntwurf((e) => ({ ...e, adressen: { ...e.adressen, [nr]: f(e.adressen[nr] ?? KEINE_ANPASSUNG) } }));
+  const [neuerName, setNeuerName] = useState(""), [neueAdresse, setNeueAdresse] = useState("");
+  const weitererDazu = () => {
+    const adresse = neueAdresse.trim();
+    if (!istMail(adresse)) { toast.error("Keine gültige E-Mail-Adresse"); return; }
+    setEntwurf((e) => ({ ...e, weitere: [...e.weitere, { nummer: -(Math.max(0, ...e.weitere.map((w) => -w.nummer)) + 1), name: neuerName.trim(), adresse }] }));
+    setNeuerName(""); setNeueAdresse("");
+  };
+  useEffect(() => { if (v) setGesehen((g) => (g.has(v.nummer) ? g : new Set(g).add(v.nummer))); }, [v]);
+  const durchgesehen = gehen.filter((e) => gesehen.has(e.m.nummer)).length;
+  const angepasst = gehen.filter((e) => entwurf.anpassung[e.m.nummer]).length;
+
+  /** Im Anpassen-Modus fügen die Platzhalter-Knöpfe gleich den Wert dieses Mandanten ein. */
+  const wertEinfuegen = (p: string) => {
+    if (!v) return;
+    const f = fassung(v), ins = platzhalterWerte(v, signatur)[p] ?? "";
+    if (eigenZuletzt.current !== "betreff") { eigenTextRef.current?.einfuegen(ins); return; }
+    const ziel = eigenBetreffRef.current;
+    const a = ziel?.selectionStart ?? f.betreff.length, b = ziel?.selectionEnd ?? a;
+    setzeAnpassung(v.nummer, { ...f, betreff: f.betreff.slice(0, a) + ins + f.betreff.slice(b) });
+    requestAnimationFrame(() => { if (ziel) { ziel.focus(); ziel.selectionStart = ziel.selectionEnd = a + ins.length; } });
+  };
   const setzeWahl = (nr: number, adressen: string[] | null) => setEntwurf((e) => {
     const wahl = { ...e.wahl };
     if (adressen) wahl[nr] = adressen; else delete wahl[nr];
@@ -60,15 +112,16 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
 
   const waehleVorlage = (id: string) => {
     const t = vorlagen.find((x) => x.id === id);
-    if (t) setze({ vorlageId: t.id, betreff: t.betreff, text: t.text });
+    if (t) setze({ vorlageId: t.id, betreff: t.betreff, text: t.text, html: htmlVon(t) });
   };
 
   const einfuegen = (p: string) => {
-    const ziel = zuletzt.current === "betreff" ? betreffRef.current : textRef.current;
+    if (zuletzt.current !== "betreff") { textRef.current?.einfuegen(`{{${p}}}`); return; }
+    const ziel = betreffRef.current;
     if (!ziel) return;
     const ins = `{{${p}}}`, a = ziel.selectionStart ?? ziel.value.length, b = ziel.selectionEnd ?? a;
     const neu = ziel.value.slice(0, a) + ins + ziel.value.slice(b);
-    setze(zuletzt.current === "betreff" ? { betreff: neu } : { text: neu });
+    setze({ betreff: neu });
     requestAnimationFrame(() => { ziel.focus(); ziel.selectionStart = ziel.selectionEnd = a + ins.length; });
   };
 
@@ -88,33 +141,56 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
   const fuegeHinzu = (art: "alle" | "pro", neu: Datei[]) =>
     setEntwurf((e) => ({ ...e, [art]: [...e[art], ...neu.filter((d) => !e[art].some((x) => x.pfad === d.pfad))] }));
 
-  async function erstellen(modus: "entwurf" | "senden") {
+  /** Adressen, die nicht aus DATEV stammen (bearbeitet, ergänzt, weitere Empfänger): getrennt gemeldet, der Hauptprozess prüft sie nur auf Form. */
+  const vonHand = (m: Mandant, an: string[]) => (m.nummer < 0 ? an : an.filter((a) => !gueltigeMails(m).some((e) => e.adresse === a)));
+
+  async function erstellen() {
+    const modus = smtp ? "senden" : "entwurf";
     setBestaetigen(false);
     setLaeuft(true);
+    setStoppt(false);
+    setFortschritt(0);
+    abbruch.current = false;
     setFehlschlaege([]);
     try {
       const vorlage = vorlagen.find((x) => x.id === entwurf.vorlageId);
-      const { versand, ergebnisse } = await kh().mails({
-        modus, vorlage: vorlage?.name ?? "(frei)",
-        mails: gehen.map(({ m, an }) => ({ nummer: m.nummer, name: m.name, an, betreff: fuellen(entwurf.betreff, m, signatur),
-          text: fuellen(entwurf.text, m, signatur), anhaenge: anhaengeFuer(m).map((d) => d.pfad) })),
-      });
+      const liste = gehen.map(({ m, an }) => ({ nummer: m.nummer, name: m.name, an, ...fassung(m), anhaenge: anhaengeFuer(m).map((d) => d.pfad),
+        ...(vonHand(m, an).length ? { von_hand: vonHand(m, an) } : {}) }));
+      // In Päckchen, damit „Abbrechen“ zwischen den Päckchen greift.
+      let versand = "";
+      const ergebnisse: MailErgebnis[] = [];
+      for (let k = 0; k < liste.length && !abbruch.current; k += PAECKCHEN) {
+        const r = await kh().mails({ modus, vorlage: vorlage?.name ?? "(frei)", mails: liste.slice(k, k + PAECKCHEN) });
+        versand = r.versand;
+        ergebnisse.push(...r.ergebnisse);
+        setFortschritt(ergebnisse.length);
+      }
       const ok = ergebnisse.filter((e) => e.ok).length;
       const fehl = ergebnisse.filter((e) => !e.ok);
-      const wo = versand === "eml" ? "als .eml-Datei gespeichert" : modus === "senden" ? "gesendet" : "in Outlook unter „Entwürfe“ angelegt";
+      const wo = versand === "eml" ? "als .eml-Datei gespeichert" : versand === "smtp" ? "gesendet" : "in Outlook unter „Entwürfe“ angelegt";
+      if (abbruch.current && ergebnisse.length < liste.length) {
+        // Erledigte Mandanten aus der Auswahl nehmen, der Rest bleibt zum erneuten Versand.
+        const fertig = new Set(ergebnisse.filter((e) => e.ok).map((e) => e.nummer));
+        setAuswahl(new Set([...auswahl].filter((n) => !fertig.has(n))));
+        setEntwurf((e) => ({ ...e, weitere: e.weitere.filter((w) => !fertig.has(w.nummer)) }));
+        setFehlschlaege(fehl);
+        toast.info(`Abgebrochen: ${ok} von ${liste.length} ${wo}`, { description: "Die übrigen Mandanten sind weiter ausgewählt." });
+        await nachVersand();
+        return;
+      }
       if (fehl.length) toast.warning(`${ok} von ${ergebnisse.length} ${wo}`, { description: `${fehl.length} fehlgeschlagen, Details unten.` });
-      else toast.success(`${ok} ${ok === 1 ? "Mail" : "Mails"} ${wo}`, { description: versand === "eml" ? status?.ausgang : "Kategorie „Kanzlei-Helfer“" });
+      else toast.success(`${ok} ${ok === 1 ? "Mail" : "Mails"} ${wo}`, { description: versand === "eml" ? status?.ausgang : versand === "smtp" ? "Protokoll unter „Protokoll“" : "Kategorie „Kanzlei-Helfer“" });
       setFehlschlaege(fehl);
-      if (!fehl.length) { setAuswahl(new Set()); setEntwurf((e) => ({ ...e, alle: [], pro: [], wahl: {} })); }
+      if (!fehl.length) { setAuswahl(new Set()); setGesehen(new Set()); setEntwurf((e) => ({ ...e, alle: [], pro: [], wahl: {}, anpassung: {}, adressen: {}, weitere: [] })); }
       await nachVersand();
     } catch (f) {
-      toast.error("Mails nicht erstellt", { description: String(f) });
+      toast.error(smtp ? "Mails nicht gesendet" : "Mails nicht erstellt", { description: fehlertext(f) });
     } finally {
       setLaeuft(false);
     }
   }
 
-  if (!auswahl.size) {
+  if (!auswahl.size && !entwurf.weitere.length) {
     return (
       <div className="flex h-svh flex-col">
         <Kopf titel="Serienmail" unter="Noch keine Empfänger ausgewählt">{gruppenMenue}</Kopf>
@@ -133,10 +209,10 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       <Kopf titel="Serienmail"
         unter={<span className="zahl">{gehen.length} von {empfaenger.length} Empfängern{uebersprungen ? ` · ${uebersprungen} übersprungen` : ""}{alsEml ? " · Ausgabe als .eml-Dateien" : ""}</span>}>{gruppenMenue}</Kopf>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(380px,460px)]">
+      <div className="grid min-h-0 flex-1" style={{ gridTemplateColumns: `minmax(0,1fr) auto ${rechts.wert}px` }}>
         {/* Links: Nachricht und Anhänge */}
-        <section className="min-h-0 overflow-auto border-r px-8 py-6">
-          <div className="grid max-w-3xl gap-5">
+        <section className="min-h-0 overflow-auto px-8 py-6">
+          <div className="grid max-w-4xl gap-5">
             <div className="grid gap-1.5">
               <Label htmlFor="vorlage">Vorlage</Label>
               <Select value={entwurf.vorlageId ?? undefined} onValueChange={waehleVorlage}>
@@ -153,9 +229,10 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
                 <Label htmlFor="text">Text</Label>
                 <span className="text-xs text-muted-foreground">Änderungen gelten nur für diesen Versand</span>
               </div>
-              <Textarea id="text" ref={textRef} value={entwurf.text} rows={15} onFocus={() => (zuletzt.current = "text")}
-                onChange={(e) => setze({ text: e.target.value })} className="min-h-72 text-base leading-relaxed" />
-              <Platzhalter einfuegen={einfuegen} />
+              <RichText id="text" label="Text der Mail" ref={textRef} html={entwurf.html} hoehe="22rem" onFokus={() => (zuletzt.current = "text")}
+                aendern={(html, text) => setze({ html, text })} />
+              <Platzhalter einfuegen={einfuegen} beispiel={v ? (p) => platzhalterWerte(v, signatur)[p] : undefined} />
+              {angepasst > 0 && <p className="text-xs text-warn">{angepasst} {angepasst === 1 ? "Mandant hat" : "Mandanten haben"} eine eigene Fassung – Änderungen hier gelten für {angepasst === 1 ? "ihn" : "sie"} nicht mehr.</p>}
             </div>
 
             <div className="grid gap-3 pt-2">
@@ -185,6 +262,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
           </div>
         </section>
 
+        <Teiler richtung="x" groesse={rechts} umgekehrt label="Breite von Empfänger und Vorschau" />
         {/* Rechts: Empfänger und Vorschau */}
         <aside className="flex min-h-0 flex-col overflow-auto bg-surface px-6 py-6">
           <div className="mb-2 flex items-center gap-2">
@@ -194,39 +272,75 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
               <SelectContent align="end">{(Object.keys(ZIEL_TEXT) as Ziel[]).map((z) => <SelectItem key={z} value={z} data-ziel={z}>{ZIEL_TEXT[z]}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <ul className="max-h-72 flex-none divide-y overflow-auto rounded-lg border bg-background" data-empfaenger>
-            {empfaenger.map(({ m, an, grund }) => (
+          <ul className="flex-none divide-y overflow-auto rounded-lg border bg-background" style={{ maxHeight: listeHoehe.wert }} data-empfaenger>
+            {empfaenger.map(({ m, an, grund, weiterer }) => (
               <li key={m.nummer} className={cn("flex items-center gap-3 px-3 py-2", grund && "text-muted-foreground")} data-grund={grund} data-nummer={m.nummer}>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{m.name}</div>
                   <div className="truncate text-xs text-muted-foreground" data-an={an.join(";")}>
-                    <span className="kennung">{m.nummer}</span> · {an.length ? an.join(", ") : "keine Adresse"}{entwurf.wahl[m.nummer] ? " · eigene Wahl" : ""}
+                    <span className="kennung">{weiterer ? "manuell" : m.nummer}</span> · {an.length ? an.join(", ") : "keine Adresse"}{entwurf.wahl[m.nummer] ? " · nur diese Mail" : entwurf.ziel === "standard" && m.festeAdressen ? " · festgelegter Standard" : ""}{entwurf.adressen[m.nummer] && (Object.keys(entwurf.adressen[m.nummer].ersatz).length || entwurf.adressen[m.nummer].extra.length) ? " · Adresse angepasst" : ""}
                   </div>
                 </div>
                 {grund && <span className="shrink-0 rounded-[4px] bg-warn-soft px-1.5 py-px text-xs font-medium text-warn">{grund}</span>}
-                {gueltigeMails(m).length > 1 && <AdressWahl m={m} an={an} eigeneWahl={!!entwurf.wahl[m.nummer]} setze={(a) => setzeWahl(m.nummer, a)} />}
+                {!grund && entwurf.anpassung[m.nummer] && <span className="shrink-0 rounded-[4px] bg-brand-soft px-1.5 py-px text-xs font-medium text-brand" data-angepasst>angepasst</span>}
+                {!grund && !entwurf.anpassung[m.nummer] && gesehen.has(m.nummer) && <CheckIcon className="size-3.5 shrink-0 text-ok" aria-label="durchgesehen" />}
+                {!weiterer && <MailAdressWahl m={m} an={an} eigeneWahl={!!entwurf.wahl[m.nummer]} setze={(a) => setzeWahl(m.nummer, a)} setzeStandard={setzeStandard}
+                  anpassung={entwurf.adressen[m.nummer] ?? KEINE_ANPASSUNG} anpassen={(f) => setzeAdressen(m.nummer, f)} />}
                 <Button variant="ghost" size="icon-sm" aria-label={`${m.name} entfernen`}
-                  onClick={() => { const s = new Set(auswahl); s.delete(m.nummer); setAuswahl(s); }}><XIcon /></Button>
+                  onClick={() => { if (weiterer) setEntwurf((e) => ({ ...e, weitere: e.weitere.filter((w) => w.nummer !== m.nummer) })); else { const s = new Set(auswahl); s.delete(m.nummer); setAuswahl(s); } }}><XIcon /></Button>
               </li>
             ))}
           </ul>
+          <form className="mt-2 flex items-center gap-2" data-weiterer onSubmit={(e) => { e.preventDefault(); weitererDazu(); }}>
+            <Input value={neuerName} onChange={(e) => setNeuerName(e.target.value)} placeholder="Name (optional)" aria-label="Name des weiteren Empfängers" className="h-8 w-32 text-xs" data-feld="weiterer-name" />
+            <Input value={neueAdresse} onChange={(e) => setNeueAdresse(e.target.value)} placeholder="Weiterer Empfänger: E-Mail" type="email" aria-label="E-Mail des weiteren Empfängers" className="h-8 min-w-0 flex-1 text-xs" data-feld="weiterer-adresse" />
+            <Button type="submit" variant="outline" size="sm" data-knopf="weiterer-dazu"><UserPlusIcon />Hinzufügen</Button>
+          </form>
+          {empfaenger.length > 3 && <Teiler richtung="y" groesse={listeHoehe} label="Höhe der Empfängerliste" className="mt-0.5" />}
 
-          <div className="mt-6 mb-2 flex items-center gap-2">
-            <h2 className="flex-1 text-xs font-semibold text-muted-foreground">Vorschau{v ? <span className="zahl"> {i + 1} von {gehen.length}</span> : null}</h2>
+          <div className="mt-5 mb-2 flex flex-wrap items-center gap-2">
+            <h2 className="flex-1 whitespace-nowrap text-xs font-semibold text-muted-foreground">Durchgehen{v ? <span className="zahl"> · {i + 1} von {gehen.length}</span> : null}</h2>
+            {v && !bearbeiten && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setBearbeiten(true)} data-knopf="anpassen"><PencilIcon />Für diesen Mandanten anpassen</Button>}
             <Button variant="outline" size="icon-sm" aria-label="Vorheriger Empfänger" disabled={i <= 0} onClick={() => setBlick(i - 1)}><ChevronLeftIcon /></Button>
             <Button variant="outline" size="icon-sm" aria-label="Nächster Empfänger" disabled={i >= gehen.length - 1} onClick={() => setBlick(i + 1)}><ChevronRightIcon /></Button>
           </div>
           <div className="flex-none rounded-lg border bg-background" data-vorschau>
             {v ? (() => {
-              const betreff = fuellen(entwurf.betreff, v, signatur), text = fuellen(entwurf.text, v, signatur), anh = anhaengeFuer(v);
+              const { betreff, text, html } = fassung(v), anh = anhaengeFuer(v), eigen = !!entwurf.anpassung[v.nummer];
               return (
                 <>
                   <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1 border-b px-4 py-3 text-sm">
-                    <dt className="text-muted-foreground">An</dt><dd className="break-all">{vAn.join(", ")}</dd>
-                    <dt className="text-muted-foreground">Betreff</dt><dd className="font-medium">{betreff}</dd>
+                    <dt className="text-muted-foreground">An</dt><dd className="font-medium">{v.name} <span className="kennung text-xs text-muted-foreground">{v.nummer > 0 ? v.nummer : "manuell"}</span></dd>
+                    <dt className="text-muted-foreground">BCC</dt><dd className="break-all">{vAn.join(", ")}</dd>
+                    {!bearbeiten && <><dt className="text-muted-foreground">Betreff</dt><dd className="font-medium">{betreff}</dd></>}
                     {anh.length > 0 && <><dt className="text-muted-foreground">Anhänge</dt><dd className="text-xs">{anh.map((d) => d.name).join(", ")}</dd></>}
                   </dl>
-                  <div className="lesetext px-4 py-4" lang="de">{text}</div>
+                  {bearbeiten ? (
+                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 px-4 py-3" data-anpassen>
+                      <Label htmlFor="eigen-betreff" className="text-xs">Betreff nur für {v.name}</Label>
+                      <Input id="eigen-betreff" ref={eigenBetreffRef} value={betreff} onFocus={() => (eigenZuletzt.current = "betreff")}
+                        onChange={(e) => setzeAnpassung(v.nummer, { betreff: e.target.value, text, html })} />
+                      <Label htmlFor="eigen-text" className="mt-1 text-xs">Text nur für {v.name}</Label>
+                      <RichText key={v.nummer} id="eigen-text" label={`Text nur für ${v.name}`} ref={eigenTextRef} html={html} hoehe="18rem"
+                        onFokus={() => (eigenZuletzt.current = "text")} aendern={(h, t) => setzeAnpassung(v.nummer, { betreff, html: h, text: t })} />
+                      <Platzhalter einfuegen={wertEinfuegen} beispiel={(p) => platzhalterWerte(v, signatur)[p]} titel="Wert einfügen:" />
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <Button size="sm" onClick={() => setBearbeiten(false)} data-knopf="anpassen-fertig"><CheckIcon />Fertig</Button>
+                        {i < gehen.length - 1 && <Button size="sm" variant="outline" onClick={() => setBlick(i + 1)}>Nächster Mandant<ChevronRightIcon /></Button>}
+                        {eigen && <Button size="sm" variant="ghost" className="ms-auto" onClick={() => setzeAnpassung(v.nummer, null)}><RotateCcwIcon />Wie Vorlage</Button>}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <RichAnsicht html={html} className="rounded-b-lg px-4 py-4" />
+                      {eigen && (
+                        <div className="flex items-center gap-2 border-t px-4 py-2 text-xs">
+                          <span className="font-medium text-brand">Eigene Fassung für diesen Mandanten</span>
+                          <Button size="sm" variant="ghost" className="ms-auto h-6 text-xs" onClick={() => setzeAnpassung(v.nummer, null)}><RotateCcwIcon />Wie Vorlage</Button>
+                        </div>
+                      )}
+                    </>
+                  )}
                   {offenePlatzhalter(betreff + text) && <p className="border-t px-4 py-2 text-xs font-medium text-warn">Unbekannter Platzhalter – bitte prüfen.</p>}
                 </>
               );
@@ -236,69 +350,49 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       </div>
 
       <footer className="flex items-center justify-end gap-2 border-t bg-background px-8 py-3">
-        <span className="me-auto text-sm text-muted-foreground zahl">
+        <span className="me-auto text-sm text-muted-foreground zahl" data-durchgesehen={durchgesehen}>
           {gehen.length} {gehen.length === 1 ? "Mail" : "Mails"}{entwurf.alle.length + entwurf.pro.length ? ` · ${entwurf.alle.length + entwurf.pro.length} Anhänge` : ""}
+          {gehen.length > 1 ? ` · ${durchgesehen} von ${gehen.length} durchgesehen` : ""}{angepasst ? ` · ${angepasst} angepasst` : ""}
         </span>
-        {!alsEml && <Button variant="outline" disabled={!gehen.length || laeuft} onClick={() => setBestaetigen(true)}><SendIcon />Direkt senden</Button>}
-        <Button disabled={!gehen.length || laeuft} onClick={() => erstellen("entwurf")} data-knopf="erstellen">
-          {alsEml ? "Als .eml-Dateien speichern" : "Als Entwürfe in Outlook anlegen"}
-        </Button>
+        {laeuft && gehen.length > PAECKCHEN && <Button variant="outline" disabled={stoppt} onClick={() => { abbruch.current = true; setStoppt(true); }} data-knopf="abbrechen">{stoppt ? "Wird abgebrochen …" : "Abbrechen"}</Button>}
+        {smtp
+          ? <Button disabled={!gehen.length || laeuft} onClick={() => setBestaetigen(true)} data-knopf="senden"><SendIcon />{laeuft ? `Sendet … ${fortschritt} von ${gehen.length}` : `Alle ${gehen.length} senden`}</Button>
+          : <Button disabled={!gehen.length || laeuft} onClick={() => erstellen()} data-knopf="erstellen">
+            {laeuft ? `${fortschritt} von ${gehen.length} …` : alsEml ? "Als .eml-Dateien speichern" : "Als Entwürfe in Outlook anlegen"}
+          </Button>}
       </footer>
 
       <AlertDialog open={bestaetigen} onOpenChange={setBestaetigen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{gehen.length} {gehen.length === 1 ? "Mail" : "Mails"} jetzt senden?</AlertDialogTitle>
-            <AlertDialogDescription>Outlook verschickt sie sofort. Das lässt sich nicht zurückholen. Sicherer sind Entwürfe: Sie prüfen und senden selbst.</AlertDialogDescription>
+            <AlertDialogDescription>Alle Mails gehen sofort über den SMTP-Server hinaus. Das lässt sich nicht zurückholen. Empfänger stehen in BCC. Prüfen Sie vorher die Vorschau.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-            <AlertDialogAction onClick={() => erstellen("senden")}>Jetzt senden</AlertDialogAction>
+            <AlertDialogAction onClick={() => erstellen()} data-knopf="senden-bestaetigen">Jetzt senden</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }
 
-/** Pro Mandant ankreuzen, welche seiner Adressen die Mail bekommen. */
-function AdressWahl({ m, an, eigeneWahl, setze }: { m: Mandant; an: string[]; eigeneWahl: boolean; setze: (a: string[] | null) => void }) {
-  const liste = gueltigeMails(m);
-  const um = (adresse: string, an_: boolean) => setze(liste.map((e) => e.adresse).filter((x) => (x === adresse ? an_ : an.includes(x))));
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={`Adressen für ${m.name} wählen`} data-knopf="adressen"><AtSignIcon /></Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-0">
-        <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">An wen geht die Mail an {m.name}?</div>
-        <ul className="max-h-72 overflow-auto py-1">
-          {liste.map((e) => (
-            <li key={e.adresse}>
-              <label className="flex cursor-pointer items-start gap-2.5 px-3 py-1.5 hover:bg-accent" data-adresse={e.adresse}>
-                <Checkbox className="mt-0.5" checked={an.includes(e.adresse)} onCheckedChange={(x) => um(e.adresse, !!x)} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm">{e.adresse}</span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {e.rolle}{e.eigen ? "" : ` · ${e.wer}`}{e.notiz ? ` · ${e.notiz}` : ""}{e.standard && e.eigen ? " · Standard" : ""}
-                  </span>
-                </span>
-              </label>
-            </li>
-          ))}
-        </ul>
-        {eigeneWahl && <div className="border-t p-2"><Button variant="ghost" size="sm" onClick={() => setze(null)}>Wie oben eingestellt</Button></div>}
-      </PopoverContent>
-    </Popover>
-  );
-}
+/** Weiterer Empfänger ohne Mandantendaten: Standard-Anrede, keine Lücken. */
+const weitererAlsMandant = (w: Weiterer): Mandant => ({
+  id: String(w.nummer), nummer: w.nummer, name: w.name || w.adresse, typ: "natural_person", status: "active", email: w.adresse, emails: [], beziehungen: [], verbund: [],
+  anrede: w.name ? `Guten Tag ${w.name},` : null, aufgabenbereiche: [], datevGruppen: [], kategorien: [], auftraege: [], luecken: [], fehlerhaft: [], abruffehler: null,
+});
 
-export function Platzhalter({ einfuegen }: { einfuegen: (p: string) => void }) {
+/** Platzhalter-Knöpfe; `beispiel` zeigt beim Darüberfahren den Wert für den gerade angezeigten Mandanten. */
+export function Platzhalter({ einfuegen, beispiel, titel = "Einfügen:" }: { einfuegen: (p: string) => void; beispiel?: (p: string) => string | undefined; titel?: string }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5 pt-1">
-      <span className="me-1 text-xs text-muted-foreground">Einfügen:</span>
+      <span className="me-1 text-xs text-muted-foreground">{titel}</span>
       {PLATZHALTER.map((p) => (
-        <button key={p} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => einfuegen(p)}
+        <button key={p} type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => einfuegen(p)} data-platzhalter={p}
+          title={beispiel ? `${p}: ${beispiel(p) || "(leer)"}` : undefined}
           className="kennung rounded-[4px] border bg-background px-1.5 py-0.5 text-xs text-muted-foreground hover:border-brand hover:text-foreground">
           {p}
         </button>
@@ -315,8 +409,8 @@ function Ablage({ titel, hinweis, dateien, art, dazu, weg, zuordnung }: {
   const fallen = async (e: React.DragEvent) => {
     e.preventDefault();
     setUeber(false);
-    const pfade = [...e.dataTransfer.files].map((f) => kh().pfadVon(f)).filter(Boolean);
-    if (pfade.length) dazu(await kh().dateiInfo(pfade));
+    const dateien = [...e.dataTransfer.files];
+    if (dateien.length) dazu(await kh().dateiInfoVon(dateien));
   };
   return (
     <div data-ablage={art}

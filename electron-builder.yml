@@ -21,13 +21,33 @@ win:
   # Ohne gekaufte Code-Signatur warnt Windows beim ersten Start („Weitere Informationen → Trotzdem ausführen“).
 
 nsis:
-  oneClick: false
-  perMachine: false          # pro Benutzer, keine Adminrechte nötig
-  allowToChangeInstallationDirectory: true
+  # Ein Klick, nur für den angemeldeten Benutzer: %LOCALAPPDATA%\Programs\Kanzlei-Helfer.
+  # Mit oneClick + perMachine: false enthält der Installer gar keinen Weg zu Adminrechten (RequestExecutionLevel user, kein UAC).
+  oneClick: true
+  perMachine: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Kanzlei-Helfer
   artifactName: Kanzlei-Helfer-Setup-${version}.exe
-  deleteAppDataOnUninstall: false   # Vorlagen und Protokoll bleiben bei Neuinstallation erhalten
+  # Deinstallieren entfernt auch %APPDATA%\Kanzlei-Helfer (Vorlagen, Gruppen, Protokoll, .eml-Ausgang).
+  # Ein Update (neue Setup-Datei über die alte) behält die Daten: Der Installer ruft das alte Deinstallationsprogramm mit --updated auf.
+  deleteAppDataOnUninstall: true
+  # Entfernt die Installer-Kopie in %LOCALAPPDATA%\kanzlei-helfer-updater (siehe Datei)
+  include: installer/kanzlei-helfer.nsh
+  # Kein elevate.exe (UAC-Helfer) im Paket – die App braucht und bekommt nie Adminrechte
+  packElevateHelper: false
+  # Keine .blockmap (nur für Auto-Updates)
+  differentialPackage: false
+
+# Härtung der Programmdatei: Sie lässt sich nicht als allgemeines Node.js missbrauchen
+# (ELECTRON_RUN_AS_NODE, NODE_OPTIONS, --inspect) und lädt nur ihr eigenes, unverändertes app.asar.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  grantFileProtocolExtraPrivileges: false
+  enableCookieEncryption: true
 
 publish: null
