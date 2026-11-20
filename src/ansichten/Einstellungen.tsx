@@ -81,6 +81,15 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
               </Select>
             </div>
             <div className="grid gap-1.5">
+              <Label htmlFor="e-eml">Speicherort der .eml-Dateien</Label>
+              <div className="flex gap-2">
+                <Input id="e-eml" className="kennung" readOnly value={e.emlOrdner || status.ausgang} />
+                <Button variant="outline" data-knopf="eml-ordner" onClick={async () => { const p = await kh().waehleOrdner(); if (p) setE({ ...e, emlOrdner: p }); }}><FolderOpenIcon />Wählen</Button>
+                {e.emlOrdner && <Button variant="ghost" onClick={() => setE({ ...e, emlOrdner: "" })}>Standard</Button>}
+              </div>
+              <p className="text-xs text-muted-foreground">Gilt für die Ausgabe als .eml-Datei und für die Demodaten. Ohne Auswahl: Unterordner „ausgang“ im Datenordner.</p>
+            </div>
+            <div className="grid gap-1.5">
               <Label htmlFor="e-sig">Signatur für <span className="kennung">{"{{Signatur}}"}</span></Label>
               <Textarea id="e-sig" rows={4} value={e.signatur} onChange={(x) => setE({ ...e, signatur: x.target.value })} />
             </div>
