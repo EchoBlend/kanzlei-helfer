@@ -10,6 +10,7 @@ const { FELDER } = require("./pruefung.cjs");
 const STANDARD = {
   datevconnect: "http://localhost:58454/datev/api/master-data/v1",
   versand: "outlook", // "outlook" | "eml"
+  emlOrdner: "", // Zielordner für .eml-Dateien; leer = Unterordner „ausgang“ im Datenordner
   signatur: "Ihr Team der Steuerkanzlei",
   nurAktive: true,
   demo: false,
@@ -55,7 +56,11 @@ function oeffneAblage(ordner) {
 
   return {
     ordner,
-    ausgang: datei("ausgang"),
+    /** Zielordner der .eml-Dateien: gewählter Ordner oder Standard im Datenordner. */
+    get ausgang() {
+      const o = String(this.einstellungen().emlOrdner || "").trim();
+      return o && path.isAbsolute(o) ? o : datei("ausgang");
+    },
     tmp: datei("tmp"),
 
     einstellungen() {
@@ -68,6 +73,8 @@ function oeffneAblage(ordner) {
         if (k === "regeln") e.regeln = Object.fromEntries(Object.entries(neu.regeln || {}).filter(([r, v]) => FELDER.includes(r) && typeof v === "boolean"));
         else e[k] = typeof STANDARD[k] === "boolean" ? !!neu[k] : String(neu[k]);
       }
+      e.emlOrdner = String(e.emlOrdner || "").trim();
+      if (e.emlOrdner && !path.isAbsolute(e.emlOrdner)) e.emlOrdner = "";
       if (!["outlook", "eml"].includes(e.versand)) e.versand = STANDARD.versand;
       if (!["system", "hell", "dunkel"].includes(e.design)) e.design = STANDARD.design;
       schreibJson("einstellungen.json", e);

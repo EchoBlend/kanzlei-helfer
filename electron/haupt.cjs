@@ -161,6 +161,11 @@ ipcMain.handle("export", async (_e, { name, inhalt }) => {
   return r.filePath;
 });
 
+ipcMain.handle("ordner:waehlen", async () => {
+  const r = await dialog.showOpenDialog(fenster, { title: "Ordner für .eml-Dateien wählen", defaultPath: ablage.ausgang, properties: ["openDirectory", "createDirectory"] });
+  return r.canceled || !r.filePaths[0] ? null : r.filePaths[0];
+});
+
 ipcMain.handle("ordner", (_e, welcher) => {
   const ziel = welcher === "ausgang" ? ablage.ausgang : ablage.ordner;
   fs.mkdirSync(ziel, { recursive: true });
