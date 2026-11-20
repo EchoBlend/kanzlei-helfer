@@ -9,7 +9,13 @@ const { FELDER } = require("./pruefung.cjs");
 
 const STANDARD = {
   datevconnect: "http://localhost:58454/datev/api/master-data/v1",
-  versand: "outlook", // "outlook" | "eml"
+  versand: "outlook", // "outlook" | "eml" | "smtp"
+  smtpHost: "smtp.hostinger.com",
+  smtpPort: "465",
+  smtpBenutzer: "",
+  smtpAbsender: "",
+  smtpName: "",
+  smtpBcc: "", // Kopie jeder Mail an die eigene Adresse (SMTP legt nichts in „Gesendet“ ab)
   signatur: "Ihr Team der Steuerkanzlei",
   nurAktive: true,
   demo: false,
@@ -68,11 +74,23 @@ function oeffneAblage(ordner) {
         if (k === "regeln") e.regeln = Object.fromEntries(Object.entries(neu.regeln || {}).filter(([r, v]) => FELDER.includes(r) && typeof v === "boolean"));
         else e[k] = typeof STANDARD[k] === "boolean" ? !!neu[k] : String(neu[k]);
       }
-      if (!["outlook", "eml"].includes(e.versand)) e.versand = STANDARD.versand;
+      if (!["outlook", "eml", "smtp"].includes(e.versand)) e.versand = STANDARD.versand;
       if (!["system", "hell", "dunkel"].includes(e.design)) e.design = STANDARD.design;
       schreibJson("einstellungen.json", e);
       return e;
     },
+
+    /** SMTP-Passwort: nur verschlüsselt (Windows-Konto, Electron safeStorage), nie im Klartext und nie in der Oberfläche. */
+    smtpPasswort(safeStorage) {
+      try { return safeStorage.decryptString(fs.readFileSync(datei("smtp.bin"))); } catch { return ""; }
+    },
+    speichereSmtpPasswort(safeStorage, pw) {
+      if (!pw) { fs.rmSync(datei("smtp.bin"), { force: true }); return false; }
+      if (!safeStorage.isEncryptionAvailable()) throw new Error("Passwort kann auf diesem PC nicht sicher gespeichert werden");
+      fs.writeFileSync(datei("smtp.bin"), safeStorage.encryptString(String(pw)));
+      return true;
+    },
+    hatSmtpPasswort() { return fs.existsSync(datei("smtp.bin")); },
 
     vorlagen() {
       const v = liesJson("vorlagen.json", null);

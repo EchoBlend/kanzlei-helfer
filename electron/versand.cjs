@@ -83,11 +83,43 @@ function viaOutlook(mails, modus, tmpOrdner) {
   });
 }
 
+/** Direktversand über den SMTP-Server des Mail-Anbieters (kein Outlook nötig). */
+async function viaSmtp(mails, smtp, passwort) {
+  const nodemailer = require("nodemailer");
+  const transport = nodemailer.createTransport({
+    host: smtp.host, port: smtp.port, secure: smtp.port === 465,
+    auth: { user: smtp.benutzer, pass: passwort }, connectionTimeout: 20000, greetingTimeout: 20000, socketTimeout: 60000,
+    pool: true, maxConnections: 2,
+  });
+  const ergebnisse = [];
+  try {
+    for (const m of mails) {
+      try {
+        await transport.sendMail({
+          from: smtp.name ? { name: smtp.name, address: smtp.absender } : smtp.absender,
+          to: m.an, subject: m.betreff, text: crlf(m.text),
+          ...(smtp.bcc ? { bcc: smtp.bcc } : {}),
+          attachments: m.anhaenge.map((p) => ({ filename: path.basename(p), path: p })),
+        });
+        ergebnisse.push({ nummer: m.nummer, ok: true, info: "" });
+      } catch (f) { ergebnisse.push({ nummer: m.nummer, ok: false, info: f.message }); }
+    }
+  } finally { transport.close(); }
+  return ergebnisse;
+}
+
+/** Verbindung und Anmeldung prüfen und eine Testmail an die eigene Adresse schicken. */
+async function smtpTest(smtp, passwort) {
+  const [e] = await viaSmtp([{ nummer: 0, an: [smtp.absender], betreff: "Kanzlei-Helfer: Testmail", anhaenge: [],
+    text: "Der Versand aus dem Kanzlei-Helfer funktioniert." }], smtp, passwort);
+  return e;
+}
+
 /**
  * Erstellt alle Mails eines Auftrags. Ungültige Adressen oder fehlende Anhänge
  * scheitern einzeln, der Rest geht trotzdem.
  */
-async function erstelleMails({ modus, mails }, { versand, ausgang, tmp }) {
+async function erstelleMails({ modus, mails }, { versand, ausgang, tmp, smtp, passwort }) {
   if (modus !== "entwurf" && modus !== "senden") throw new Error("Modus unbekannt");
   const ergebnisse = new Map();
   const bereit = [];
@@ -110,10 +142,14 @@ async function erstelleMails({ modus, mails }, { versand, ausgang, tmp }) {
         ergebnisse.set(m.nummer, { nummer: m.nummer, ok: true, info: datei });
       } catch (f) { ergebnisse.set(m.nummer, { nummer: m.nummer, ok: false, info: f.message }); }
     }
+  } else if (versand === "smtp") {
+    if (modus !== "senden") throw new Error("SMTP sendet immer direkt");
+    if (!smtp || !smtp.host || !smtp.absender || !passwort) throw new Error("SMTP ist nicht eingerichtet (Einstellungen → Versand)");
+    if (bereit.length) for (const e of await viaSmtp(bereit, smtp, passwort)) ergebnisse.set(e.nummer, e);
   } else if (bereit.length) {
     for (const e of await viaOutlook(bereit, modus, tmp)) ergebnisse.set(e.nummer, e);
   }
   return mails.map((m) => ({ ...ergebnisse.get(m.nummer), anhaenge: (m.anhaenge || []).map((p) => path.basename(p)) }));
 }
 
-module.exports = { baueEml, erstelleMails, MAX_ANHANG };
+module.exports = { baueEml, erstelleMails, smtpTest, MAX_ANHANG };

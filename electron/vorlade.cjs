@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld("kh", {
   waehleDateien: rufe("dateien:waehlen"),
   dateiInfo: rufe("dateien:info"),
   mails: rufe("mails"),
+  speichereSmtpPasswort: rufe("smtp:passwort"),
+  smtpTest: rufe("smtp:test"),
   exportiere: rufe("export"),
   oeffneOrdner: rufe("ordner"),
   /** Fortschritt eines Scans: (fertig, gesamt). Gibt eine Abmeldefunktion zurück. */

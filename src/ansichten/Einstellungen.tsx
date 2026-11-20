@@ -13,17 +13,29 @@ import { FELD, FELD_ERKLAERUNG, FELDER, kh, type Einstellungen as E, type Status
 export function Einstellungen({ status, gespeichert, pruefen }: { status: Status | null; gespeichert: () => Promise<void>; pruefen: () => Promise<void> }) {
   const [e, setE] = useState<E | null>(status?.einstellungen ?? null);
   const [laeuft, setLaeuft] = useState(false);
+  const [pw, setPw] = useState("");
   useEffect(() => { if (status && !e) setE(status.einstellungen); }, [status, e]);
   if (!e || !status) return null;
 
-  const geaendert = JSON.stringify(e) !== JSON.stringify(status.einstellungen);
+  const geaendert = JSON.stringify(e) !== JSON.stringify(status.einstellungen) || !!pw;
   const sichern = async () => {
     setLaeuft(true);
     try {
       setE(await kh().speichereEinstellungen(e));
+      if (pw) { await kh().speichereSmtpPasswort(pw); setPw(""); }
       await gespeichert();
       toast.success("Einstellungen gespeichert");
     } catch (f) { toast.error("Nicht gespeichert", { description: String(f) }); }
+    finally { setLaeuft(false); }
+  };
+
+  const testen = async () => {
+    setLaeuft(true);
+    try {
+      const r = await kh().smtpTest();
+      if (r.ok) toast.success("Testmail gesendet", { description: "Bitte im Postfach des Absenders nachsehen." });
+      else toast.error("Test fehlgeschlagen", { description: r.info });
+    } catch (f) { toast.error("Test fehlgeschlagen", { description: String(f) }); }
     finally { setLaeuft(false); }
   };
 
@@ -76,10 +88,33 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
                 <SelectTrigger id="e-versand" className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="outlook">Outlook (klassisch): Entwürfe anlegen oder direkt senden</SelectItem>
+                  <SelectItem value="smtp">Direkt senden über SMTP: ohne Outlook, nach der Kontrolle in einem Schritt</SelectItem>
                   <SelectItem value="eml">.eml-Dateien im Datenordner, z. B. beim neuen Outlook</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {e.versand === "smtp" && (
+              <div className="grid gap-4 rounded-lg border p-4" data-smtp>
+                <div className="grid grid-cols-[1fr_6rem] gap-3">
+                  <div className="grid gap-1.5"><Label htmlFor="e-sh">SMTP-Server</Label><Input id="e-sh" className="kennung" value={e.smtpHost} onChange={(x) => setE({ ...e, smtpHost: x.target.value })} /></div>
+                  <div className="grid gap-1.5"><Label htmlFor="e-sp">Port</Label><Input id="e-sp" className="kennung" value={e.smtpPort} onChange={(x) => setE({ ...e, smtpPort: x.target.value })} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5"><Label htmlFor="e-sa">Absenderadresse</Label><Input id="e-sa" type="email" value={e.smtpAbsender} onChange={(x) => setE({ ...e, smtpAbsender: x.target.value })} /></div>
+                  <div className="grid gap-1.5"><Label htmlFor="e-sn">Absendername (optional)</Label><Input id="e-sn" value={e.smtpName} onChange={(x) => setE({ ...e, smtpName: x.target.value })} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5"><Label htmlFor="e-sb">Benutzername</Label><Input id="e-sb" placeholder="leer = Absenderadresse" value={e.smtpBenutzer} onChange={(x) => setE({ ...e, smtpBenutzer: x.target.value })} /></div>
+                  <div className="grid gap-1.5"><Label htmlFor="e-spw">Passwort</Label>
+                    <Input id="e-spw" type="password" autoComplete="off" value={pw} placeholder={status.smtpPasswort ? "gespeichert (leer lassen = behalten)" : ""} onChange={(x) => setPw(x.target.value)} /></div>
+                </div>
+                <div className="grid gap-1.5"><Label htmlFor="e-sc">Kopie an (Blindkopie, optional)</Label><Input id="e-sc" type="email" placeholder="z. B. die eigene Adresse, als Beleg im Postfach" value={e.smtpBcc} onChange={(x) => setE({ ...e, smtpBcc: x.target.value })} /></div>
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" size="sm" disabled={geaendert || !!pw || laeuft} onClick={testen} data-knopf="smtp-test">Testmail an Absender</Button>
+                  <p className="text-xs text-muted-foreground">Erst speichern, dann testen. Das Passwort wird verschlüsselt im Windows-Konto abgelegt.</p>
+                </div>
+              </div>
+            )}
             <div className="grid gap-1.5">
               <Label htmlFor="e-sig">Signatur für <span className="kennung">{"{{Signatur}}"}</span></Label>
               <Textarea id="e-sig" rows={4} value={e.signatur} onChange={(x) => setE({ ...e, signatur: x.target.value })} />
