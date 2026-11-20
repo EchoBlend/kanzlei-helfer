@@ -19,6 +19,8 @@ import {
 } from "@/lib/kh";
 import { cn } from "@/lib/utils";
 
+const PAECKCHEN = 5;
+
 interface Props {
   mandanten: Mandant[]; auswahl: Set<number>; setAuswahl: (s: Set<number>) => void; vorlagen: Vorlage[]; status: Status | null; gruppen: Gruppe[];
   entwurf: Entwurf; setEntwurf: (f: (e: Entwurf) => Entwurf) => void; zuMandanten: () => void; nachVersand: () => Promise<void>;
@@ -29,6 +31,9 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
   const [laeuft, setLaeuft] = useState(false);
   const [bestaetigen, setBestaetigen] = useState(false);
   const [fehlschlaege, setFehlschlaege] = useState<MailErgebnis[]>([]);
+  const [fortschritt, setFortschritt] = useState(0);
+  const [stoppt, setStoppt] = useState(false);
+  const abbruch = useRef(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const betreffRef = useRef<HTMLInputElement>(null);
   const zuletzt = useRef<"betreff" | "text">("text");
@@ -92,13 +97,34 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
     setBestaetigen(false);
     setLaeuft(true);
     setFehlschlaege([]);
+    abbruch.current = false;
+    setStoppt(false);
+    setFortschritt(0);
     try {
       const vorlage = vorlagen.find((x) => x.id === entwurf.vorlageId);
-      const { versand, ergebnisse } = await kh().mails({
-        modus, vorlage: vorlage?.name ?? "(frei)",
-        mails: gehen.map(({ m, an }) => ({ nummer: m.nummer, name: m.name, an, betreff: fuellen(entwurf.betreff, m, signatur),
-          text: fuellen(entwurf.text, m, signatur), anhaenge: anhaengeFuer(m).map((d) => d.pfad) })),
-      });
+      const liste = gehen.map(({ m, an }) => ({ nummer: m.nummer, name: m.name, an, betreff: fuellen(entwurf.betreff, m, signatur),
+        text: fuellen(entwurf.text, m, signatur), anhaenge: anhaengeFuer(m).map((d) => d.pfad) }));
+      // In Päckchen, damit „Abbrechen“ zwischen den Päckchen greift.
+      let versand = "";
+      const ergebnisse: MailErgebnis[] = [];
+      for (let k = 0; k < liste.length && !abbruch.current; k += PAECKCHEN) {
+        const r = await kh().mails({ modus, vorlage: vorlage?.name ?? "(frei)", mails: liste.slice(k, k + PAECKCHEN) });
+        versand = r.versand;
+        ergebnisse.push(...r.ergebnisse);
+        setFortschritt(ergebnisse.length);
+      }
+      const abgebrochen = abbruch.current && ergebnisse.length < liste.length;
+      if (abgebrochen) {
+        // Bereits erledigte Mandanten aus der Auswahl nehmen, der Rest bleibt zum erneuten Versand.
+        const fertig = new Set(ergebnisse.filter((e) => e.ok).map((e) => e.nummer));
+        const neu = new Set(auswahl);
+        fertig.forEach((n) => neu.delete(n));
+        setAuswahl(neu);
+        setFehlschlaege(ergebnisse.filter((e) => !e.ok));
+        toast.info(`Abgebrochen: ${fertig.size} von ${liste.length} erledigt`, { description: "Die übrigen Mandanten sind weiter ausgewählt." });
+        await nachVersand();
+        return;
+      }
       const ok = ergebnisse.filter((e) => e.ok).length;
       const fehl = ergebnisse.filter((e) => !e.ok);
       const wo = versand === "eml" ? "als .eml-Datei gespeichert" : modus === "senden" ? "gesendet" : "in Outlook unter „Entwürfe“ angelegt";
@@ -237,8 +263,9 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
 
       <footer className="flex items-center justify-end gap-2 border-t bg-background px-8 py-3">
         <span className="me-auto text-sm text-muted-foreground zahl">
-          {gehen.length} {gehen.length === 1 ? "Mail" : "Mails"}{entwurf.alle.length + entwurf.pro.length ? ` · ${entwurf.alle.length + entwurf.pro.length} Anhänge` : ""}
+          {laeuft ? `${fortschritt} von ${gehen.length} erledigt…` : `${gehen.length} ${gehen.length === 1 ? "Mail" : "Mails"}`}{entwurf.alle.length + entwurf.pro.length ? ` · ${entwurf.alle.length + entwurf.pro.length} Anhänge` : ""}
         </span>
+        {laeuft && <Button variant="outline" data-knopf="abbrechen" disabled={stoppt} onClick={() => { abbruch.current = true; setStoppt(true); }}>{stoppt ? "Wird abgebrochen…" : "Abbrechen"}</Button>}
         {!alsEml && <Button variant="outline" disabled={!gehen.length || laeuft} onClick={() => setBestaetigen(true)}><SendIcon />Direkt senden</Button>}
         <Button disabled={!gehen.length || laeuft} onClick={() => erstellen("entwurf")} data-knopf="erstellen">
           {alsEml ? "Als .eml-Dateien speichern" : "Als Entwürfe in Outlook anlegen"}
