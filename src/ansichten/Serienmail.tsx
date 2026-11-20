@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { AtSignIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, SendIcon, UploadIcon, UsersIcon, XIcon } from "lucide-react";
+import { AtSignIcon, ChevronLeftIcon, PencilIcon, PlusIcon, UserPlusIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, SendIcon, UploadIcon, UsersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -12,10 +12,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Kopf, type Entwurf } from "@/App";
+import { Kopf, type Entwurf, type Weiterer } from "@/App";
 import {
-  adressenFuer, braucheLuecken, fuellen, groesse, gueltigeMails, hatMailLuecken, kannMail, kh, nrAusName, offenePlatzhalter, PLATZHALTER, ZIEL_TEXT,
-  type Datei, type Gruppe, type Mandant, type MailErgebnis, type Status, type Vorlage, type Ziel,
+  adressenFuer, braucheLuecken, fuellen, groesse, gueltigeMails, hatMailLuecken, istMail, KEINE_ANPASSUNG, kannMail, kh, nrAusName, offenePlatzhalter, PLATZHALTER, ZIEL_TEXT,
+  type Anpassung, type Datei, type Gruppe, type Mandant, type MailErgebnis, type Status, type Vorlage, type Ziel,
 } from "@/lib/kh";
 import { cn } from "@/lib/utils";
 
@@ -39,17 +39,20 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
 
   const empfaenger = useMemo(() => {
     const brauchtLuecken = braucheLuecken(entwurf.betreff + entwurf.text);
-    return mandanten.filter((m) => auswahl.has(m.nummer)).map((m) => ({
-      m, an: adressenFuer(m, entwurf.ziel, entwurf.wahl[m.nummer]),
-    })).map(({ m, an }) => ({
-      m, an,
-      grund: !kannMail(m) ? "keine gültige E-Mail" : !an.length ? "keine Adresse gewählt"
+    const echte = mandanten.filter((m) => auswahl.has(m.nummer)).map((m) => ({
+      m, an: adressenFuer(m, entwurf.ziel, entwurf.wahl[m.nummer], entwurf.anpassung[m.nummer]), weiterer: false,
+    })).map(({ m, an, weiterer }) => ({
+      m, an, weiterer,
+      grund: !an.length ? (kannMail(m) ? "keine Adresse gewählt" : "keine gültige E-Mail")
         : brauchtLuecken && !hatMailLuecken(m) ? "keine Lücken"
         : entwurf.pro.length && !entwurf.pro.some((d) => nrAusName(d.name) === m.nummer) ? "kein eigener Anhang" : "",
     }));
+    // Von Hand ergänzte Empfänger: eigene Mail ohne Mandantendaten (Standard-Anrede, keine Lücken, nur Anhänge für alle).
+    const weitere = entwurf.weitere.map((w) => ({ m: weitererAlsMandant(w), an: istMail(w.adresse) ? [w.adresse.trim()] : [], weiterer: true, grund: istMail(w.adresse) ? "" : "keine gültige E-Mail" }));
+    return [...echte, ...weitere];
   }, [mandanten, auswahl, entwurf]);
   const gehen = empfaenger.filter((e) => !e.grund);
-  const anhaengeFuer = (m: Mandant) => [...entwurf.alle, ...entwurf.pro.filter((d) => nrAusName(d.name) === m.nummer)];
+  const anhaengeFuer = (m: Mandant) => [...entwurf.alle, ...(m.nummer > 0 ? entwurf.pro.filter((d) => nrAusName(d.name) === m.nummer) : [])];
   const i = Math.min(blick, Math.max(gehen.length - 1, 0));
   const v = gehen[i]?.m, vAn = gehen[i]?.an ?? [];
   const setzeWahl = (nr: number, adressen: string[] | null) => setEntwurf((e) => {
@@ -57,6 +60,15 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
     if (adressen) wahl[nr] = adressen; else delete wahl[nr];
     return { ...e, wahl };
   });
+
+  const setzeAnpassung = (nr: number, f: (a: Anpassung) => Anpassung) => setEntwurf((e) => ({ ...e, anpassung: { ...e.anpassung, [nr]: f(e.anpassung[nr] ?? KEINE_ANPASSUNG) } }));
+  const [neuerName, setNeuerName] = useState(""), [neueAdresse, setNeueAdresse] = useState("");
+  const weitererDazu = () => {
+    const adresse = neueAdresse.trim();
+    if (!istMail(adresse)) { toast.error("Keine gültige E-Mail-Adresse"); return; }
+    setEntwurf((e) => ({ ...e, weitere: [...e.weitere, { nummer: -(Math.max(0, ...e.weitere.map((w) => -w.nummer)) + 1), name: neuerName.trim(), adresse }] }));
+    setNeuerName(""); setNeueAdresse("");
+  };
 
   const waehleVorlage = (id: string) => {
     const t = vorlagen.find((x) => x.id === id);
@@ -105,7 +117,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       if (fehl.length) toast.warning(`${ok} von ${ergebnisse.length} ${wo}`, { description: `${fehl.length} fehlgeschlagen, Details unten.` });
       else toast.success(`${ok} ${ok === 1 ? "Mail" : "Mails"} ${wo}`, { description: versand === "eml" ? status?.ausgang : "Kategorie „Kanzlei-Helfer“" });
       setFehlschlaege(fehl);
-      if (!fehl.length) { setAuswahl(new Set()); setEntwurf((e) => ({ ...e, alle: [], pro: [], wahl: {} })); }
+      if (!fehl.length) { setAuswahl(new Set()); setEntwurf((e) => ({ ...e, alle: [], pro: [], wahl: {}, anpassung: {}, weitere: [] })); }
       await nachVersand();
     } catch (f) {
       toast.error("Mails nicht erstellt", { description: String(f) });
@@ -114,7 +126,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
     }
   }
 
-  if (!auswahl.size) {
+  if (!auswahl.size && !entwurf.weitere.length) {
     return (
       <div className="flex h-svh flex-col">
         <Kopf titel="Serienmail" unter="Noch keine Empfänger ausgewählt">{gruppenMenue}</Kopf>
@@ -195,21 +207,27 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
             </Select>
           </div>
           <ul className="max-h-72 flex-none divide-y overflow-auto rounded-lg border bg-background" data-empfaenger>
-            {empfaenger.map(({ m, an, grund }) => (
+            {empfaenger.map(({ m, an, grund, weiterer }) => (
               <li key={m.nummer} className={cn("flex items-center gap-3 px-3 py-2", grund && "text-muted-foreground")} data-grund={grund} data-nummer={m.nummer}>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{m.name}</div>
                   <div className="truncate text-xs text-muted-foreground" data-an={an.join(";")}>
-                    <span className="kennung">{m.nummer}</span> · {an.length ? an.join(", ") : "keine Adresse"}{entwurf.wahl[m.nummer] ? " · eigene Wahl" : ""}
+                    {weiterer ? <span className="kennung">manuell</span> : <span className="kennung">{m.nummer}</span>} · {an.length ? an.join(", ") : "keine Adresse"}{entwurf.wahl[m.nummer] ? " · eigene Wahl" : ""}{entwurf.anpassung[m.nummer] && (Object.keys(entwurf.anpassung[m.nummer].ersatz).length || entwurf.anpassung[m.nummer].extra.length) ? " · angepasst" : ""}
                   </div>
                 </div>
                 {grund && <span className="shrink-0 rounded-[4px] bg-warn-soft px-1.5 py-px text-xs font-medium text-warn">{grund}</span>}
-                {gueltigeMails(m).length > 1 && <AdressWahl m={m} an={an} eigeneWahl={!!entwurf.wahl[m.nummer]} setze={(a) => setzeWahl(m.nummer, a)} />}
+                {!weiterer && <AdressWahl m={m} an={an} ziel={entwurf.ziel} eigeneWahl={!!entwurf.wahl[m.nummer]} setze={(a) => setzeWahl(m.nummer, a)}
+                  anpassung={entwurf.anpassung[m.nummer] ?? KEINE_ANPASSUNG} anpassen={(f) => setzeAnpassung(m.nummer, f)} />}
                 <Button variant="ghost" size="icon-sm" aria-label={`${m.name} entfernen`}
-                  onClick={() => { const s = new Set(auswahl); s.delete(m.nummer); setAuswahl(s); }}><XIcon /></Button>
+                  onClick={() => { if (weiterer) setEntwurf((e) => ({ ...e, weitere: e.weitere.filter((w) => w.nummer !== m.nummer) })); else { const s = new Set(auswahl); s.delete(m.nummer); setAuswahl(s); } }}><XIcon /></Button>
               </li>
             ))}
           </ul>
+          <form className="mt-2 flex items-center gap-2" data-weiterer onSubmit={(e) => { e.preventDefault(); weitererDazu(); }}>
+            <Input value={neuerName} onChange={(e) => setNeuerName(e.target.value)} placeholder="Name (optional)" aria-label="Name des weiteren Empfängers" className="h-8 w-32 text-xs" data-feld="weiterer-name" />
+            <Input value={neueAdresse} onChange={(e) => setNeueAdresse(e.target.value)} placeholder="Weiterer Empfänger: E-Mail" type="email" aria-label="E-Mail des weiteren Empfängers" className="h-8 min-w-0 flex-1 text-xs" data-feld="weiterer-adresse" />
+            <Button type="submit" variant="outline" size="sm" data-knopf="weiterer-dazu"><UserPlusIcon />Hinzufügen</Button>
+          </form>
 
           <div className="mt-6 mb-2 flex items-center gap-2">
             <h2 className="flex-1 text-xs font-semibold text-muted-foreground">Vorschau{v ? <span className="zahl"> {i + 1} von {gehen.length}</span> : null}</h2>
@@ -261,10 +279,28 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
   );
 }
 
-/** Pro Mandant ankreuzen, welche seiner Adressen die Mail bekommen. */
-function AdressWahl({ m, an, eigeneWahl, setze }: { m: Mandant; an: string[]; eigeneWahl: boolean; setze: (a: string[] | null) => void }) {
+/** Weiterer Empfänger ohne Mandantendaten: Anrede „Sehr geehrte Damen und Herren“, keine Lücken. */
+const weitererAlsMandant = (w: Weiterer): Mandant => ({
+  id: String(w.nummer), nummer: w.nummer, name: w.name || w.adresse, typ: "natural_person", status: "active", email: w.adresse, emails: [], beziehungen: [], verbund: [],
+  anrede: w.name ? `Guten Tag ${w.name},` : null, aufgabenbereiche: [], datevGruppen: [], kategorien: [], auftraege: [], luecken: [], fehlerhaft: [], abruffehler: null,
+});
+
+/** Pro Mandant: Adressen ankreuzen, bearbeiten (nur für diesen Versand, DATEV bleibt unverändert) und eigene ergänzen. */
+function AdressWahl({ m, an, ziel, eigeneWahl, setze, anpassung, anpassen }: {
+  m: Mandant; an: string[]; ziel: Ziel; eigeneWahl: boolean; setze: (a: string[] | null) => void; anpassung: Anpassung; anpassen: (f: (a: Anpassung) => Anpassung) => void;
+}) {
   const liste = gueltigeMails(m);
-  const um = (adresse: string, an_: boolean) => setze(liste.map((e) => e.adresse).filter((x) => (x === adresse ? an_ : an.includes(x))));
+  const [neu, setNeu] = useState("");
+  const [bearbeite, setBearbeite] = useState<string | null>(null);
+  // Ob eine Original-Adresse gerade mitgeht: ihre (ggf. bearbeitete) Fassung steht in `an`.
+  const geht = (orig: string) => an.includes(anpassung.ersatz[orig]?.trim() || orig);
+  const um = (orig: string, ein: boolean) => setze(liste.map((e) => e.adresse).filter((x) => (x === orig ? ein : geht(x))));
+  const ergaenze = () => {
+    const a = neu.trim();
+    if (!istMail(a)) { toast.error("Keine gültige E-Mail-Adresse"); return; }
+    anpassen((p) => ({ ...p, extra: p.extra.includes(a) ? p.extra : [...p.extra, a] }));
+    setNeu("");
+  };
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -273,21 +309,48 @@ function AdressWahl({ m, an, eigeneWahl, setze }: { m: Mandant; an: string[]; ei
       <PopoverContent align="end" className="w-96 p-0">
         <div className="border-b px-3 py-2 text-xs font-semibold text-muted-foreground">An wen geht die Mail an {m.name}?</div>
         <ul className="max-h-72 overflow-auto py-1">
-          {liste.map((e) => (
-            <li key={e.adresse}>
-              <label className="flex cursor-pointer items-start gap-2.5 px-3 py-1.5 hover:bg-accent" data-adresse={e.adresse}>
-                <Checkbox className="mt-0.5" checked={an.includes(e.adresse)} onCheckedChange={(x) => um(e.adresse, !!x)} />
+          {liste.map((e) => {
+            const ersatz = anpassung.ersatz[e.adresse];
+            return (
+              <li key={e.adresse} className="flex items-start gap-2.5 px-3 py-1.5 hover:bg-accent" data-adresse={e.adresse}>
+                <Checkbox className="mt-0.5" checked={geht(e.adresse)} onCheckedChange={(x) => um(e.adresse, !!x)} aria-label={e.adresse} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm">{e.adresse}</span>
+                  {bearbeite === e.adresse ? (
+                    <Input autoFocus defaultValue={ersatz ?? e.adresse} className="h-7 text-sm" data-feld="adresse-bearbeiten" aria-label={`Adresse ${e.adresse} bearbeiten`}
+                      onKeyDown={(k) => { if (k.key === "Enter") (k.target as HTMLInputElement).blur(); if (k.key === "Escape") setBearbeite(null); }}
+                      onBlur={(k) => {
+                        const w = k.target.value.trim();
+                        setBearbeite(null);
+                        if (w === e.adresse || !w) anpassen((p) => { const r = { ...p.ersatz }; delete r[e.adresse]; return { ...p, ersatz: r }; });
+                        else if (!istMail(w)) toast.error("Keine gültige E-Mail-Adresse", { description: w });
+                        else anpassen((p) => ({ ...p, ersatz: { ...p.ersatz, [e.adresse]: w } }));
+                      }} />
+                  ) : (
+                    <span className="block truncate text-sm">{ersatz || e.adresse}{ersatz ? <span className="text-xs text-muted-foreground"> (statt {e.adresse})</span> : null}</span>
+                  )}
                   <span className="block truncate text-xs text-muted-foreground">
                     {e.rolle}{e.eigen ? "" : ` · ${e.wer}`}{e.notiz ? ` · ${e.notiz}` : ""}{e.standard && e.eigen ? " · Standard" : ""}
                   </span>
                 </span>
-              </label>
+                <Button variant="ghost" size="icon-sm" aria-label={`${e.adresse} bearbeiten`} data-knopf="adresse-bearbeiten" onClick={() => setBearbeite(e.adresse)}><PencilIcon /></Button>
+              </li>
+            );
+          })}
+          {anpassung.extra.map((a) => (
+            <li key={a} className="flex items-center gap-2.5 px-3 py-1.5 hover:bg-accent" data-extra={a}>
+              <span className="min-w-0 flex-1"><span className="block truncate text-sm">{a}</span><span className="block text-xs text-muted-foreground">von Hand ergänzt</span></span>
+              <Button variant="ghost" size="icon-sm" aria-label={`${a} entfernen`} onClick={() => anpassen((p) => ({ ...p, extra: p.extra.filter((x) => x !== a) }))}><XIcon /></Button>
             </li>
           ))}
+          {!liste.length && !anpassung.extra.length && <li className="px-3 py-2 text-sm text-muted-foreground">Keine Adresse in DATEV – unten eine ergänzen.</li>}
         </ul>
-        {eigeneWahl && <div className="border-t p-2"><Button variant="ghost" size="sm" onClick={() => setze(null)}>Wie oben eingestellt</Button></div>}
+        <form className="flex items-center gap-2 border-t p-2" onSubmit={(e) => { e.preventDefault(); ergaenze(); }}>
+          <Input value={neu} onChange={(e) => setNeu(e.target.value)} type="email" placeholder="Weitere Adresse ergänzen" aria-label={`Weitere Adresse für ${m.name}`} className="h-8 text-sm" data-feld="adresse-neu" />
+          <Button type="submit" variant="outline" size="icon-sm" aria-label="Adresse ergänzen" data-knopf="adresse-neu"><PlusIcon /></Button>
+        </form>
+        {(eigeneWahl || Object.keys(anpassung.ersatz).length > 0 || anpassung.extra.length > 0) && (
+          <div className="border-t p-2"><Button variant="ghost" size="sm" onClick={() => { setze(null); anpassen(() => ({ ersatz: {}, extra: [] })); }}>Zurücksetzen</Button></div>
+        )}
       </PopoverContent>
     </Popover>
   );

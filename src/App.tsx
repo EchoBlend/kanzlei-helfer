@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ampel, kannMail, kh, mitRegeln, type Ansicht as AnsichtT, type Datei, type Gruppe, type Mandant, type Protokollzeile, type Status, type Vorlage, type Ziel } from "@/lib/kh";
+import { ampel, type Anpassung, kannMail, kh, mitRegeln, type Ansicht as AnsichtT, type Datei, type Gruppe, type Mandant, type Protokollzeile, type Status, type Vorlage, type Ziel } from "@/lib/kh";
 import { Mandanten, type Quelle } from "@/ansichten/Mandanten";
 import { Serienmail } from "@/ansichten/Serienmail";
 import { Vorlagen } from "@/ansichten/Vorlagen";
@@ -29,7 +29,12 @@ export interface Entwurf {
   vorlageId: string | null; betreff: string; text: string; alle: Datei[]; pro: Datei[];
   /** Regel für alle Empfänger; `wahl` überschreibt sie pro Mandant (Nummer → Adressen). */
   ziel: Ziel; wahl: Record<number, string[]>;
+  /** Pro Mandant: bearbeitete (ersatz) und von Hand ergänzte (extra) Adressen. */
+  anpassung: Record<number, Anpassung>;
+  /** Empfänger von Hand, die keine Mandanten sind. Nummer ist negativ, damit sie nie mit einer Mandantennummer kollidiert. */
+  weitere: Weiterer[];
 }
+export interface Weiterer { nummer: number; name: string; adresse: string }
 
 export default function App() {
   const [ansicht, setAnsicht] = useState<Ansicht>("mandanten");
@@ -45,7 +50,7 @@ export default function App() {
   const [gruppen, setGruppen] = useState<Gruppe[]>([]);
   const [tabelle, setTabelle] = useState<AnsichtT>({});
   const [protokoll, setProtokoll] = useState<Protokollzeile[]>([]);
-  const [entwurf, setEntwurf] = useState<Entwurf>({ vorlageId: null, betreff: "", text: "", alle: [], pro: [], ziel: "standard", wahl: {} });
+  const [entwurf, setEntwurf] = useState<Entwurf>({ vorlageId: null, betreff: "", text: "", alle: [], pro: [], ziel: "standard", wahl: {}, anpassung: {}, weitere: [] });
   const [gruppenDialog, setGruppenDialog] = useState<{ id?: string; name: string; mitglieder: number[] } | null>(null);
   const [loeschen, setLoeschen] = useState<Gruppe | null>(null);
   const speicherTakt = useRef<number>(0);
