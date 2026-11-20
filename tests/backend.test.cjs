@@ -121,3 +121,8 @@ test("Protokoll und Einstellungen", () => {
   assert.equal(ab.einstellungen().demo, true);
   assert.equal(ab.vorlagen().length, 2);
 });
+
+test("SMTP: ohne Einrichtung und ohne Modus senden wird abgelehnt", async () => {
+  await assert.rejects(erstelleMails({ modus: "entwurf", mails: [] }, { versand: "smtp" }), /direkt/);
+  await assert.rejects(erstelleMails({ modus: "senden", mails: [] }, { versand: "smtp", smtp: { host: "", absender: "" }, passwort: "" }), /nicht eingerichtet/);
+});

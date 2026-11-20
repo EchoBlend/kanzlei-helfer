@@ -6,13 +6,13 @@
  * - Nichts geht hinaus: Das Fenster darf nur die App selbst laden; der einzige Netzweg
  *   ist die eingestellte DATEVconnect-Adresse, und die fragt nur der Hauptprozess ab.
  */
-const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, net, protocol, session, shell } = require("electron");
+const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, net, protocol, safeStorage, session, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
 const { oeffneAblage } = require("./ablage.cjs");
 const { demoQuelle, netzQuelle, ladeMandanten } = require("./datev.cjs");
-const { erstelleMails } = require("./versand.cjs");
+const { erstelleMails, smtpTest } = require("./versand.cjs");
 
 const NAME = "Kanzlei-Helfer";
 const URSPRUNG = "app://kanzlei-helfer/";
@@ -98,7 +98,7 @@ const fehlerText = (f) => (f && f.message) || String(f);
 ipcMain.handle("status", async () => {
   let datev = true, meldung = null;
   try { await quelle().stamm("/version"); } catch (f) { datev = false; meldung = fehlerText(f); }
-  return { datev, meldung, einstellungen, version: app.getVersion(), daten: ablage.ordner, ausgang: ablage.ausgang, mica: MICA, auftragswesen, hinweise };
+  return { datev, meldung, einstellungen, smtpPasswort: ablage.hatSmtpPasswort(), version: app.getVersion(), daten: ablage.ordner, ausgang: ablage.ausgang, mica: MICA, auftragswesen, hinweise };
 });
 
 // Scan: alle Mandanten neu aus DATEV lesen und prüfen; Fortschritt geht als Ereignis „scan“ ans Fenster.
@@ -129,6 +129,15 @@ ipcMain.handle("einstellungen:speichern", (_e, neu) => {
   return einstellungen;
 });
 
+const smtpDaten = () => ({ host: einstellungen.smtpHost.trim(), port: Number(einstellungen.smtpPort) || 465, benutzer: (einstellungen.smtpBenutzer || einstellungen.smtpAbsender).trim(),
+  absender: einstellungen.smtpAbsender.trim(), name: einstellungen.smtpName.trim(), bcc: einstellungen.smtpBcc.trim() });
+ipcMain.handle("smtp:passwort", (_e, pw) => ablage.speichereSmtpPasswort(safeStorage, pw));
+ipcMain.handle("smtp:test", async () => {
+  const d = smtpDaten(), pw = ablage.smtpPasswort(safeStorage);
+  if (!d.host || !d.absender || !pw) return { nummer: 0, ok: false, info: "Server, Absender und Passwort fehlen" };
+  return smtpTest(d, pw);
+});
+
 ipcMain.handle("vorlagen", () => ablage.vorlagen());
 ipcMain.handle("vorlagen:speichern", (_e, liste) => ablage.speichereVorlagen(liste));
 ipcMain.handle("protokoll", () => ablage.protokoll());
@@ -142,9 +151,9 @@ function dateiInfo(p) { return { pfad: p, name: path.basename(p), groesse: fs.st
 
 ipcMain.handle("mails", async (_e, auftrag) => {
   const versand = einstellungen.demo && einstellungen.versand === "outlook" ? "eml" : einstellungen.versand;
-  const erg = await erstelleMails(auftrag, { versand, ausgang: ablage.ausgang, tmp: ablage.tmp });
+  const erg = await erstelleMails(auftrag, { versand, ausgang: ablage.ausgang, tmp: ablage.tmp, smtp: smtpDaten(), passwort: versand === "smtp" ? ablage.smtpPasswort(safeStorage) : "" });
   const zeit = new Date().toLocaleString("de-DE");
-  const modus = versand === "eml" ? "eml" : auftrag.modus;
+  const modus = versand === "eml" ? "eml" : versand === "smtp" ? "smtp" : auftrag.modus;
   ablage.protokolliere(erg.map((e) => {
     const m = auftrag.mails.find((x) => x.nummer === e.nummer) || {};
     return { Zeit: zeit, Modus: modus, Vorlage: auftrag.vorlage, Mandantennr: m.nummer, Mandant: m.name, An: [].concat(m.an || []).join("; "), Betreff: m.betreff,

@@ -23,11 +23,11 @@ export interface Mandant {
   luecken: Feld[]; fehlerhaft: Feld[]; abruffehler: string | null;
 }
 export interface Einstellungen {
-  datevconnect: string; versand: "outlook" | "eml"; signatur: string; nurAktive: boolean; demo: boolean;
+  datevconnect: string; versand: "outlook" | "eml" | "smtp"; smtpHost: string; smtpPort: string; smtpBenutzer: string; smtpAbsender: string; smtpName: string; smtpBcc: string; signatur: string; nurAktive: boolean; demo: boolean;
   design: "system" | "hell" | "dunkel"; regeln: Partial<Record<Feld, boolean>>;
 }
 export interface Status {
-  datev: boolean; meldung: string | null; einstellungen: Einstellungen; version: string; daten: string; ausgang: string;
+  datev: boolean; meldung: string | null; smtpPasswort: boolean; einstellungen: Einstellungen; version: string; daten: string; ausgang: string;
   mica: boolean; auftragswesen: boolean | null; hinweise: string[];
 }
 export interface Vorlage { id: string; name: string; betreff: string; text: string }
@@ -53,6 +53,8 @@ interface Kh {
   waehleDateien(): Promise<Datei[]>;
   dateiInfo(pfade: string[]): Promise<Datei[]>;
   mails(a: { modus: "entwurf" | "senden"; vorlage: string; mails: { nummer: number; name: string; an: string[]; betreff: string; text: string; anhaenge: string[] }[] }): Promise<{ versand: string; ergebnisse: MailErgebnis[] }>;
+  speichereSmtpPasswort(pw: string): Promise<boolean>;
+  smtpTest(): Promise<MailErgebnis>;
   exportiere(a: { name: string; inhalt: string }): Promise<string | null>;
   oeffneOrdner(welcher: "daten" | "ausgang"): Promise<string>;
   pfadVon(f: File): string;

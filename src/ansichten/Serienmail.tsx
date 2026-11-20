@@ -34,7 +34,8 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
   const zuletzt = useRef<"betreff" | "text">("text");
 
   const signatur = status?.einstellungen.signatur ?? "";
-  const alsEml = !status || status.einstellungen.versand === "eml" || status.einstellungen.demo;
+  const smtp = !!status && status.einstellungen.versand === "smtp" && !status.einstellungen.demo;
+  const alsEml = !status || (!smtp && (status.einstellungen.versand === "eml" || status.einstellungen.demo));
   const setze = (teil: Partial<Entwurf>) => setEntwurf((e) => ({ ...e, ...teil }));
 
   const empfaenger = useMemo(() => {
@@ -101,9 +102,9 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       });
       const ok = ergebnisse.filter((e) => e.ok).length;
       const fehl = ergebnisse.filter((e) => !e.ok);
-      const wo = versand === "eml" ? "als .eml-Datei gespeichert" : modus === "senden" ? "gesendet" : "in Outlook unter „Entwürfe“ angelegt";
+      const wo = versand === "eml" ? "als .eml-Datei gespeichert" : versand === "smtp" ? "gesendet" : modus === "senden" ? "gesendet" : "in Outlook unter „Entwürfe“ angelegt";
       if (fehl.length) toast.warning(`${ok} von ${ergebnisse.length} ${wo}`, { description: `${fehl.length} fehlgeschlagen, Details unten.` });
-      else toast.success(`${ok} ${ok === 1 ? "Mail" : "Mails"} ${wo}`, { description: versand === "eml" ? status?.ausgang : "Kategorie „Kanzlei-Helfer“" });
+      else toast.success(`${ok} ${ok === 1 ? "Mail" : "Mails"} ${wo}`, { description: versand === "eml" ? status?.ausgang : versand === "smtp" ? "Protokoll unter „Protokoll“" : "Kategorie „Kanzlei-Helfer“" });
       setFehlschlaege(fehl);
       if (!fehl.length) { setAuswahl(new Set()); setEntwurf((e) => ({ ...e, alle: [], pro: [], wahl: {} })); }
       await nachVersand();
@@ -239,17 +240,21 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
         <span className="me-auto text-sm text-muted-foreground zahl">
           {gehen.length} {gehen.length === 1 ? "Mail" : "Mails"}{entwurf.alle.length + entwurf.pro.length ? ` · ${entwurf.alle.length + entwurf.pro.length} Anhänge` : ""}
         </span>
-        {!alsEml && <Button variant="outline" disabled={!gehen.length || laeuft} onClick={() => setBestaetigen(true)}><SendIcon />Direkt senden</Button>}
-        <Button disabled={!gehen.length || laeuft} onClick={() => erstellen("entwurf")} data-knopf="erstellen">
-          {alsEml ? "Als .eml-Dateien speichern" : "Als Entwürfe in Outlook anlegen"}
-        </Button>
+        {smtp
+          ? <Button disabled={!gehen.length || laeuft} onClick={() => setBestaetigen(true)} data-knopf="senden"><SendIcon />{laeuft ? "Sendet …" : `Alle ${gehen.length} senden`}</Button>
+          : <>
+            {!alsEml && <Button variant="outline" disabled={!gehen.length || laeuft} onClick={() => setBestaetigen(true)}><SendIcon />Direkt senden</Button>}
+            <Button disabled={!gehen.length || laeuft} onClick={() => erstellen("entwurf")} data-knopf="erstellen">
+              {alsEml ? "Als .eml-Dateien speichern" : "Als Entwürfe in Outlook anlegen"}
+            </Button>
+          </>}
       </footer>
 
       <AlertDialog open={bestaetigen} onOpenChange={setBestaetigen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{gehen.length} {gehen.length === 1 ? "Mail" : "Mails"} jetzt senden?</AlertDialogTitle>
-            <AlertDialogDescription>Outlook verschickt sie sofort. Das lässt sich nicht zurückholen. Sicherer sind Entwürfe: Sie prüfen und senden selbst.</AlertDialogDescription>
+            <AlertDialogDescription>{smtp ? "Alle Mails werden sofort verschickt. Das lässt sich nicht zurückholen. Prüfen Sie vorher die Vorschau." : "Outlook verschickt sie sofort. Das lässt sich nicht zurückholen. Sicherer sind Entwürfe: Sie prüfen und senden selbst."}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Abbrechen</AlertDialogCancel>
