@@ -1,7 +1,7 @@
 {
   "name": "kanzlei-helfer",
   "private": true,
-  "version": "1.3.6",
+  "version": "1.4.0",
   "description": "Prüft Mandanten-Stammdaten aus DATEV und schreibt Mandanten per Vorlage an.",
   "author": "Timo Bergmann",
   "type": "module",
@@ -14,7 +14,8 @@
     "installer": "vite build && electron-builder",
     "pruefe:netz": "vite build && node tests/netz.e2e.mjs",
     "pruefe:adressen": "vite build && node tests/adressen.e2e.mjs",
-    "pruefe:editor": "vite build && node tests/editor.e2e.mjs"
+    "pruefe:editor": "vite build && node tests/editor.e2e.mjs",
+    "pruefe:versand": "vite build && node tests/versand.e2e.mjs"
   },
   "devDependencies": {
     "@fontsource/ibm-plex-mono": "^5.2.0",

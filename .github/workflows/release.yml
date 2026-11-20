@@ -39,6 +39,8 @@ jobs:
       - run: npm run pruefe:adressen
       # Formatierte Mails (Farbe, eingebettetes Bild) und verstellbare Spalten/Bereiche
       - run: npm run pruefe:editor
+      # Adresse bearbeiten/ergänzen, weitere Empfänger von Hand bis in die .eml und das Protokoll
+      - run: npm run pruefe:versand
       - run: npm run installer
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
