@@ -104,7 +104,15 @@ export const ZIEL_TEXT: Record<Ziel, string> = {
  * Adressen für einen Mandanten: eigene Wahl (pro Mandant) vor der Regel.
  * „Standard“ = DATEV-Standard-Adresse; hat der Mandant keine eigene (z. B. GmbH ohne Mail), gehen die der Partner.
  */
-export function adressenFuer(m: Mandant, ziel: Ziel, wahl?: string[]): string[] {
+export interface Anpassung { ersatz: Record<string, string>; extra: string[] }
+export const KEINE_ANPASSUNG: Anpassung = { ersatz: {}, extra: [] };
+export const istMail = (a: string) => MAIL_RE.test(a.trim());
+/** Regel bzw. eigene Wahl, danach pro Mandant bearbeitete Adressen (ersatz) und von Hand ergänzte (extra). */
+export function adressenFuer(m: Mandant, ziel: Ziel, wahl?: string[], anpassung: Anpassung = KEINE_ANPASSUNG): string[] {
+  const basis = regelAdressen(m, ziel, wahl).map((a) => anpassung.ersatz[a]?.trim() || a);
+  return [...new Set([...basis, ...anpassung.extra.map((a) => a.trim())].filter(istMail))];
+}
+function regelAdressen(m: Mandant, ziel: Ziel, wahl?: string[]): string[] {
   const g = gueltigeMails(m);
   if (wahl) return g.filter((e) => wahl.includes(e.adresse)).map((e) => e.adresse);
   const eigene = g.filter((e) => e.eigen);
