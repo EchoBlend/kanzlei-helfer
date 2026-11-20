@@ -12,7 +12,13 @@ const { DATEV_STANDARD } = require("./netz.cjs");
 
 const STANDARD = {
   datevconnect: DATEV_STANDARD,
-  versand: "eml", // "eml" (rein lokal) | "outlook" (Entwurf im Postfach, wird mit Exchange/M365 abgeglichen)
+  versand: "eml", // "eml" (rein lokal) | "outlook" (Entwurf im Postfach, wird mit Exchange/M365 abgeglichen) | "smtp" (direkter Versand, einzige Ausnahme vom Netz-Grundsatz)
+  smtpHost: "smtp.hostinger.com",
+  smtpPort: "465",
+  smtpBenutzer: "",
+  smtpAbsender: "",
+  smtpName: "",
+  smtpBcc: "", // Kopie jeder Mail an die eigene Adresse (SMTP legt nichts in „Gesendet“ ab)
   emlOrdner: "", // Zielordner für .eml-Dateien; leer = Unterordner „ausgang“ im Datenordner
   signatur: "Ihr Team der Steuerkanzlei",
   nurAktive: true,
@@ -66,7 +72,7 @@ function saubereEinstellungen(roh) {
   }
   e.emlOrdner = e.emlOrdner.trim();
   if (e.emlOrdner && !path.isAbsolute(e.emlOrdner)) e.emlOrdner = "";
-  if (!["outlook", "eml"].includes(e.versand)) e.versand = STANDARD.versand;
+  if (!["outlook", "eml", "smtp"].includes(e.versand)) e.versand = STANDARD.versand;
   if (!["system", "hell", "dunkel"].includes(e.design)) e.design = STANDARD.design;
   return e;
 }
@@ -121,6 +127,18 @@ function oeffneAblage(ordner) {
       return o && path.isAbsolute(o) ? o : datei("ausgang");
     },
     tmp: datei("tmp"),
+
+    /** SMTP-Passwort: nur verschlüsselt (Windows-Konto, Electron safeStorage), nie im Klartext und nie in der Oberfläche. */
+    smtpPasswort(safeStorage) {
+      try { return safeStorage.decryptString(fs.readFileSync(datei("smtp.bin"))); } catch { return ""; }
+    },
+    speichereSmtpPasswort(safeStorage, pw) {
+      if (!pw) { fs.rmSync(datei("smtp.bin"), { force: true }); return false; }
+      if (!safeStorage.isEncryptionAvailable()) throw new Error("Passwort kann auf diesem PC nicht sicher gespeichert werden");
+      fs.writeFileSync(datei("smtp.bin"), safeStorage.encryptString(String(pw).slice(0, 500)));
+      return true;
+    },
+    hatSmtpPasswort() { return fs.existsSync(datei("smtp.bin")); },
 
     einstellungen() {
       return saubereEinstellungen(liesJson("einstellungen.json", {}));

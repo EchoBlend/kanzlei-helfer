@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, PencilIcon, RotateCcwIcon, UploadIcon, UserPlusIcon, UsersIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, PencilIcon, RotateCcwIcon, SendIcon, UploadIcon, UserPlusIcon, UsersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -16,6 +19,8 @@ import {
 } from "@/lib/kh";
 import { cn } from "@/lib/utils";
 
+const PAECKCHEN = 5;
+
 interface Props {
   mandanten: Mandant[]; auswahl: Set<number>; setAuswahl: (s: Set<number>) => void; vorlagen: Vorlage[]; status: Status | null; gruppen: Gruppe[];
   setzeStandard: SetzeStandard;
@@ -25,6 +30,10 @@ interface Props {
 export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, gruppen, setzeStandard, entwurf, setEntwurf, zuMandanten, nachVersand }: Props) {
   const [blick, setBlick] = useState(0);
   const [laeuft, setLaeuft] = useState(false);
+  const [bestaetigen, setBestaetigen] = useState(false);
+  const [fortschritt, setFortschritt] = useState(0);
+  const [stoppt, setStoppt] = useState(false);
+  const abbruch = useRef(false);
   const [fehlschlaege, setFehlschlaege] = useState<MailErgebnis[]>([]);
   const textRef = useRef<RichTextGriff>(null);
   const betreffRef = useRef<HTMLInputElement>(null);
@@ -39,7 +48,8 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
   const rechts = useGroesse("serienmail.rechts", 440, 340, () => Math.max(340, window.innerWidth - 640));
   const listeHoehe = useGroesse("serienmail.empfaenger", 288, 96, () => Math.max(96, window.innerHeight - 220));
   const signatur = status?.einstellungen.signatur ?? "";
-  const alsEml = !status || status.einstellungen.versand === "eml" || status.einstellungen.demo;
+  const smtp = !!status && status.einstellungen.versand === "smtp" && !status.einstellungen.demo;
+  const alsEml = !status || (!smtp && (status.einstellungen.versand === "eml" || status.einstellungen.demo));
   const setze = (teil: Partial<Entwurf>) => setEntwurf((e) => ({ ...e, ...teil }));
 
   const empfaenger = useMemo(() => {
@@ -131,25 +141,50 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
   const fuegeHinzu = (art: "alle" | "pro", neu: Datei[]) =>
     setEntwurf((e) => ({ ...e, [art]: [...e[art], ...neu.filter((d) => !e[art].some((x) => x.pfad === d.pfad))] }));
 
+  /** Adressen, die nicht aus DATEV stammen (bearbeitet, ergänzt, weitere Empfänger): getrennt gemeldet, der Hauptprozess prüft sie nur auf Form. */
+  const vonHand = (m: Mandant, an: string[]) => (m.nummer < 0 ? an : an.filter((a) => !gueltigeMails(m).some((e) => e.adresse === a)));
+
   async function erstellen() {
+    const modus = smtp ? "senden" : "entwurf";
+    setBestaetigen(false);
     setLaeuft(true);
+    setStoppt(false);
+    setFortschritt(0);
+    abbruch.current = false;
     setFehlschlaege([]);
     try {
       const vorlage = vorlagen.find((x) => x.id === entwurf.vorlageId);
-      const { versand, ergebnisse } = await kh().mails({
-        modus: "entwurf", vorlage: vorlage?.name ?? "(frei)",
-        mails: gehen.map(({ m, an }) => ({ nummer: m.nummer, name: m.name, an, ...fassung(m), anhaenge: anhaengeFuer(m).map((d) => d.pfad) })),
-      });
+      const liste = gehen.map(({ m, an }) => ({ nummer: m.nummer, name: m.name, an, ...fassung(m), anhaenge: anhaengeFuer(m).map((d) => d.pfad),
+        ...(vonHand(m, an).length ? { von_hand: vonHand(m, an) } : {}) }));
+      // In Päckchen, damit „Abbrechen“ zwischen den Päckchen greift.
+      let versand = "";
+      const ergebnisse: MailErgebnis[] = [];
+      for (let k = 0; k < liste.length && !abbruch.current; k += PAECKCHEN) {
+        const r = await kh().mails({ modus, vorlage: vorlage?.name ?? "(frei)", mails: liste.slice(k, k + PAECKCHEN) });
+        versand = r.versand;
+        ergebnisse.push(...r.ergebnisse);
+        setFortschritt(ergebnisse.length);
+      }
       const ok = ergebnisse.filter((e) => e.ok).length;
       const fehl = ergebnisse.filter((e) => !e.ok);
-      const wo = versand === "eml" ? "als .eml-Datei gespeichert" : "in Outlook unter „Entwürfe“ angelegt";
+      const wo = versand === "eml" ? "als .eml-Datei gespeichert" : versand === "smtp" ? "gesendet" : "in Outlook unter „Entwürfe“ angelegt";
+      if (abbruch.current && ergebnisse.length < liste.length) {
+        // Erledigte Mandanten aus der Auswahl nehmen, der Rest bleibt zum erneuten Versand.
+        const fertig = new Set(ergebnisse.filter((e) => e.ok).map((e) => e.nummer));
+        setAuswahl(new Set([...auswahl].filter((n) => !fertig.has(n))));
+        setEntwurf((e) => ({ ...e, weitere: e.weitere.filter((w) => !fertig.has(w.nummer)) }));
+        setFehlschlaege(fehl);
+        toast.info(`Abgebrochen: ${ok} von ${liste.length} ${wo}`, { description: "Die übrigen Mandanten sind weiter ausgewählt." });
+        await nachVersand();
+        return;
+      }
       if (fehl.length) toast.warning(`${ok} von ${ergebnisse.length} ${wo}`, { description: `${fehl.length} fehlgeschlagen, Details unten.` });
-      else toast.success(`${ok} ${ok === 1 ? "Mail" : "Mails"} ${wo}`, { description: versand === "eml" ? status?.ausgang : "Kategorie „Kanzlei-Helfer“" });
+      else toast.success(`${ok} ${ok === 1 ? "Mail" : "Mails"} ${wo}`, { description: versand === "eml" ? status?.ausgang : versand === "smtp" ? "Protokoll unter „Protokoll“" : "Kategorie „Kanzlei-Helfer“" });
       setFehlschlaege(fehl);
       if (!fehl.length) { setAuswahl(new Set()); setGesehen(new Set()); setEntwurf((e) => ({ ...e, alle: [], pro: [], wahl: {}, anpassung: {}, adressen: {}, weitere: [] })); }
       await nachVersand();
     } catch (f) {
-      toast.error("Mails nicht erstellt", { description: fehlertext(f) });
+      toast.error(smtp ? "Mails nicht gesendet" : "Mails nicht erstellt", { description: fehlertext(f) });
     } finally {
       setLaeuft(false);
     }
@@ -319,22 +354,38 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
           {gehen.length} {gehen.length === 1 ? "Mail" : "Mails"}{entwurf.alle.length + entwurf.pro.length ? ` · ${entwurf.alle.length + entwurf.pro.length} Anhänge` : ""}
           {gehen.length > 1 ? ` · ${durchgesehen} von ${gehen.length} durchgesehen` : ""}{angepasst ? ` · ${angepasst} angepasst` : ""}
         </span>
-        <Button disabled={!gehen.length || laeuft} onClick={() => erstellen()} data-knopf="erstellen">
-          {alsEml ? "Als .eml-Dateien speichern" : "Als Entwürfe in Outlook anlegen"}
-        </Button>
+        {laeuft && gehen.length > PAECKCHEN && <Button variant="outline" disabled={stoppt} onClick={() => { abbruch.current = true; setStoppt(true); }} data-knopf="abbrechen">{stoppt ? "Wird abgebrochen …" : "Abbrechen"}</Button>}
+        {smtp
+          ? <Button disabled={!gehen.length || laeuft} onClick={() => setBestaetigen(true)} data-knopf="senden"><SendIcon />{laeuft ? `Sendet … ${fortschritt} von ${gehen.length}` : `Alle ${gehen.length} senden`}</Button>
+          : <Button disabled={!gehen.length || laeuft} onClick={() => erstellen()} data-knopf="erstellen">
+            {laeuft ? `${fortschritt} von ${gehen.length} …` : alsEml ? "Als .eml-Dateien speichern" : "Als Entwürfe in Outlook anlegen"}
+          </Button>}
       </footer>
+
+      <AlertDialog open={bestaetigen} onOpenChange={setBestaetigen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{gehen.length} {gehen.length === 1 ? "Mail" : "Mails"} jetzt senden?</AlertDialogTitle>
+            <AlertDialogDescription>Alle Mails gehen sofort über den SMTP-Server hinaus. Das lässt sich nicht zurückholen. Empfänger stehen in BCC. Prüfen Sie vorher die Vorschau.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={() => erstellen()} data-knopf="senden-bestaetigen">Jetzt senden</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
 }
 
-/** Platzhalter-Knöpfe; `beispiel` zeigt beim Darüberfahren den Wert für den gerade angezeigten Mandanten. */
 /** Weiterer Empfänger ohne Mandantendaten: Standard-Anrede, keine Lücken. */
 const weitererAlsMandant = (w: Weiterer): Mandant => ({
   id: String(w.nummer), nummer: w.nummer, name: w.name || w.adresse, typ: "natural_person", status: "active", email: w.adresse, emails: [], beziehungen: [], verbund: [],
   anrede: w.name ? `Guten Tag ${w.name},` : null, aufgabenbereiche: [], datevGruppen: [], kategorien: [], auftraege: [], luecken: [], fehlerhaft: [], abruffehler: null,
 });
 
+/** Platzhalter-Knöpfe; `beispiel` zeigt beim Darüberfahren den Wert für den gerade angezeigten Mandanten. */
 export function Platzhalter({ einfuegen, beispiel, titel = "Einfügen:" }: { einfuegen: (p: string) => void; beispiel?: (p: string) => string | undefined; titel?: string }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5 pt-1">

@@ -255,3 +255,9 @@ test("Formatierte Mail: Farben bleiben, Bilder eingebettet (cid), fremde Bilder 
   // ohne html bleibt es reiner Text wie bisher
   assert.ok(!/multipart/.test(baueEml({ an: ["a@x.de"], betreff: "T", text: "nur Text" }, [])));
 });
+
+test("SMTP: ohne Einrichtung und im falschen Modus wird abgelehnt, ohne SMTP nie senden", async () => {
+  await assert.rejects(erstelleMails({ modus: "entwurf", mails: [] }, { versand: "smtp" }), /direkt/);
+  await assert.rejects(erstelleMails({ modus: "senden", mails: [] }, { versand: "smtp", smtp: { host: "", absender: "" }, passwort: "" }), /nicht eingerichtet/);
+  await assert.rejects(erstelleMails({ modus: "senden", mails: [] }, { versand: "eml" }), /Nur Entwürfe/);
+});

@@ -13,17 +13,29 @@ import { FELD, FELD_ERKLAERUNG, FELDER, fehlertext, kh, type Einstellungen as E,
 export function Einstellungen({ status, gespeichert, pruefen }: { status: Status | null; gespeichert: () => Promise<void>; pruefen: () => Promise<void> }) {
   const [e, setE] = useState<E | null>(status?.einstellungen ?? null);
   const [laeuft, setLaeuft] = useState(false);
+  const [pw, setPw] = useState("");
   useEffect(() => { if (status && !e) setE(status.einstellungen); }, [status, e]);
   if (!e || !status) return null;
 
-  const geaendert = JSON.stringify(e) !== JSON.stringify(status.einstellungen);
+  const geaendert = JSON.stringify(e) !== JSON.stringify(status.einstellungen) || !!pw;
   const sichern = async () => {
     setLaeuft(true);
     try {
       setE(await kh().speichereEinstellungen(e));
+      if (pw) { await kh().speichereSmtpPasswort(pw); setPw(""); }
       await gespeichert();
       toast.success("Einstellungen gespeichert");
     } catch (f) { toast.error("Nicht gespeichert", { description: fehlertext(f) }); }
+    finally { setLaeuft(false); }
+  };
+
+  const testen = async () => {
+    setLaeuft(true);
+    try {
+      const r = await kh().smtpTest();
+      if (r.ok) toast.success("Testmail gesendet", { description: "Bitte im Postfach des Absenders nachsehen." });
+      else toast.error("Test fehlgeschlagen", { description: r.info });
+    } catch (f) { toast.error("Test fehlgeschlagen", { description: fehlertext(f) }); }
     finally { setLaeuft(false); }
   };
 
@@ -69,7 +81,7 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
             {status.hinweise.length > 0 && <ul className="list-disc ps-5 text-xs text-muted-foreground">{status.hinweise.map((h) => <li key={h}>{h}</li>)}</ul>}
           </Abschnitt>
 
-          <Abschnitt titel="Versand" text="Die App sendet nie selbst. Sie legt nur Vorlagen an; Senden macht immer ein Mensch in Outlook.">
+          <Abschnitt titel="Versand" text="Standard: Die App sendet nie selbst, sie legt nur Vorlagen an. Nur wenn Sie unten „Direkt senden über SMTP“ wählen, geht die Mail von der App aus an den Mail-Server.">
             <div className="grid gap-1.5">
               <Label htmlFor="e-versand">Ausgabe</Label>
               <Select value={e.versand} onValueChange={(v) => setE({ ...e, versand: v as E["versand"] })}>
@@ -77,9 +89,32 @@ export function Einstellungen({ status, gespeichert, pruefen }: { status: Status
                 <SelectContent>
                   <SelectItem value="eml">.eml-Vorlagen im Datenordner – rein lokal, Doppelklick öffnet sie in Outlook (Empfehlung)</SelectItem>
                   <SelectItem value="outlook">Outlook-Entwürfe im Postfach – werden sofort mit Exchange/Microsoft 365 abgeglichen</SelectItem>
+                  <SelectItem value="smtp">Direkt senden über SMTP – ohne Outlook, nach der Kontrolle in einem Schritt (verlässt den PC)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            {e.versand === "smtp" && (
+              <div className="grid gap-4 rounded-lg border p-4" data-smtp>
+                <div className="grid grid-cols-[1fr_6rem] gap-3">
+                  <div className="grid gap-1.5"><Label htmlFor="e-sh">SMTP-Server</Label><Input id="e-sh" className="kennung" value={e.smtpHost} onChange={(x) => setE({ ...e, smtpHost: x.target.value })} /></div>
+                  <div className="grid gap-1.5"><Label htmlFor="e-sp">Port</Label><Input id="e-sp" className="kennung" value={e.smtpPort} onChange={(x) => setE({ ...e, smtpPort: x.target.value })} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5"><Label htmlFor="e-sa">Absenderadresse</Label><Input id="e-sa" type="email" value={e.smtpAbsender} onChange={(x) => setE({ ...e, smtpAbsender: x.target.value })} /></div>
+                  <div className="grid gap-1.5"><Label htmlFor="e-sn">Absendername (optional)</Label><Input id="e-sn" value={e.smtpName} onChange={(x) => setE({ ...e, smtpName: x.target.value })} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5"><Label htmlFor="e-sb">Benutzername</Label><Input id="e-sb" placeholder="leer = Absenderadresse" value={e.smtpBenutzer} onChange={(x) => setE({ ...e, smtpBenutzer: x.target.value })} /></div>
+                  <div className="grid gap-1.5"><Label htmlFor="e-spw">Passwort</Label>
+                    <Input id="e-spw" type="password" autoComplete="off" value={pw} placeholder={status.smtpPasswort ? "gespeichert (leer lassen = behalten)" : ""} onChange={(x) => setPw(x.target.value)} /></div>
+                </div>
+                <div className="grid gap-1.5"><Label htmlFor="e-sc">Kopie an (Blindkopie, optional)</Label><Input id="e-sc" type="email" placeholder="z. B. die eigene Adresse, als Beleg im Postfach" value={e.smtpBcc} onChange={(x) => setE({ ...e, smtpBcc: x.target.value })} /></div>
+                <div className="flex items-center gap-3">
+                  <Button variant="outline" size="sm" disabled={geaendert || laeuft} onClick={testen} data-knopf="smtp-test">Testmail an Absender</Button>
+                  <p className="text-xs text-muted-foreground">Erst speichern, dann testen. Das Passwort wird verschlüsselt im Windows-Konto abgelegt. Empfänger stehen immer in BCC.</p>
+                </div>
+              </div>
+            )}
             <div className="grid gap-1.5">
               <Label htmlFor="e-eml">Speicherort der .eml-Dateien</Label>
               <div className="flex gap-2">

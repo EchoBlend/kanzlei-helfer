@@ -1,6 +1,6 @@
 /**
  * Mail-Vorlagen erstellen: .eml-Dateien (Standard, rein lokal) oder Outlook-Entwürfe (klassisch, per COM).
- * Die App sendet nie selbst.
+ * Gesendet wird nur, wenn der Versand ausdrücklich auf SMTP steht (Einstellungen → Versand); sonst sendet die App nie selbst.
  *
  * Outlook läuft über ein kurzes PowerShell-Skript. Das Skript geht über stdin hinein,
  * nicht als -EncodedCommand: Den prüft Defender beim Start und das kostet fast 2 s
@@ -180,12 +180,50 @@ function viaOutlook(mails, tmpOrdner) {
   });
 }
 
+/** Direktversand über den SMTP-Server des Mail-Anbieters (kein Outlook nötig). Empfänger immer in BCC. */
+async function viaSmtp(mails, smtp, passwort) {
+  const nodemailer = require("nodemailer");
+  const transport = nodemailer.createTransport({
+    host: smtp.host, port: smtp.port, secure: smtp.port === 465, requireTLS: smtp.port !== 465,
+    auth: { user: smtp.benutzer, pass: passwort }, connectionTimeout: 20000, greetingTimeout: 20000, socketTimeout: 60000,
+    pool: true, maxConnections: 2,
+  });
+  const ergebnisse = [];
+  try {
+    for (const m of mails) {
+      try {
+        await transport.sendMail({
+          from: smtp.name ? { name: smtp.name, address: smtp.absender } : smtp.absender,
+          bcc: [...m.an, ...(smtp.bcc ? [smtp.bcc] : [])], subject: m.betreff, text: crlf(m.text),
+          ...(m.formatiert ? { html: m.formatiert.html } : {}),
+          attachments: [
+            ...(m.formatiert?.bilder ?? []).map((b) => ({ filename: b.name, content: b.daten, contentType: b.typ, cid: b.cid, contentDisposition: "inline" })),
+            ...m.anhaenge.map((p) => ({ filename: path.basename(p), path: p })),
+          ],
+        });
+        ergebnisse.push({ nummer: m.nummer, ok: true, info: "" });
+      } catch (f) { ergebnisse.push({ nummer: m.nummer, ok: false, info: f.message }); }
+    }
+  } finally { transport.close(); }
+  return ergebnisse;
+}
+
+/** Verbindung und Anmeldung prüfen und eine Testmail an die eigene Adresse schicken. */
+async function smtpTest(smtp, passwort) {
+  const [e] = await viaSmtp([{ nummer: 0, an: [smtp.absender], betreff: "Kanzlei-Helfer: Testmail", anhaenge: [], formatiert: null,
+    text: "Der Versand aus dem Kanzlei-Helfer funktioniert." }], smtp, passwort);
+  return e;
+}
+
 /**
  * Erstellt alle Mails eines Auftrags. Ungültige Adressen oder fehlende Anhänge
  * scheitern einzeln, der Rest geht trotzdem.
  */
-async function erstelleMails({ modus, mails }, { versand, ausgang, tmp }) {
-  if (modus !== "entwurf") throw new Error("Nur Entwürfe: Die App versendet nie selbst");
+async function erstelleMails({ modus, mails }, { versand, ausgang, tmp, smtp, passwort }) {
+  if (versand === "smtp") {
+    if (modus !== "senden") throw new Error("SMTP sendet immer direkt");
+    if (!smtp || !smtp.host || !smtp.absender || !passwort) throw new Error("SMTP ist nicht eingerichtet (Einstellungen → Versand)");
+  } else if (modus !== "entwurf") throw new Error("Nur Entwürfe: Die App versendet nie selbst");
   const ergebnisse = new Map();
   const bereit = [];
   for (const m of mails) {
@@ -210,10 +248,12 @@ async function erstelleMails({ modus, mails }, { versand, ausgang, tmp }) {
         ergebnisse.set(m.nummer, { nummer: m.nummer, ok: true, info: datei });
       } catch (f) { ergebnisse.set(m.nummer, { nummer: m.nummer, ok: false, info: f.message }); }
     }
+  } else if (versand === "smtp") {
+    if (bereit.length) for (const e of await viaSmtp(bereit, smtp, passwort)) ergebnisse.set(e.nummer, e);
   } else if (bereit.length) {
     for (const e of await viaOutlook(bereit, tmp)) ergebnisse.set(e.nummer, e);
   }
   return mails.map((m) => ({ nummer: m.nummer, ok: false, info: "Kein Ergebnis", ...ergebnisse.get(m.nummer), anhaenge: (m.anhaenge || []).map((p) => path.basename(String(p))) }));
 }
 
-module.exports = { baueEml, bereiteHtml, erstelleMails, MAX_ANHANG };
+module.exports = { baueEml, bereiteHtml, erstelleMails, smtpTest, MAX_ANHANG };

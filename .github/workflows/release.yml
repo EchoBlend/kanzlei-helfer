@@ -71,5 +71,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ needs.installer.outputs.version }}
         run: |
-          notes="Windows-Installer: ein Klick, nur für den angemeldeten Benutzer, ohne Adminrechte (nicht signiert: SmartScreen → Weitere Informationen → Trotzdem ausführen). Deinstallieren über Windows-Einstellungen → Apps entfernt auch alle Daten. Nichts geht ins Internet (vor dem Release per NetLog auf Windows geprüft). DATEV wird nur gelesen, ohne Anmeldung, nur im eigenen Netz. Mails nur als Vorlagen (.eml, rein lokal; Empfänger immer in BCC) – die App sendet nie selbst."
+          notes="Windows-Installer: ein Klick, nur für den angemeldeten Benutzer, ohne Adminrechte (nicht signiert: SmartScreen → Weitere Informationen → Trotzdem ausführen). Deinstallieren über Windows-Einstellungen → Apps entfernt auch alle Daten. Die Oberfläche geht nicht ins Internet (vor dem Release per NetLog auf Windows geprüft). DATEV wird nur gelesen, ohne Anmeldung, nur im eigenen Netz. Mails standardmäßig nur als Vorlagen (.eml, rein lokal; Empfänger immer in BCC); nur wenn in den Einstellungen „Direkt senden über SMTP“ gewählt ist, sendet die App selbst über den eingestellten Mail-Server."
           gh release create "$V" installer/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Kanzlei-Helfer $V" --notes "$notes"

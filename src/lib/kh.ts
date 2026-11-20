@@ -29,11 +29,11 @@ export interface Mandant {
   luecken: Feld[]; fehlerhaft: Feld[]; abruffehler: string | null;
 }
 export interface Einstellungen {
-  datevconnect: string; versand: "outlook" | "eml"; emlOrdner: string; signatur: string; nurAktive: boolean; demo: boolean;
+  datevconnect: string; versand: "outlook" | "eml" | "smtp"; smtpHost: string; smtpPort: string; smtpBenutzer: string; smtpAbsender: string; smtpName: string; smtpBcc: string; emlOrdner: string; signatur: string; nurAktive: boolean; demo: boolean;
   design: "system" | "hell" | "dunkel"; regeln: Partial<Record<Feld, boolean>>;
 }
 export interface Status {
-  datev: boolean; meldung: string | null; einstellungen: Einstellungen; version: string; daten: string; ausgang: string;
+  datev: boolean; meldung: string | null; smtpPasswort: boolean; einstellungen: Einstellungen; version: string; daten: string; ausgang: string;
   mica: boolean; auftragswesen: boolean | null; hinweise: string[];
 }
 /** `text` = reiner Text (für Prüfungen und als Klartext-Teil der Mail); `html` = formatierte Fassung mit Farben und Bildern. */
@@ -68,7 +68,9 @@ interface Kh {
   waehleBild(): Promise<string | null>;
   /** Echte, ins Fenster gezogene Dateien; den Pfad bestimmt vorlade.cjs selbst. */
   dateiInfoVon(dateien: File[]): Promise<Datei[]>;
-  mails(a: { modus: "entwurf"; vorlage: string; mails: { nummer: number; name: string; an: string[]; betreff: string; text: string; html: string; anhaenge: string[] }[] }): Promise<{ versand: string; ergebnisse: MailErgebnis[] }>;
+  mails(a: { modus: "entwurf" | "senden"; vorlage: string; mails: { nummer: number; name: string; an: string[]; betreff: string; text: string; html: string; anhaenge: string[]; von_hand?: string[] }[] }): Promise<{ versand: string; ergebnisse: MailErgebnis[] }>;
+  speichereSmtpPasswort(pw: string): Promise<boolean>;
+  smtpTest(): Promise<MailErgebnis>;
   exportiere(a: { name: string; inhalt: string }): Promise<string | null>;
   oeffneOrdner(welcher: "daten" | "ausgang"): Promise<string>;
   waehleOrdner(): Promise<string | null>;

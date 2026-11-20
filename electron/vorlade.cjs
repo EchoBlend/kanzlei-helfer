@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld("kh", {
   // Pfade nur aus echten Datei-Objekten (Drag & Drop); beliebige Pfad-Texte nimmt die Brücke nicht an.
   dateiInfoVon: (dateien) => ipcRenderer.invoke("dateien:info", [...dateien].map((f) => webUtils.getPathForFile(f)).filter(Boolean)),
   mails: rufe("mails"),
+  speichereSmtpPasswort: rufe("smtp:passwort"),
+  smtpTest: rufe("smtp:test"),
   exportiere: rufe("export"),
   oeffneOrdner: rufe("ordner"),
   waehleOrdner: rufe("ordner:waehlen"),

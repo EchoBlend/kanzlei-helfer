@@ -7,13 +7,14 @@
  *   ist die eingestellte DATEVconnect-Adresse (Standard LIZENZSERVER, siehe netz.cjs), und die fragt nur der Hauptprozess ab –
  *   mit dem Windows-Konto wie der Browser, nur bei diesem Server.
  */
-const { app, BrowserWindow, Menu, crashReporter, dialog, ipcMain, nativeTheme, net, protocol, session, shell } = require("electron");
+const { app, BrowserWindow, Menu, crashReporter, dialog, ipcMain, nativeTheme, net, protocol, safeStorage, session, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
 const { oeffneAblage } = require("./ablage.cjs");
 const { demoQuelle, netzQuelle, ladeMandanten } = require("./datev.cjs");
-const { erstelleMails } = require("./versand.cjs");
+const { erstelleMails, smtpTest } = require("./versand.cjs");
+const { MAIL_RE } = require("./pruefung.cjs");
 const { datevAdresse, datevBasis, sichererAbruf } = require("./netz.cjs");
 
 const NAME = "Kanzlei-Helfer";
@@ -198,7 +199,7 @@ handle("status", async () => {
     // /version kennt nicht jede DATEVconnect-Fassung; dann reicht die Mandantenliste (nur Nummern) als Lebenszeichen.
     await quelle().stamm("/version").catch((f) => { if (f.status === 404) return quelle().stamm("/clients?select=number"); throw f; });
   } catch (f) { datev = false; meldung = fehlerText(f); }
-  return { datev, meldung, einstellungen, version: app.getVersion(), daten: ablage.ordner, ausgang: ablage.ausgang, mica: MICA, auftragswesen, hinweise };
+  return { datev, meldung, einstellungen, smtpPasswort: ablage.hatSmtpPasswort(), version: app.getVersion(), daten: ablage.ordner, ausgang: ablage.ausgang, mica: MICA, auftragswesen, hinweise };
 });
 
 // Scan: alle Mandanten neu aus DATEV lesen und prüfen; Fortschritt geht als Ereignis „scan“ ans Fenster.
@@ -276,13 +277,18 @@ handle("dateien:info", (_e, pfade) => (Array.isArray(pfade) ? pfade : []).filter
 /** Prüft einen Mail-Auftrag der Oberfläche gegen den letzten Scan: Adressen müssen die des Mandanten aus DATEV sein. */
 function pruefeAuftrag(auftrag) {
   const text = (v, max) => typeof v === "string" && v.length <= max;
-  if (!auftrag || auftrag.modus !== "entwurf" || !text(auftrag.vorlage, 500) || !Array.isArray(auftrag.mails) || auftrag.mails.length > 5000) throw new Error("Ungültiger Auftrag");
+  const smtpAn = einstellungen.versand === "smtp" && !einstellungen.demo;
+  if (!auftrag || auftrag.modus !== (smtpAn ? "senden" : "entwurf") || !text(auftrag.vorlage, 500) || !Array.isArray(auftrag.mails) || auftrag.mails.length > 5000) throw new Error("Ungültiger Auftrag");
   const adressen = new Map((mandanten || []).map((m) => [m.nummer, new Set((m.emails || []).map((x) => x.adresse))]));
   const gut = [], schlecht = [];
   for (const m of auftrag.mails) {
     if (!m || !Number.isInteger(m.nummer) || !text(m.name, 500) || !text(m.betreff, 2000) || !text(m.text, 200000) || (m.html !== undefined && !text(m.html, 40 * 1024 * 1024)) ||
       !Array.isArray(m.an) || !m.an.every((a) => text(a, 320)) || !Array.isArray(m.anhaenge) || !m.anhaenge.every((p) => text(p, 4000))) throw new Error("Ungültiger Auftrag");
-    const fremd = m.an.find((a) => !adressen.get(m.nummer)?.has(a));
+    // Von Hand eingegebene Adressen (bearbeitet, ergänzt, weitere Empfänger) stehen zusätzlich in `von_hand` und müssen eine gültige Adresse sein;
+    // alle anderen müssen die des Mandanten aus DATEV sein.
+    if (m.von_hand !== undefined && (!Array.isArray(m.von_hand) || !m.von_hand.every((a) => text(a, 320) && MAIL_RE.test(a)))) throw new Error("Ungültiger Auftrag");
+    const hand = new Set(m.von_hand || []);
+    const fremd = m.an.find((a) => !hand.has(a) && !adressen.get(m.nummer)?.has(a));
     const anhang = m.anhaenge.find((p) => !freigegeben.has(p));
     if (fremd) schlecht.push({ nummer: m.nummer, ok: false, info: `Adresse gehört nicht zu Mandant ${m.nummer} in DATEV: ${fremd}`, anhaenge: [] });
     else if (anhang) schlecht.push({ nummer: m.nummer, ok: false, info: `Anhang nicht freigegeben: ${path.basename(anhang)}`, anhaenge: [] });
@@ -291,12 +297,22 @@ function pruefeAuftrag(auftrag) {
   return { gut, schlecht };
 }
 
+const smtpDaten = () => ({ host: einstellungen.smtpHost.trim(), port: Number(einstellungen.smtpPort) || 465, benutzer: (einstellungen.smtpBenutzer || einstellungen.smtpAbsender).trim(),
+  absender: einstellungen.smtpAbsender.trim(), name: einstellungen.smtpName.trim(), bcc: einstellungen.smtpBcc.trim() });
+handle("smtp:passwort", (_e, pw) => ablage.speichereSmtpPasswort(safeStorage, typeof pw === "string" ? pw : ""));
+handle("smtp:test", async () => {
+  const d = smtpDaten(), pw = ablage.smtpPasswort(safeStorage);
+  if (!d.host || !d.absender || !pw) return { nummer: 0, ok: false, info: "Server, Absender und Passwort fehlen" };
+  return smtpTest(d, pw);
+});
+
 handle("mails", async (_e, auftrag) => {
   const { gut, schlecht } = pruefeAuftrag(auftrag);
-  const versand = einstellungen.demo && einstellungen.versand === "outlook" ? "eml" : einstellungen.versand;
-  const erg = [...(gut.length ? await erstelleMails({ modus: "entwurf", mails: gut }, { versand, ausgang: ablage.ausgang, tmp: ablage.tmp }) : []), ...schlecht];
+  const versand = einstellungen.demo && einstellungen.versand !== "eml" ? "eml" : einstellungen.versand;
+  const erg = [...(gut.length ? await erstelleMails({ modus: auftrag.modus, mails: gut }, { versand, ausgang: ablage.ausgang, tmp: ablage.tmp,
+    smtp: smtpDaten(), passwort: versand === "smtp" ? ablage.smtpPasswort(safeStorage) : "" }) : []), ...schlecht];
   const zeit = new Date().toLocaleString("de-DE");
-  const modus = versand === "eml" ? "eml" : "entwurf";
+  const modus = versand === "eml" ? "eml" : versand === "smtp" ? "smtp" : "entwurf";
   ablage.protokolliere(erg.map((e) => {
     const m = auftrag.mails.find((x) => x.nummer === e.nummer) || {};
     return { Zeit: zeit, Modus: modus, Vorlage: auftrag.vorlage, Mandantennr: m.nummer > 0 ? m.nummer : "", Mandant: m.name, An: [].concat(m.an || []).join("; "), Betreff: m.betreff,
