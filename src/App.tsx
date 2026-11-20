@@ -15,7 +15,7 @@ import {
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Teiler, useGroesse } from "@/components/Teiler";
-import { ampel, fehlertext, htmlVon, kannMail, kh, mitRegeln, mitStandard, type Fassung, type StandardAdressen, type Ansicht as AnsichtT, type Datei, type Gruppe, type Mandant, type Protokollzeile, type Status, type Vorlage, type Ziel } from "@/lib/kh";
+import { ampel, type Anpassung, fehlertext, htmlVon, kannMail, kh, mitRegeln, mitStandard, type Fassung, type StandardAdressen, type Ansicht as AnsichtT, type Datei, type Gruppe, type Mandant, type Protokollzeile, type Status, type Vorlage, type Ziel } from "@/lib/kh";
 import { Mandanten, type Quelle } from "@/ansichten/Mandanten";
 import { Serienmail } from "@/ansichten/Serienmail";
 import { Vorlagen } from "@/ansichten/Vorlagen";
@@ -32,7 +32,12 @@ export interface Entwurf {
   ziel: Ziel; wahl: Record<number, string[]>;
   /** Pro Mandant beim Durchgehen angepasste Fassung (fertiger Text, Platzhalter schon ersetzt). */
   anpassung: Record<number, Fassung>;
+  /** Pro Mandant nur für diesen Versand: bearbeitete (ersatz) und von Hand ergänzte (extra) Adressen. */
+  adressen: Record<number, Anpassung>;
+  /** Empfänger von Hand, die keine Mandanten sind. Nummer ist negativ, damit sie nie mit einer Mandantennummer kollidiert. */
+  weitere: Weiterer[];
 }
+export interface Weiterer { nummer: number; name: string; adresse: string }
 
 export default function App() {
   const [ansicht, setAnsicht] = useState<Ansicht>("mandanten");
@@ -50,7 +55,7 @@ export default function App() {
   const [protokoll, setProtokoll] = useState<Protokollzeile[]>([]);
   const [standard, setStandard] = useState<StandardAdressen>({});
   const seitenleiste = useGroesse("seitenleiste", 256, 200, () => 440);
-  const [entwurf, setEntwurf] = useState<Entwurf>({ vorlageId: null, betreff: "", text: "", html: "", alle: [], pro: [], ziel: "standard", wahl: {}, anpassung: {} });
+  const [entwurf, setEntwurf] = useState<Entwurf>({ vorlageId: null, betreff: "", text: "", html: "", alle: [], pro: [], ziel: "standard", wahl: {}, anpassung: {}, adressen: {}, weitere: [] });
   const [gruppenDialog, setGruppenDialog] = useState<{ id?: string; name: string; mitglieder: number[] } | null>(null);
   const [loeschen, setLoeschen] = useState<Gruppe | null>(null);
   const speicherTakt = useRef<number>(0);

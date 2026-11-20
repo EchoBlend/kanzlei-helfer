@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, PencilIcon, RotateCcwIcon, UploadIcon, UsersIcon, XIcon } from "lucide-react";
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, FileIcon, FolderIcon, PaperclipIcon, PencilIcon, RotateCcwIcon, UploadIcon, UserPlusIcon, UsersIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -8,11 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RichAnsicht, RichText, type RichTextGriff } from "@/components/RichText";
 import { Teiler, useGroesse } from "@/components/Teiler";
-import { Kopf, type Entwurf } from "@/App";
+import { Kopf, type Entwurf, type Weiterer } from "@/App";
 import { MailAdressWahl, type SetzeStandard } from "@/ansichten/AdressWahl";
 import {
-  adressenFuer, braucheLuecken, fehlertext, fuellen, fuellenHtml, groesse, gueltigeMails, hatMailLuecken, htmlVon, htmlZuText, kannMail, kh, nrAusName, offenePlatzhalter,
-  PLATZHALTER, platzhalterWerte, ZIEL_TEXT, type Datei, type Fassung, type Gruppe, type Mandant, type MailErgebnis, type Status, type Vorlage, type Ziel,
+  adressenFuer, braucheLuecken, fehlertext, fuellen, fuellenHtml, groesse, gueltigeMails, hatMailLuecken, htmlVon, istMail, KEINE_ANPASSUNG, htmlZuText, kannMail, kh, nrAusName, offenePlatzhalter,
+  PLATZHALTER, platzhalterWerte, ZIEL_TEXT, type Anpassung, type Datei, type Fassung, type Gruppe, type Mandant, type MailErgebnis, type Status, type Vorlage, type Ziel,
 } from "@/lib/kh";
 import { cn } from "@/lib/utils";
 
@@ -44,17 +44,20 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
 
   const empfaenger = useMemo(() => {
     const brauchtLuecken = braucheLuecken(entwurf.betreff + entwurf.text);
-    return mandanten.filter((m) => auswahl.has(m.nummer)).map((m) => ({
-      m, an: adressenFuer(m, entwurf.ziel, entwurf.wahl[m.nummer]),
-    })).map(({ m, an }) => ({
-      m, an,
-      grund: !kannMail(m) ? "keine gültige E-Mail" : !an.length ? "keine Adresse gewählt"
+    const echte = mandanten.filter((m) => auswahl.has(m.nummer)).map((m) => ({
+      m, an: adressenFuer(m, entwurf.ziel, entwurf.wahl[m.nummer], entwurf.adressen[m.nummer]), weiterer: false,
+    })).map(({ m, an, weiterer }) => ({
+      m, an, weiterer,
+      grund: !an.length ? (kannMail(m) ? "keine Adresse gewählt" : "keine gültige E-Mail")
         : brauchtLuecken && !hatMailLuecken(m) ? "keine Lücken"
         : entwurf.pro.length && !entwurf.pro.some((d) => nrAusName(d.name) === m.nummer) ? "kein eigener Anhang" : "",
     }));
+    // Von Hand ergänzte Empfänger: eigene Mail ohne Mandantendaten (Standard-Anrede, keine Lücken, nur Anhänge für alle).
+    const weitere = entwurf.weitere.map((w) => ({ m: weitererAlsMandant(w), an: istMail(w.adresse) ? [w.adresse.trim()] : [], weiterer: true, grund: istMail(w.adresse) ? "" : "keine gültige E-Mail" }));
+    return [...echte, ...weitere];
   }, [mandanten, auswahl, entwurf]);
   const gehen = empfaenger.filter((e) => !e.grund);
-  const anhaengeFuer = (m: Mandant) => [...entwurf.alle, ...entwurf.pro.filter((d) => nrAusName(d.name) === m.nummer)];
+  const anhaengeFuer = (m: Mandant) => [...entwurf.alle, ...(m.nummer > 0 ? entwurf.pro.filter((d) => nrAusName(d.name) === m.nummer) : [])];
   const i = Math.min(blick, Math.max(gehen.length - 1, 0));
   const v = gehen[i]?.m, vAn = gehen[i]?.an ?? [];
   /** Was dieser Mandant bekommt: eigene Fassung, sonst die Vorlage mit seinen Werten. */
@@ -69,6 +72,14 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
     if (f) anpassung[nr] = f; else delete anpassung[nr];
     return { ...e, anpassung };
   });
+  const setzeAdressen = (nr: number, f: (a: Anpassung) => Anpassung) => setEntwurf((e) => ({ ...e, adressen: { ...e.adressen, [nr]: f(e.adressen[nr] ?? KEINE_ANPASSUNG) } }));
+  const [neuerName, setNeuerName] = useState(""), [neueAdresse, setNeueAdresse] = useState("");
+  const weitererDazu = () => {
+    const adresse = neueAdresse.trim();
+    if (!istMail(adresse)) { toast.error("Keine gültige E-Mail-Adresse"); return; }
+    setEntwurf((e) => ({ ...e, weitere: [...e.weitere, { nummer: -(Math.max(0, ...e.weitere.map((w) => -w.nummer)) + 1), name: neuerName.trim(), adresse }] }));
+    setNeuerName(""); setNeueAdresse("");
+  };
   useEffect(() => { if (v) setGesehen((g) => (g.has(v.nummer) ? g : new Set(g).add(v.nummer))); }, [v]);
   const durchgesehen = gehen.filter((e) => gesehen.has(e.m.nummer)).length;
   const angepasst = gehen.filter((e) => entwurf.anpassung[e.m.nummer]).length;
@@ -135,7 +146,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
       if (fehl.length) toast.warning(`${ok} von ${ergebnisse.length} ${wo}`, { description: `${fehl.length} fehlgeschlagen, Details unten.` });
       else toast.success(`${ok} ${ok === 1 ? "Mail" : "Mails"} ${wo}`, { description: versand === "eml" ? status?.ausgang : "Kategorie „Kanzlei-Helfer“" });
       setFehlschlaege(fehl);
-      if (!fehl.length) { setAuswahl(new Set()); setGesehen(new Set()); setEntwurf((e) => ({ ...e, alle: [], pro: [], wahl: {}, anpassung: {} })); }
+      if (!fehl.length) { setAuswahl(new Set()); setGesehen(new Set()); setEntwurf((e) => ({ ...e, alle: [], pro: [], wahl: {}, anpassung: {}, adressen: {}, weitere: [] })); }
       await nachVersand();
     } catch (f) {
       toast.error("Mails nicht erstellt", { description: fehlertext(f) });
@@ -144,7 +155,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
     }
   }
 
-  if (!auswahl.size) {
+  if (!auswahl.size && !entwurf.weitere.length) {
     return (
       <div className="flex h-svh flex-col">
         <Kopf titel="Serienmail" unter="Noch keine Empfänger ausgewählt">{gruppenMenue}</Kopf>
@@ -227,23 +238,29 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
             </Select>
           </div>
           <ul className="flex-none divide-y overflow-auto rounded-lg border bg-background" style={{ maxHeight: listeHoehe.wert }} data-empfaenger>
-            {empfaenger.map(({ m, an, grund }) => (
+            {empfaenger.map(({ m, an, grund, weiterer }) => (
               <li key={m.nummer} className={cn("flex items-center gap-3 px-3 py-2", grund && "text-muted-foreground")} data-grund={grund} data-nummer={m.nummer}>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">{m.name}</div>
                   <div className="truncate text-xs text-muted-foreground" data-an={an.join(";")}>
-                    <span className="kennung">{m.nummer}</span> · {an.length ? an.join(", ") : "keine Adresse"}{entwurf.wahl[m.nummer] ? " · nur diese Mail" : entwurf.ziel === "standard" && m.festeAdressen ? " · festgelegter Standard" : ""}
+                    <span className="kennung">{weiterer ? "manuell" : m.nummer}</span> · {an.length ? an.join(", ") : "keine Adresse"}{entwurf.wahl[m.nummer] ? " · nur diese Mail" : entwurf.ziel === "standard" && m.festeAdressen ? " · festgelegter Standard" : ""}{entwurf.adressen[m.nummer] && (Object.keys(entwurf.adressen[m.nummer].ersatz).length || entwurf.adressen[m.nummer].extra.length) ? " · Adresse angepasst" : ""}
                   </div>
                 </div>
                 {grund && <span className="shrink-0 rounded-[4px] bg-warn-soft px-1.5 py-px text-xs font-medium text-warn">{grund}</span>}
                 {!grund && entwurf.anpassung[m.nummer] && <span className="shrink-0 rounded-[4px] bg-brand-soft px-1.5 py-px text-xs font-medium text-brand" data-angepasst>angepasst</span>}
                 {!grund && !entwurf.anpassung[m.nummer] && gesehen.has(m.nummer) && <CheckIcon className="size-3.5 shrink-0 text-ok" aria-label="durchgesehen" />}
-                {gueltigeMails(m).length > 1 && <MailAdressWahl m={m} an={an} eigeneWahl={!!entwurf.wahl[m.nummer]} setze={(a) => setzeWahl(m.nummer, a)} setzeStandard={setzeStandard} />}
+                {!weiterer && <MailAdressWahl m={m} an={an} eigeneWahl={!!entwurf.wahl[m.nummer]} setze={(a) => setzeWahl(m.nummer, a)} setzeStandard={setzeStandard}
+                  anpassung={entwurf.adressen[m.nummer] ?? KEINE_ANPASSUNG} anpassen={(f) => setzeAdressen(m.nummer, f)} />}
                 <Button variant="ghost" size="icon-sm" aria-label={`${m.name} entfernen`}
-                  onClick={() => { const s = new Set(auswahl); s.delete(m.nummer); setAuswahl(s); }}><XIcon /></Button>
+                  onClick={() => { if (weiterer) setEntwurf((e) => ({ ...e, weitere: e.weitere.filter((w) => w.nummer !== m.nummer) })); else { const s = new Set(auswahl); s.delete(m.nummer); setAuswahl(s); } }}><XIcon /></Button>
               </li>
             ))}
           </ul>
+          <form className="mt-2 flex items-center gap-2" data-weiterer onSubmit={(e) => { e.preventDefault(); weitererDazu(); }}>
+            <Input value={neuerName} onChange={(e) => setNeuerName(e.target.value)} placeholder="Name (optional)" aria-label="Name des weiteren Empfängers" className="h-8 w-32 text-xs" data-feld="weiterer-name" />
+            <Input value={neueAdresse} onChange={(e) => setNeueAdresse(e.target.value)} placeholder="Weiterer Empfänger: E-Mail" type="email" aria-label="E-Mail des weiteren Empfängers" className="h-8 min-w-0 flex-1 text-xs" data-feld="weiterer-adresse" />
+            <Button type="submit" variant="outline" size="sm" data-knopf="weiterer-dazu"><UserPlusIcon />Hinzufügen</Button>
+          </form>
           {empfaenger.length > 3 && <Teiler richtung="y" groesse={listeHoehe} label="Höhe der Empfängerliste" className="mt-0.5" />}
 
           <div className="mt-5 mb-2 flex flex-wrap items-center gap-2">
@@ -258,7 +275,7 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
               return (
                 <>
                   <dl className="grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-1 border-b px-4 py-3 text-sm">
-                    <dt className="text-muted-foreground">An</dt><dd className="font-medium">{v.name} <span className="kennung text-xs text-muted-foreground">{v.nummer}</span></dd>
+                    <dt className="text-muted-foreground">An</dt><dd className="font-medium">{v.name} <span className="kennung text-xs text-muted-foreground">{v.nummer > 0 ? v.nummer : "manuell"}</span></dd>
                     <dt className="text-muted-foreground">BCC</dt><dd className="break-all">{vAn.join(", ")}</dd>
                     {!bearbeiten && <><dt className="text-muted-foreground">Betreff</dt><dd className="font-medium">{betreff}</dd></>}
                     {anh.length > 0 && <><dt className="text-muted-foreground">Anhänge</dt><dd className="text-xs">{anh.map((d) => d.name).join(", ")}</dd></>}
@@ -312,6 +329,12 @@ export function Serienmail({ mandanten, auswahl, setAuswahl, vorlagen, status, g
 }
 
 /** Platzhalter-Knöpfe; `beispiel` zeigt beim Darüberfahren den Wert für den gerade angezeigten Mandanten. */
+/** Weiterer Empfänger ohne Mandantendaten: Standard-Anrede, keine Lücken. */
+const weitererAlsMandant = (w: Weiterer): Mandant => ({
+  id: String(w.nummer), nummer: w.nummer, name: w.name || w.adresse, typ: "natural_person", status: "active", email: w.adresse, emails: [], beziehungen: [], verbund: [],
+  anrede: w.name ? `Guten Tag ${w.name},` : null, aufgabenbereiche: [], datevGruppen: [], kategorien: [], auftraege: [], luecken: [], fehlerhaft: [], abruffehler: null,
+});
+
 export function Platzhalter({ einfuegen, beispiel, titel = "Einfügen:" }: { einfuegen: (p: string) => void; beispiel?: (p: string) => string | undefined; titel?: string }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5 pt-1">

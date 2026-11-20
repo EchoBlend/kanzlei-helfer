@@ -9,7 +9,7 @@
  */
 const path = require("node:path");
 const fs = require("node:fs");
-const { pruefeMandant } = require("./pruefung.cjs");
+const { pruefeMandant, gegenseitig } = require("./pruefung.cjs");
 
 const fehlt = (pfad) => Object.assign(new Error(`DATEVconnect antwortet 404 (${pfad})`), { status: 404 });
 
@@ -133,6 +133,7 @@ async function ladeMandanten(quelle, nurAktive, fortschritt = () => {}) {
   const ok = (x) => x && !(x instanceof Error);
   const partnerIds = new Set([
     ...beziehungen.filter((r) => ok(adressat.get(r.has_addressee_id))).map((r) => r.is_addressee_id),
+    ...beziehungen.filter((r) => gegenseitig(r) && ok(adressat.get(r.is_addressee_id))).map((r) => r.has_addressee_id),
     ...[...adressat.values()].filter(ok).flatMap((a) => (a.contact_persons || []).map((k) => k.addressee_id)),
   ].filter(Boolean));
   await jeweils([...partnerIds], 4, hole);

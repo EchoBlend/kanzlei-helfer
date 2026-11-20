@@ -65,6 +65,10 @@ test("Mehrere E-Mails mit Herkunft, Beziehungen, Gesellschafter-Mails", async ()
   assert.deepEqual(nowak.emails.map((e) => e.adresse), ["info.nowak-maschinenbau@example.com", "buchhaltung.nowak-maschinenbau@example.com", "ralf.nowak@example.com", "petra.nowak@example.com"]);
   assert.ok(nowak.beziehungen.includes("Gesellschafter: Nowak, Ralf"));
   assert.ok(nr(10011).beziehungen.includes("ist Ehegatte von Hartmann, Katrin (10010)"));
+  // Ehegatte/Lebenspartner gilt in beide Richtungen: Thomas Schulze erreicht auch Katrin Hartmanns Adresse und umgekehrt
+  const katrin = nr(10010).emails.find((e) => e.adresse === "katrin.hartmann@example.com");
+  assert.ok(nr(10011).emails.some((e) => e.adresse === katrin.adresse && !e.eigen && e.rolle === "Ehegatte"));
+  assert.ok(nr(10010).emails.some((e) => !e.eigen && e.rolle === "Ehegatte"));
 });
 
 test("Mail an mehrere Adressen", async () => {
