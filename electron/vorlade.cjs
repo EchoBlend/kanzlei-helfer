@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("kh", {
   mails: rufe("mails"),
   exportiere: rufe("export"),
   oeffneOrdner: rufe("ordner"),
+  waehleOrdner: rufe("ordner:waehlen"),
   /** Fortschritt eines Scans: (fertig, gesamt). Gibt eine Abmeldefunktion zurück. */
   aufScan: (f) => {
     const h = (_e, p) => f(p.fertig, p.gesamt);

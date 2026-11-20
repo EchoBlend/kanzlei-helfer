@@ -140,6 +140,12 @@ test("Protokoll und Einstellungen", () => {
   ab.protokolliere([{ Zeit: "1", Modus: "eml", Vorlage: "V", Mandantennr: 5, Mandant: 'Krümel "GmbH"; Test', An: "a@b.de", Betreff: "x", Ergebnis: "ok", Anhaenge: "a.pdf" }]);
   assert.deepEqual(ab.protokoll()[0].Mandant, 'Krümel "GmbH"; Test');
   assert.equal(ab.speichereEinstellungen({ versand: "quatsch", demo: true }).versand, "eml");
+  assert.equal(ab.ausgang, path.join(dir, "ausgang"));
+  const ziel = path.join(dir, "eigener-ordner");
+  ab.speichereEinstellungen({ emlOrdner: ziel });
+  assert.equal(ab.ausgang, ziel);
+  ab.speichereEinstellungen({ emlOrdner: "relativ/pfad" });
+  assert.equal(ab.ausgang, path.join(dir, "ausgang"));
   assert.equal(ab.einstellungen().demo, true);
   assert.equal(ab.vorlagen().length, 2);
 });

@@ -323,6 +323,11 @@ handle("export", async (_e, auftrag) => {
   return r.filePath;
 });
 
+handle("ordner:waehlen", async () => {
+  const r = await dialog.showOpenDialog(fenster, { title: "Ordner für .eml-Dateien wählen", defaultPath: ablage.ausgang, properties: ["openDirectory", "createDirectory"] });
+  return r.canceled || !r.filePaths[0] ? null : r.filePaths[0];
+});
+
 handle("ordner", (_e, welcher) => {
   const ziel = welcher === "ausgang" ? ablage.ausgang : ablage.ordner;
   fs.mkdirSync(ziel, { recursive: true });

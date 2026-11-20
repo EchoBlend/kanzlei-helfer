@@ -13,6 +13,7 @@ const { DATEV_STANDARD } = require("./netz.cjs");
 const STANDARD = {
   datevconnect: DATEV_STANDARD,
   versand: "eml", // "eml" (rein lokal) | "outlook" (Entwurf im Postfach, wird mit Exchange/M365 abgeglichen)
+  emlOrdner: "", // Zielordner für .eml-Dateien; leer = Unterordner „ausgang“ im Datenordner
   signatur: "Ihr Team der Steuerkanzlei",
   nurAktive: true,
   demo: false,
@@ -63,6 +64,8 @@ function saubereEinstellungen(roh) {
     if (k === "regeln") e.regeln = Object.fromEntries(Object.entries(istObjekt(r.regeln) ? r.regeln : {}).filter(([n, v]) => FELDER.includes(n) && typeof v === "boolean"));
     else e[k] = typeof STANDARD[k] === "boolean" ? r[k] === true : text(r[k], 2000);
   }
+  e.emlOrdner = e.emlOrdner.trim();
+  if (e.emlOrdner && !path.isAbsolute(e.emlOrdner)) e.emlOrdner = "";
   if (!["outlook", "eml"].includes(e.versand)) e.versand = STANDARD.versand;
   if (!["system", "hell", "dunkel"].includes(e.design)) e.design = STANDARD.design;
   return e;
@@ -112,7 +115,11 @@ function oeffneAblage(ordner) {
 
   return {
     ordner,
-    ausgang: datei("ausgang"),
+    /** Zielordner der .eml-Dateien: gewählter Ordner oder Standard im Datenordner. */
+    get ausgang() {
+      const o = String(this.einstellungen().emlOrdner || "").trim();
+      return o && path.isAbsolute(o) ? o : datei("ausgang");
+    },
     tmp: datei("tmp"),
 
     einstellungen() {

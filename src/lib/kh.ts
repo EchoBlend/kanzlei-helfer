@@ -29,7 +29,7 @@ export interface Mandant {
   luecken: Feld[]; fehlerhaft: Feld[]; abruffehler: string | null;
 }
 export interface Einstellungen {
-  datevconnect: string; versand: "outlook" | "eml"; signatur: string; nurAktive: boolean; demo: boolean;
+  datevconnect: string; versand: "outlook" | "eml"; emlOrdner: string; signatur: string; nurAktive: boolean; demo: boolean;
   design: "system" | "hell" | "dunkel"; regeln: Partial<Record<Feld, boolean>>;
 }
 export interface Status {
@@ -71,6 +71,7 @@ interface Kh {
   mails(a: { modus: "entwurf"; vorlage: string; mails: { nummer: number; name: string; an: string[]; betreff: string; text: string; html: string; anhaenge: string[] }[] }): Promise<{ versand: string; ergebnisse: MailErgebnis[] }>;
   exportiere(a: { name: string; inhalt: string }): Promise<string | null>;
   oeffneOrdner(welcher: "daten" | "ausgang"): Promise<string>;
+  waehleOrdner(): Promise<string | null>;
 }
 declare global { interface Window { kh: Kh } }
 export const kh = () => window.kh;
