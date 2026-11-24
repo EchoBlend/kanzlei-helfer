@@ -1,4 +1,5 @@
-import { Fragment, useMemo, useRef, useState } from "react";
+import { Fragment, memo, useCallback, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowDownIcon, ArrowUpIcon, ChevronRightIcon, CircleCheckIcon, CircleXIcon, Columns3Icon, DownloadIcon, FolderPlusIcon,
   FunnelIcon, LayersIcon, MailIcon, OctagonXIcon, RefreshCwIcon, SearchIcon, TriangleAlertIcon, UserMinusIcon,
@@ -24,9 +25,19 @@ const AMPEL: Record<Ampel, { icon: typeof CircleCheckIcon; farbe: string }> = {
 };
 export type Quelle = { art: "alle" } | { art: "gruppe"; id: string } | { art: "datev"; name: string };
 
+/** Ab so vielen Zeilen zeichnet die Tabelle nur, was im Bild ist (plus Puffer) – sonst ruckelt es bei Tausenden Mandanten. */
+const AB_VIRTUELL = 150;
+const SORTIERE = new Intl.Collator("de", { numeric: true, sensitivity: "base" });
+const SORTIERE_GRUPPEN = new Intl.Collator("de", { numeric: true });
+/** Eine Zeile der Tabelle: Gruppenkopf oder Mandant. */
+type Eintrag = { art: "kopf"; schluessel: string; anzahl: number; nummern: number[] } | { art: "zeile"; m: Mandant; key: string };
+const waehlbar = (liste: Mandant[]) => liste.filter(kannMail).map((m) => m.nummer);
+const fest = (i: number) => i < 3; // feste erste Spalten wie in DATEV
+const kante = (i: number) => (i === 2 ? "shadow-[inset_-1px_0_0_var(--line)]" : "");
+
 interface Props {
   mandanten: Mandant[]; stand: string | null; laedt: boolean; scan: { fertig: number; gesamt: number } | null; fehler: string | null;
-  status: Status | null; protokoll: Protokollzeile[]; auswahl: Set<number>; setAuswahl: (s: Set<number>) => void;
+  status: Status | null; protokoll: Protokollzeile[]; auswahl: Set<number>; setAuswahl: React.Dispatch<React.SetStateAction<Set<number>>>;
   gruppen: Gruppe[]; quelle: Quelle; ansicht: Ansicht; setAnsicht: (a: Ansicht) => void;
   neuScannen: () => void; anschreiben: () => void; zuEinstellungen: () => void;
   zuGruppe: (gruppeId: string | null, nummern: number[]) => void; ausGruppe: (gruppeId: string, nummern: number[]) => void;
@@ -39,8 +50,10 @@ export function Mandanten(p: Props) {
   const [filter, setFilter] = useState<Record<string, string>>({});
   const [zu, setZu] = useState<Set<string>>(new Set());
   const sucheRef = useRef<HTMLInputElement>(null);
+  const behaelter = useRef<HTMLDivElement>(null);
 
-  const sichtbar = (ansicht.spalten?.length ? ansicht.spalten : STANDARD_SPALTEN).map((id) => SPALTE.get(id)).filter((s): s is Spalte => !!s);
+  const spaltenIds = (ansicht.spalten?.length ? ansicht.spalten : STANDARD_SPALTEN).join("\n");
+  const sichtbar = useMemo(() => spaltenIds.split("\n").map((id) => SPALTE.get(id)).filter((s): s is Spalte => !!s), [spaltenIds]);
   const gruppe = ansicht.gruppe ? SPALTE.get(ansicht.gruppe) ?? null : null;
   const sort = ansicht.sort ?? { id: "nummer", ab: false };
   const setze = (teil: Partial<Ansicht>) => setAnsicht({ ...ansicht, ...teil });
@@ -58,37 +71,77 @@ export function Mandanten(p: Props) {
     return mandanten;
   }, [mandanten, gruppen, quelle]);
 
+  // Suchtext je Mandant nur einmal bauen (nicht bei jedem Tastendruck für alle neu)
+  const suchtext = useMemo(() => {
+    const cache = new Map<Mandant, string>();
+    return (m: Mandant) => {
+      let t = cache.get(m);
+      if (t === undefined) cache.set(m, (t = `${m.nummer} ${m.name} ${m.email ?? ""} ${sichtbar.map((s) => alsText(s.wert(m, u))).join(" ")}`.toLowerCase()));
+      return t;
+    };
+  }, [sichtbar, u]);
+
   const zeilen = useMemo(() => {
     const q = suche.trim().toLowerCase();
     const spaltenFilter = Object.entries(filter).filter(([, v]) => v.trim()).map(([id, v]) => [SPALTE.get(id)!, v.trim().toLowerCase()] as const).filter(([s]) => s);
     const liste = ausQuelle.filter((m) =>
       (segment === "alle" || ampel(m) === segment) &&
-      (!q || `${m.nummer} ${m.name} ${m.email ?? ""} ${sichtbar.map((s) => alsText(s.wert(m, u))).join(" ")}`.toLowerCase().includes(q)) &&
+      (!q || suchtext(m).includes(q)) &&
       spaltenFilter.every(([s, v]) => alsText(s.wert(m, u)).toLowerCase().includes(v)));
+    // Sortierschlüssel einmal je Mandant statt zweimal je Vergleich
     const s = SPALTE.get(sort.id) ?? SPALTE.get("nummer")!;
-    const vgl = (a: Mandant, b: Mandant) => {
-      const x = s.wert(a, u), y = s.wert(b, u);
-      const r = typeof x === "number" && typeof y === "number" ? x - y : alsText(x).localeCompare(alsText(y), "de", { numeric: true, sensitivity: "base" });
-      return (alsText(x) === "" ? 1 : 0) - (alsText(y) === "" ? 1 : 0) || (sort.ab ? -r : r);
-    };
-    return liste.sort(vgl);
-  }, [ausQuelle, segment, suche, filter, sort.id, sort.ab, u, sichtbar.map((s) => s.id).join()]);
+    const mitWert = liste.map((m) => { const v = s.wert(m, u); return { m, v, t: alsText(v) }; });
+    mitWert.sort((a, b) => {
+      const r = typeof a.v === "number" && typeof b.v === "number" ? a.v - b.v : SORTIERE.compare(a.t, b.t);
+      return (a.t === "" ? 1 : 0) - (b.t === "" ? 1 : 0) || (sort.ab ? -r : r);
+    });
+    return mitWert.map((x) => x.m);
+  }, [ausQuelle, segment, suche, filter, sort.id, sort.ab, u, suchtext]);
 
   const gruppiert = useMemo(() => {
     if (!gruppe) return null;
     const m = new Map<string, Mandant[]>();
     for (const z of zeilen) for (const k of gruppenSchluessel(gruppe, z, u)) { if (!m.has(k)) m.set(k, []); m.get(k)!.push(z); }
-    return [...m.entries()].sort(([a], [b]) => (a === "(ohne)" ? 1 : b === "(ohne)" ? -1 : a.localeCompare(b, "de", { numeric: true })));
+    return [...m.entries()].sort(([a], [b]) => (a === "(ohne)" ? 1 : b === "(ohne)" ? -1 : SORTIERE_GRUPPEN.compare(a, b)));
   }, [zeilen, gruppe, u]);
 
-  const anzahl = (a: Ampel) => ausQuelle.filter((m) => ampel(m) === a).length;
-  const waehlbar = (liste: Mandant[]) => liste.filter(kannMail).map((m) => m.nummer);
-  const umschalten = (nummern: number[], an: boolean) => {
-    const s = new Set(auswahl);
+  // Alles, was die Tabelle zeigt, als eine flache Liste (Gruppenköpfe und Zeilen) – so lässt sie sich virtualisieren
+  const eintraege = useMemo((): Eintrag[] => {
+    if (!gruppiert) return zeilen.map((m) => ({ art: "zeile", m, key: String(m.nummer) }));
+    const out: Eintrag[] = [];
+    for (const [schluessel, liste] of gruppiert) {
+      out.push({ art: "kopf", schluessel, anzahl: liste.length, nummern: waehlbar(liste) });
+      if (!zu.has(schluessel)) for (const m of liste) out.push({ art: "zeile", m, key: `${schluessel}-${m.nummer}` });
+    }
+    return out;
+  }, [zeilen, gruppiert, zu]);
+
+  const virtuell = eintraege.length > AB_VIRTUELL;
+  const virt = useVirtualizer({
+    count: virtuell ? eintraege.length : 0,
+    getScrollElement: () => behaelter.current,
+    estimateSize: (i) => (eintraege[i]?.art === "kopf" ? 37 : 54),
+    getItemKey: (i) => { const e = eintraege[i]; return e.art === "kopf" ? `kopf:${e.schluessel}` : e.key; },
+    overscan: 12,
+  });
+  const fenster = virtuell ? virt.getVirtualItems() : null;
+  const sichtbareEintraege = fenster ? fenster.map((v) => ({ e: eintraege[v.index], i: v.index })) : eintraege.map((e, i) => ({ e, i }));
+  const polsterOben = fenster?.length ? fenster[0].start : 0;
+  const polsterUnten = fenster?.length ? virt.getTotalSize() - fenster[fenster.length - 1].end : 0;
+
+  const anzahlen = useMemo(() => {
+    const z: Record<Ampel, number> = { ok: 0, pruefen: 0, fehlt: 0 };
+    for (const m of ausQuelle) z[ampel(m)]++;
+    return z;
+  }, [ausQuelle]);
+  const anzahl = (a: Ampel) => anzahlen[a];
+  // Stabil, damit nur die geklickte Zeile neu zeichnet und nicht alle
+  const umschalten = useCallback((nummern: number[], an: boolean) => setAuswahl((alt) => {
+    const s = new Set(alt);
     for (const n of nummern) an ? s.add(n) : s.delete(n);
-    setAuswahl(s);
-  };
-  const alleSichtbar = waehlbar(zeilen);
+    return s;
+  }), [setAuswahl]);
+  const alleSichtbar = useMemo(() => waehlbar(zeilen), [zeilen]);
   const alleGewaehlt = alleSichtbar.length > 0 && alleSichtbar.every((n) => auswahl.has(n));
   const einigeGewaehlt = alleSichtbar.some((n) => auswahl.has(n));
 
@@ -105,10 +158,9 @@ export function Mandanten(p: Props) {
   const unter = p.laedt ? (p.scan?.gesamt ? `Scanne ${p.scan.fertig} von ${p.scan.gesamt} …` : "Scanne DATEV …")
     : p.fehler ? "Keine Verbindung"
     : `${ausQuelle.length} Mandanten${stand ? ` · gescannt ${stand} Uhr` : ""}${status?.einstellungen.demo ? " · Demodaten" : ""}`;
-  const breiten = [44, ...sichtbar.map((s) => s.breite)];
-  const links = (i: number) => breiten.slice(0, i).reduce((a, b) => a + b, 0); // feste erste Spalten wie in DATEV
-  const fest = (i: number) => i < 3;
-  const kante = (i: number) => (i === 2 ? "shadow-[inset_-1px_0_0_var(--line)]" : "");
+  const breiten = useMemo(() => [44, ...sichtbar.map((s) => s.breite)], [sichtbar]);
+  /** Linker Abstand je Spalte für die festen ersten Spalten. */
+  const links = useMemo(() => breiten.map((_, i) => breiten.slice(0, i).reduce((a, b) => a + b, 0)), [breiten]);
 
   return (
     <div className="flex h-svh flex-col">
@@ -186,20 +238,21 @@ export function Mandanten(p: Props) {
           </div>
 
           {/* Tabelle */}
-          <div className="mx-6 mb-5 min-h-0 flex-1 overflow-auto rounded-xl border bg-background" data-tabelle>
+          {/* Kopfzellen deckend statt Milchglas: Unschärfe hinter jeder Kopfzelle kostet beim Scrollen jedes Bild Rechenzeit */}
+          <div ref={behaelter} className="mx-6 mb-5 min-h-0 flex-1 overflow-auto rounded-xl border bg-background" data-tabelle>
             <table className="border-separate border-spacing-0 text-sm" style={{ width: breiten.reduce((a, b) => a + b, 0), minWidth: "100%", tableLayout: "fixed" }}>
               <colgroup>{breiten.map((b, i) => <col key={i} style={{ width: b }} />)}</colgroup>
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className="sticky left-0 z-30 h-9 border-b bg-surface/85 px-3 text-left backdrop-blur-xl">
+                  <th className="sticky left-0 z-30 h-9 border-b bg-surface px-3 text-left">
                     <Checkbox aria-label="Alle sichtbaren mit gültiger E-Mail auswählen" checked={alleGewaehlt || (einigeGewaehlt && "indeterminate")}
                       onCheckedChange={(v) => umschalten(alleSichtbar, !!v)} />
                   </th>
                   {sichtbar.map((s, i) => (
                     <ContextMenu key={s.id}>
                       <ContextMenuTrigger asChild>
-                        <th data-spalte={s.id} style={fest(i + 1) ? { left: links(i + 1) } : undefined}
-                          className={cn("h-9 border-b bg-surface/85 px-3 text-left text-xs font-semibold text-muted-foreground backdrop-blur-xl", fest(i + 1) && "sticky z-30", kante(i + 1))}>
+                        <th data-spalte={s.id} style={fest(i + 1) ? { left: links[i + 1] } : undefined}
+                          className={cn("h-9 border-b bg-surface px-3 text-left text-xs font-semibold text-muted-foreground", fest(i + 1) && "sticky z-30", kante(i + 1))}>
                           <button type="button" className="flex w-full items-center gap-1 truncate hover:text-foreground"
                             onClick={() => setze({ sort: { id: s.id, ab: sort.id === s.id ? !sort.ab : false } })}>
                             <span className="truncate">{s.titel}</span>
@@ -222,10 +275,10 @@ export function Mandanten(p: Props) {
                 </tr>
                 {ansicht.filterzeile && (
                   <tr data-filterzeile>
-                    <th className="sticky left-0 z-30 border-b bg-surface/85 backdrop-blur-xl" />
+                    <th className="sticky left-0 z-30 border-b bg-surface" />
                     {sichtbar.map((s, i) => (
-                      <th key={s.id} style={fest(i + 1) ? { left: links(i + 1) } : undefined}
-                        className={cn("border-b bg-surface/85 px-1.5 py-1.5 backdrop-blur-xl", fest(i + 1) && "sticky z-30", kante(i + 1))}>
+                      <th key={s.id} style={fest(i + 1) ? { left: links[i + 1] } : undefined}
+                        className={cn("border-b bg-surface px-1.5 py-1.5", fest(i + 1) && "sticky z-30", kante(i + 1))}>
                         {s.id === "stand" || s.id === "typ" ? (
                           <select aria-label={`Filter ${s.titel}`} value={filter[s.id] ?? ""} onChange={(e) => setFilter({ ...filter, [s.id]: e.target.value })}
                             className="h-7 w-full rounded-md border border-input bg-background px-1.5 text-xs font-normal">
@@ -246,11 +299,16 @@ export function Mandanten(p: Props) {
                   <tr><td colSpan={breiten.length} className="h-40 text-center text-muted-foreground">Scanne DATEV …</td></tr>
                 ) : !zeilen.length ? (
                   <tr><td colSpan={breiten.length} className="h-40 text-center text-muted-foreground">{mandanten.length ? "Keine Mandanten für diese Auswahl." : "Keine Mandanten gefunden."}</td></tr>
-                ) : gruppiert ? gruppiert.map(([schluessel, liste]) => {
-                  const nummern = waehlbar(liste), offen = !zu.has(schluessel);
-                  return (
-                    <Fragment key={schluessel}>
-                      <tr data-gruppe={schluessel} className="bg-surface">
+                ) : <>
+                  {polsterOben > 0 && <tr aria-hidden="true" style={{ height: polsterOben }}><td colSpan={breiten.length} className="p-0" /></tr>}
+                  {sichtbareEintraege.map(({ e, i }) => {
+                    if (e.art === "zeile") {
+                      return <Zeile key={e.key} index={i} messen={virtuell ? virt.measureElement : undefined} m={e.m} sichtbar={sichtbar} u={u}
+                        gewaehlt={auswahl.has(e.m.nummer)} umschalten={umschalten} links={links} />;
+                    }
+                    const { schluessel, nummern } = e, offen = !zu.has(schluessel);
+                    return (
+                      <tr key={`kopf:${schluessel}`} data-index={i} ref={virtuell ? virt.measureElement : undefined} data-gruppe={schluessel} className="bg-surface">
                         <td className="sticky left-0 z-10 border-b bg-surface px-3 py-2">
                           <Checkbox aria-label={`Alle in ${schluessel} auswählen`} disabled={!nummern.length}
                             checked={nummern.length > 0 && nummern.every((n) => auswahl.has(n)) || (nummern.some((n) => auswahl.has(n)) && "indeterminate")}
@@ -260,14 +318,14 @@ export function Mandanten(p: Props) {
                           <button type="button" className="sticky left-12 flex items-center gap-1.5 text-sm font-semibold"
                             onClick={() => { const s = new Set(zu); offen ? s.add(schluessel) : s.delete(schluessel); setZu(s); }}>
                             <ChevronRightIcon className={cn("size-4 text-muted-foreground transition-transform duration-200", offen && "rotate-90")} />
-                            {schluessel}<span className="zahl font-normal text-muted-foreground">{liste.length}</span>
+                            {schluessel}<span className="zahl font-normal text-muted-foreground">{e.anzahl}</span>
                           </button>
                         </td>
                       </tr>
-                      {offen && liste.map((m) => <Zeile key={`${schluessel}-${m.nummer}`} m={m} sichtbar={sichtbar} u={u} auswahl={auswahl} umschalten={umschalten} links={links} fest={fest} kante={kante} />)}
-                    </Fragment>
-                  );
-                }) : zeilen.map((m) => <Zeile key={m.nummer} m={m} sichtbar={sichtbar} u={u} auswahl={auswahl} umschalten={umschalten} links={links} fest={fest} kante={kante} />)}
+                    );
+                  })}
+                  {polsterUnten > 0 && <tr aria-hidden="true" style={{ height: polsterUnten }}><td colSpan={breiten.length} className="p-0" /></tr>}
+                </>}
               </tbody>
             </table>
           </div>
@@ -277,26 +335,26 @@ export function Mandanten(p: Props) {
   );
 }
 
-function Zeile({ m, sichtbar, u, auswahl, umschalten, links, fest, kante }: {
-  m: Mandant; sichtbar: Spalte[]; u: Umgebung; auswahl: Set<number>; umschalten: (n: number[], an: boolean) => void;
-  links: (i: number) => number; fest: (i: number) => boolean; kante: (i: number) => string;
+/** Eine Mandantenzeile. memo: zeichnet nur neu, wenn sich genau diese Zeile ändert (z. B. ihr Häkchen). */
+const Zeile = memo(function Zeile({ index, messen, m, sichtbar, u, gewaehlt, umschalten, links }: {
+  index: number; messen?: (el: HTMLTableRowElement | null) => void;
+  m: Mandant; sichtbar: Spalte[]; u: Umgebung; gewaehlt: boolean; umschalten: (n: number[], an: boolean) => void; links: number[];
 }) {
-  const gewaehlt = auswahl.has(m.nummer);
   const grund = gewaehlt ? "bg-brand-soft" : "bg-background group-hover:bg-surface";
   return (
-    <tr data-nummer={m.nummer} className="group">
+    <tr data-nummer={m.nummer} data-index={index} ref={messen} className="group">
       <td className={cn("sticky left-0 z-10 border-b px-3 py-2 align-top", grund)}>
         {kannMail(m) ? <Checkbox aria-label={`${m.name} auswählen`} checked={gewaehlt} onCheckedChange={(v) => umschalten([m.nummer], !!v)} />
           : <Tooltip><TooltipTrigger asChild><span className="inline-flex"><Checkbox disabled aria-label={`${m.name}: keine gültige E-Mail`} /></span></TooltipTrigger><TooltipContent>Keine gültige E-Mail-Adresse</TooltipContent></Tooltip>}
       </td>
       {sichtbar.map((s, i) => (
-        <td key={s.id} style={fest(i + 1) ? { left: links(i + 1) } : undefined} className={cn("border-b px-3 py-2 align-top", grund, fest(i + 1) && "sticky z-10", kante(i + 1))}>
+        <td key={s.id} style={fest(i + 1) ? { left: links[i + 1] } : undefined} className={cn("border-b px-3 py-2 align-top", grund, fest(i + 1) && "sticky z-10", kante(i + 1))}>
           <Zelle s={s} m={m} u={u} />
         </td>
       ))}
     </tr>
   );
-}
+});
 
 function Zelle({ s, m, u }: { s: Spalte; m: Mandant; u: Umgebung }) {
   if (s.id === "stand") {

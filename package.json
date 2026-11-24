@@ -16,6 +16,7 @@
   "devDependencies": {
     "@fontsource/ibm-plex-mono": "^5.2.0",
     "@tailwindcss/vite": "4.3.3",
+    "@tanstack/react-virtual": "3.14.26",
     "@types/node": "26.4.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",

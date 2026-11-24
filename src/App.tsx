@@ -83,7 +83,9 @@ export default function App() {
   }, [ladeStatus, ladeProtokoll, scanne]);
 
   // Abgeschaltete Prüfregeln wirken überall: Ampel, Filter, {{FehlendeAngaben}}
-  const mandanten = useMemo(() => roh.map((m) => mitRegeln(m, status?.einstellungen.regeln)), [roh, status?.einstellungen.regeln]);
+  // Schlüssel als Text: jedes Neuladen des Status liefert ein neues Objekt, die Regeln bleiben meist gleich
+  const regeln = JSON.stringify(status?.einstellungen.regeln ?? {});
+  const mandanten = useMemo(() => roh.map((m) => mitRegeln(m, JSON.parse(regeln))), [roh, regeln]);
 
   const setzeTabelle = (a: AnsichtT) => {
     setTabelle(a);
@@ -128,7 +130,7 @@ export default function App() {
     for (const m of mandanten) for (const g of m.datevGruppen) z.set(g, (z.get(g) ?? 0) + 1);
     return [...z.entries()].sort(([a], [b]) => a.localeCompare(b, "de"));
   }, [mandanten]);
-  const offen = mandanten.filter((m) => ampel(m) !== "ok").length;
+  const offen = useMemo(() => mandanten.filter((m) => ampel(m) !== "ok").length, [mandanten]);
   const verbindung = !status ? null : status.einstellungen.demo ? "demo" : status.datev ? "ok" : "aus";
   const istAktiv = (q: Quelle) => ansicht === "mandanten" && JSON.stringify(q) === JSON.stringify(quelle);
   const zeige = (q: Quelle) => { setQuelle(q); setAnsicht("mandanten"); };
