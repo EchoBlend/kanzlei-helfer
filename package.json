@@ -12,6 +12,7 @@
     "pruefe": "node --test \"tests/*.test.cjs\"",
     "pruefe:app": "vite build && node tests/app.e2e.mjs",
     "installer": "vite build && electron-builder",
+    "installer:pink": "vite build --mode pink && electron-builder --config electron-builder-pink.yml",
     "pruefe:netz": "vite build && node tests/netz.e2e.mjs",
     "pruefe:adressen": "vite build && node tests/adressen.e2e.mjs",
     "pruefe:editor": "vite build && node tests/editor.e2e.mjs",

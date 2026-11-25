@@ -1,0 +1,80 @@
+# Einmalig: baut die Pink-Fassung der aktuellen Version (package.json) und hängt sie an das BESTEHENDE Release an –
+# kein neues Release, kein neuer Tag. Läuft beim Push auf diesen Branch und wird danach wieder entfernt.
+# Künftige Releases enthalten die Pink-Fassung über release.yml.
+name: Pink nachreichen
+on:
+  push:
+    branches: ["claude/serene-fermat-eswxb6"]
+permissions:
+  contents: read
+jobs:
+  installer:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Version
+        id: version
+        shell: pwsh
+        run: |
+          $v = "v" + (Get-Content package.json -Raw | ConvertFrom-Json).version
+          "version=$v" >> $env:GITHUB_OUTPUT
+      - run: npm ci
+      - run: npm run pruefe
+      - run: npm run bau
+      # Netz-Wächter auf dem Pink-Bau (gleiches Versprechen wie beim Release)
+      - run: npx vite build --mode pink
+      - run: node tests/netz.e2e.mjs
+        env:
+          KH_FARBE: pink
+      - run: npm run installer:pink
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Prüfsumme
+        shell: pwsh
+        run: |
+          $f = Get-ChildItem paket/Kanzlei-Helfer-Pink-Setup-*.exe | Select-Object -First 1
+          $h = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower()
+          "$h  $($f.Name)" | Out-File -Encoding ascii "$($f.FullName).sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pink
+          path: |
+            paket/Kanzlei-Helfer-Pink-Setup-*.exe
+            paket/Kanzlei-Helfer-Pink-Setup-*.exe.sha256
+          if-no-files-found: error
+
+  anhaengen:
+    needs: installer
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pink
+          path: pink
+      - name: An bestehendes Release anhängen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ needs.installer.outputs.version }}
+        run: |
+          # Bricht ab, wenn es das Release nicht gibt – hier wird nie ein neues angelegt
+          gh release view "$V" --repo "$GITHUB_REPOSITORY" > /dev/null
+          gh release upload "$V" pink/* --repo "$GITHUB_REPOSITORY" --clobber
+          body=$(gh release view "$V" --repo "$GITHUB_REPOSITORY" --json body -q .body)
+          case "$body" in
+            *Pink-Fassung*) ;;
+            *) gh release edit "$V" --repo "$GITHUB_REPOSITORY" --notes "$body
+
+          Pink-Fassung: Kanzlei-Helfer-Pink-Setup-${V#v}.exe – gleiche App und gleiche Daten, nur in Pink (hell: helles Pink, dunkel: sehr dunkles Pink); ersetzt beim Installieren die Petrol-Fassung und umgekehrt." ;;
+          esac

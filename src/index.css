@@ -82,6 +82,49 @@
   }
 }
 
+/*
+ * Farbvariante Pink (vite build --mode pink → <html data-variante="pink">): gleiche Bauart, Leitfarbe Pink H 355,
+ * Neutrale H 352. Hell: Grund helles Pink · Dunkel: Grund sehr dunkles Pink. Gemessen (WCAG), Werte unten.
+ * Petrol-Werte oben bleiben der Standard.
+ */
+:root[data-variante="pink"] {
+  --bg:          oklch(0.972 0.016 352);  /* #FFF2F7 helles Pink */
+  --surface:     oklch(0.950 0.028 352);  /* #FFE7F0 */
+  --surface-2:   oklch(0.918 0.036 352);  /* #F8DBE6 */
+  --line:        oklch(0.875 0.040 352);
+  --line-strong: oklch(0.610 0.060 352);  /* 3.60:1 */
+  --text-muted:  oklch(0.475 0.060 352);  /* 6.36:1 auf bg */
+  --text:        oklch(0.235 0.055 352);  /* 15.65:1 */
+  --brand:       oklch(0.530 0.195 355);  /* #BA2371 Pink, 5.75:1, trägt weißen Text */
+  --brand-hover: oklch(0.470 0.180 355);
+  --brand-ink:   oklch(0.993 0.004 352);
+  --brand-soft:  oklch(0.928 0.042 355);  /* Auswahl; brand darauf 4.68:1 */
+  --ok:          oklch(0.490 0.125 148);  /* 5.45:1 */
+  --warn:        oklch(0.515 0.115 68);   /* 5.33:1 */
+  --err:         oklch(0.490 0.170 30);   /* 6.29:1 */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-variante="pink"] {
+    --bg:          oklch(0.180 0.032 352);  /* #1C0B13 sehr dunkles Pink */
+    --surface:     oklch(0.215 0.040 352);
+    --surface-2:   oklch(0.255 0.046 352);
+    --line:        oklch(0.310 0.048 352);
+    --line-strong: oklch(0.520 0.055 352);  /* 3.34:1 */
+    --text-muted:  oklch(0.760 0.045 352);  /* 8.64:1 */
+    --text:        oklch(0.950 0.016 352);  /* 16.27:1 */
+    --brand:       oklch(0.805 0.115 355);  /* #FAA0C3 helles Pink, 9.80:1, trägt dunklen Text */
+    --brand-hover: oklch(0.850 0.085 355);
+    --brand-ink:   oklch(0.180 0.032 352);
+    --brand-soft:  oklch(0.300 0.075 355);
+    /* jede im hellen Pink-Block gesetzte Farbe hier neu setzen: dessen Selektor ist spezifischer als :root dunkel */
+    --ok:          oklch(0.760 0.140 148);  /* 9.30:1 */
+    --warn:        oklch(0.800 0.120 75);   /* 9.99:1 */
+    --err:         oklch(0.730 0.150 28);   /* 7.44:1 */
+    --err-soft:    oklch(0.285 0.055 28);
+  }
+}
+
 @theme inline {
   --font-sans: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
   --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;

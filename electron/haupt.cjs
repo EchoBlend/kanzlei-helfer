@@ -20,7 +20,10 @@ const { datevAdresse, datevBasis, sichererAbruf } = require("./netz.cjs");
 const NAME = "Kanzlei-Helfer";
 const URSPRUNG = "app://kanzlei-helfer/";
 const WURZEL = path.join(__dirname, "..", "dist");
-const GRUND = { hell: "#F6FAFB", dunkel: "#0B1316" };
+// Farbvariante: Der Pink-Installer schreibt "farbe": "pink" in package.json (electron-builder-pink.yml).
+const FARBE = (process.env.KH_FARBE || require("../package.json").farbe) === "pink" ? "pink" : "petrol";
+const GRUND = FARBE === "pink" ? { hell: "#FFE7F0", dunkel: "#1C0B13" } : { hell: "#F6FAFB", dunkel: "#0B1316" };
+const SYMBOL = FARBE === "pink" ? { hell: "#311221", dunkel: "#F8EAEF" } : { hell: "#1F2B30", dunkel: "#E8EEF0" };
 const CSP = "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; " +
   "connect-src 'self'; object-src 'none'; frame-src 'none'; worker-src 'none'; form-action 'none'; base-uri 'none'";
 
@@ -106,14 +109,14 @@ const TITELHOEHE = 52;
 const fensterknoepfe = () => ({
   height: TITELHOEHE,
   color: MICA ? "#00000000" : nativeTheme.shouldUseDarkColors ? GRUND.dunkel : GRUND.hell,
-  symbolColor: nativeTheme.shouldUseDarkColors ? "#E8EEF0" : "#1F2B30",
+  symbolColor: nativeTheme.shouldUseDarkColors ? SYMBOL.dunkel : SYMBOL.hell,
 });
 
 function oeffneFenster() {
   nativeTheme.themeSource = themenQuelle(einstellungen.design);
   fenster = new BrowserWindow({
     width: 1440, height: 900, minWidth: 1100, minHeight: 680, show: false,
-    title: NAME, icon: path.join(__dirname, "..", "public", "icon.png"),
+    title: NAME, icon: path.join(__dirname, "..", "public", FARBE === "pink" ? "icon-pink.png" : "icon.png"),
     // Eigene Titelleiste wie bei macOS-Apps: Inhalt bis oben, Windows-Knöpfe als Überlagerung
     titleBarStyle: "hidden", titleBarOverlay: fensterknoepfe(),
     ...(MICA ? { backgroundMaterial: "mica", backgroundColor: "#00000000" } : { backgroundColor: nativeTheme.shouldUseDarkColors ? GRUND.dunkel : GRUND.hell }),

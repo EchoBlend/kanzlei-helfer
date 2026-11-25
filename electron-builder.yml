@@ -13,6 +13,7 @@ files:
   - dist/**
   - electron/**
   - public/icon.png
+  - public/icon-pink.png
   - package.json
 
 win:
