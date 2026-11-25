@@ -12,7 +12,9 @@
 
 const FELDER = ["email", "telefon", "anschrift", "briefanrede", "geburtsdatum", "steuernummer", "finanzamt", "steuerid",
   "iban", "ustid", "rechtsform", "register", "zustaendig"];
-const MAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+// Eine Adresse, nichts sonst: keine Trenner (, ; :), Klammern, Anführungszeichen, Steuerzeichen, kein „..“.
+// Sonst teilt Outlook „a@x.de;Müller“ in zwei Empfänger und löst „Müller“ über das Adressbuch auf.
+const MAIL_RE = /^(?!.*\.\.)[^\s@,;:<>()[\]\\"\x00-\x1f\x7f]+@[^\s@,;:<>()[\]\\"\x00-\x1f\x7f.][^\s@,;:<>()[\]\\"\x00-\x1f\x7f]*\.[^\s@,;:<>()[\]\\"\x00-\x1f\x7f]+$/;
 // Rechtsformen mit Eintragungspflicht im Handels-, Genossenschafts-, Vereins- oder Partnerschaftsregister.
 // ponytail: Erkennung über den Kurznamen; GbR (eGbR freiwillig) bewusst nicht.
 const REGISTERPFLICHT = /(gmbh|\bug\b|\bag\b|\bkg\b|\bohg\b|e\.\s?k\.|\beg\b|e\.\s?v\.|\bse\b|kgaa|partg)/i;
@@ -52,6 +54,10 @@ const ersterWert = (adressaten, f) => adressaten.map(f).find((v) => v !== undefi
 const ohneDoppelte = (a) => [...new Set(a.filter(Boolean))];
 const anzeigeName = (a) => (a?.type === "legal_person" ? a.current_company_name : [a?.firstname, a?.current_surname].filter(Boolean).join(" ")) || "";
 
+/** Beziehungen, die in beide Richtungen gelten (Ehegatte, Lebenspartner, Lebensgefährte …). */
+const GEGENSEITIG_RE = /ehe(gatt|frau|mann|partner)|lebens(partner|gef|gemein)|verheiratet/i;
+const gegenseitig = (r) => GEGENSEITIG_RE.test(`${r.name || ""} ${r.abbreviation || ""}`.trim());
+
 /**
  * Alle E-Mail-Adressen rund um einen Mandanten, jede mit Herkunft:
  * eigene (Person, Inhaber, Unternehmen) zuerst, dann die der Beziehungspartner
@@ -75,6 +81,8 @@ function sammleMails(mandant, adressaten, beziehungen, partner) {
   const eigeneIds = new Set(adressaten.map((a) => a.id));
   for (const r of beziehungen) {
     if (eigeneIds.has(r.has_addressee_id) && partner.get(r.is_addressee_id)) von(partner.get(r.is_addressee_id), r.name || r.abbreviation || "Beziehung", false);
+    // Ehe/Lebenspartnerschaft gilt in beide Richtungen: auch die „hat“-Seite ist dann erreichbar.
+    else if (eigeneIds.has(r.is_addressee_id) && gegenseitig(r) && partner.get(r.has_addressee_id)) von(partner.get(r.has_addressee_id), r.name || r.abbreviation || "Beziehung", false);
   }
   for (const c of adressaten.flatMap((a) => a.contact_persons || [])) {
     if (partner.get(c.addressee_id)) von(partner.get(c.addressee_id), c.function ? `Ansprechpartner (${c.function})` : "Ansprechpartner", false);
@@ -180,4 +188,4 @@ function pruefeMandant(mandant, adressaten, zusatz = {}) {
   };
 }
 
-module.exports = { FELDER, MAIL_RE, REGISTERPFLICHT, pruefeIban, pruefeSteuerId, pruefeMandant, sammleMails };
+module.exports = { gegenseitig, FELDER, MAIL_RE, REGISTERPFLICHT, pruefeIban, pruefeSteuerId, pruefeMandant, sammleMails };

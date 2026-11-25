@@ -1,0 +1,13 @@
+# Pink-Fassung des Installers: gleiche App (gleiche appId, gleicher Datenordner), nur andere Farben.
+# Installiert über die Petrol-Fassung und umgekehrt. Bauen: npm run installer:pink
+extends: electron-builder.yml
+
+# haupt.cjs liest "farbe" (Fenstergrund, Titelleiste, Fenster-Icon)
+extraMetadata:
+  farbe: pink
+
+win:
+  icon: public/icon-pink.png
+
+nsis:
+  artifactName: Kanzlei-Helfer-Pink-Setup-${version}.exe

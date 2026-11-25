@@ -4,12 +4,12 @@
  *                        /client-groups, /client-categories, /legal-forms, /relationships
  *                        (+ Adressaten der Beziehungspartner und Ansprechpartner, für deren E-Mails)
  *   order-management/v1: /orders, /ordertypes (nur mit DATEV Eigenorganisation comfort)
- * Die Anmeldung macht Chromium (net.fetch) mit dem Windows-Konto, wie im DATEV-Arbeitsplatz.
+ * Ohne Anmeldung, nur GET, nur im eigenen Netz: siehe netz.cjs.
  * Im Demo-Modus kommen dieselben Antworten aus demodaten.json.
  */
 const path = require("node:path");
 const fs = require("node:fs");
-const { pruefeMandant } = require("./pruefung.cjs");
+const { pruefeMandant, gegenseitig } = require("./pruefung.cjs");
 
 const fehlt = (pfad) => Object.assign(new Error(`DATEVconnect antwortet 404 (${pfad})`), { status: 404 });
 
@@ -43,7 +43,9 @@ function netzQuelle(holen, basis) {
   const hole = (wurzel) => async (pfad) => {
     const r = await holen(wurzel + pfad, { headers: { Accept: "application/json" } });
     if (!r.ok) throw Object.assign(new Error(`DATEVconnect antwortet ${r.status}${r.statusText ? " " + r.statusText : ""}`), { status: r.status });
-    return r.json();
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch { throw new Error(`DATEVconnect antwortet nicht mit JSON (${text.trimStart().startsWith("<") ? "XML/HTML" : "unbekannt"}) bei ${pfad}`); }
   };
   return { stamm: hole(stammWurzel), auftrag: hole(auftragWurzel) };
 }
@@ -66,17 +68,22 @@ const nachMandant = (liste) => {
 
 /** Aufträge seitenweise holen; nur die letzten drei Veranlagungsjahre. Fehlt EO comfort → null. */
 async function ladeAuftraege(quelle) {
-  const alle = [];
+  const alle = new Map(); // id → Auftrag (doppelte Seiten zählen nicht doppelt)
+  let vorher = null;
   try {
     for (let seite = 0; seite < 40; seite++) {
       const teil = await quelle.auftrag(`/orders?top=500&skip=${seite * 500}`);
       if (!Array.isArray(teil)) break;
-      alle.push(...teil);
-      if (teil.length < 500) break;
+      // Server ignoriert top/skip (liefert alles oder dieselbe Seite erneut) → nicht 40-mal alles holen
+      const erste = teil[0]?.id ?? JSON.stringify(teil[0]);
+      if (seite > 0 && erste === vorher) break;
+      vorher = erste;
+      teil.forEach((o, i) => alle.set(o.id ?? `${seite}:${i}`, o));
+      if (teil.length !== 500) break;
     }
   } catch { return null; }
   const ab = new Date().getFullYear() - 2;
-  return alle.filter((o) => !o.isinternal && (o.assessment_year ?? o.creation_year ?? ab) >= ab);
+  return [...alle.values()].filter((o) => !o.isinternal && (o.assessment_year ?? o.creation_year ?? ab) >= ab);
 }
 
 /**
@@ -126,6 +133,7 @@ async function ladeMandanten(quelle, nurAktive, fortschritt = () => {}) {
   const ok = (x) => x && !(x instanceof Error);
   const partnerIds = new Set([
     ...beziehungen.filter((r) => ok(adressat.get(r.has_addressee_id))).map((r) => r.is_addressee_id),
+    ...beziehungen.filter((r) => gegenseitig(r) && ok(adressat.get(r.is_addressee_id))).map((r) => r.has_addressee_id),
     ...[...adressat.values()].filter(ok).flatMap((a) => (a.contact_persons || []).map((k) => k.addressee_id)),
   ].filter(Boolean));
   await jeweils([...partnerIds], 4, hole);

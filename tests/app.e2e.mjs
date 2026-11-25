@@ -1,4 +1,4 @@
-// Ende-zu-Ende: echte App (Electron) gegen den Fake-DATEVconnect mit Windows-Anmeldung.
+// Ende-zu-Ende: echte App (Electron) gegen den Fake-DATEVconnect (ohne Anmeldung; zum Schluss: mit Windows-Anmeldung wie in der Kanzlei).
 // Start: npm run pruefe:app   (startet den Fake selbst, eigener Datenordner, Timos Daten bleiben unberührt)
 import { _electron as electron } from "playwright-core";
 import { spawn } from "node:child_process";
@@ -16,8 +16,8 @@ let fehler = 0;
 const pruefe = (ok, text) => { console.log(`${ok ? "OK  " : "FAIL"} ${text}`); if (!ok) fehler++; };
 const bild = (seite, name) => seite.screenshot({ path: path.join(BILDER, name) });
 
-function starteFake() {
-  const p = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(WURZEL, "tests", "fake-datevconnect.ps1"), "-Port", String(PORT)], { windowsHide: true });
+function starteFake(port = PORT, mitAnmeldung = false) {
+  const p = spawn("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", path.join(WURZEL, "tests", "fake-datevconnect.ps1"), "-Port", String(port), ...(mitAnmeldung ? ["-MitAnmeldung"] : [])], { windowsHide: true });
   return new Promise((ok) => p.stdout.on("data", (d) => { if (String(d).includes("auf http")) ok(p); }));
 }
 
@@ -36,10 +36,10 @@ const nummern = (seite) => seite.$$eval("tr[data-nummer]", (tr) => tr.map((t) =>
 const fake = await starteFake();
 const daten = fs.mkdtempSync(path.join(os.tmpdir(), "kh-e2e-"));
 try {
-  // ---- 1. Scan über DATEVconnect mit Windows-Anmeldung ----
+  // ---- 1. Scan über DATEVconnect (ohne Anmeldung) ----
   const basis = { datevconnect: `http://localhost:${PORT}/datev/api/master-data/v1`, demo: false, versand: "eml", design: "hell" };
   let { app, seite } = await starteApp(daten, basis);
-  pruefe((await seite.getAttribute("[data-verbindung]", "data-verbindung")) === "ok", "DATEVconnect verbunden (Windows-Anmeldung)");
+  pruefe((await seite.getAttribute("[data-verbindung]", "data-verbindung")) === "ok", "DATEVconnect verbunden (ohne Anmeldung)");
   await seite.waitForSelector("tr[data-nummer]", { timeout: 20000 });
   const ampeln = Object.fromEntries(await seite.$$eval("tr[data-nummer]", (tr) => tr.map((t) => [t.dataset.nummer, t.querySelector("[data-ampel]")?.dataset.ampel])));
   pruefe(JSON.stringify([10001, 10002, 10003, 10004, 10006, 10007].map((n) => ampeln[n])) === JSON.stringify(["ok", "fehlt", "fehlt", "fehlt", "fehlt", "pruefen"]), "Ampeln der Testfälle");
@@ -125,7 +125,7 @@ try {
   pruefe(emls.length === 1 && emls[0].includes("_10004_"), `eine .eml für 10004 (${emls})`);
   const eml = fs.readFileSync(path.join(aus, emls[0]), "utf8");
   const b64 = (s) => Buffer.from(s, "utf8").toString("base64");
-  pruefe(eml.startsWith("X-Unsent: 1\r\nTo: info@malerbetrieb-test.example"), ".eml-Kopf: X-Unsent und Empfänger");
+  pruefe(eml.startsWith("X-Unsent: 1\r\nBcc: info@malerbetrieb-test.example"), ".eml-Kopf: X-Unsent und Empfänger");
   pruefe(eml.includes(b64("Merkblatt Übersicht.pdf")) && eml.includes(b64("10004_Test-Bescheid.pdf")) && eml.includes(Buffer.from("%PDF-1.4 Bescheid 10004").toString("base64")), ".eml enthält beide Anhänge mit Inhalt");
 
   // ---- 8. Protokoll + „Zuletzt angeschrieben“ ----
@@ -153,6 +153,16 @@ try {
   await bild(seite, "6-adresswahl-hell.png");
   await seite.keyboard.press("Escape");
   pruefe(await an(10026) === "buchhaltung.nowak-maschinenbau@example.com;ralf.nowak@example.com", `eigene Wahl pro Mandant (${await an(10026)})`);
+  // ---- 8c. Durchgehen: Mail für einen Mandanten anpassen, Wert per Platzhalter-Knopf ----
+  await seite.click("[data-knopf=anpassen]");
+  await seite.click("#eigen-text");
+  await seite.keyboard.press("Control+End");
+  await seite.keyboard.type("\nPS für ");
+  await seite.click("[data-anpassen] [data-platzhalter=Name]");
+  await seite.click("[data-knopf=anpassen-fertig]");
+  const angepasst = await seite.$$eval("[data-empfaenger] li", (li) => li.filter((l) => l.querySelector("[data-angepasst]")).length);
+  pruefe(angepasst === 1 && (await seite.textContent("[data-vorschau]")).includes("PS für "), "eigene Fassung für einen Mandanten");
+  await bild(seite, "7-durchgehen-hell.png");
   for (const n of [10002, 10026]) await seite.click(`[data-empfaenger] li[data-nummer="${n}"] button[aria-label$=entfernen]`);
   await seite.click("[data-ansicht=mandanten]");
 
@@ -161,7 +171,8 @@ try {
   await seite.click("[data-knopf=neue-vorlage]");
   await seite.fill("#v-name", "Test: Vollmacht anfordern");
   await seite.fill("#v-betreff", "Vollmacht für {{Name}}");
-  await seite.fill("#v-text", "{{Anrede}}\n\nbitte senden Sie uns die Vollmacht zurück.\n\n{{Grussformel}}\n{{Signatur}}");
+  await seite.click("#v-text"); // formatierter Editor: tippen statt fill (Eingabetaste = neuer Absatz)
+  await seite.keyboard.type("{{Anrede}}\n\nbitte senden Sie uns die Vollmacht zurück.\n\n{{Grussformel}}\n{{Signatur}}");
   await seite.click("[data-knopf=vorlage-speichern]");
   await seite.waitForSelector("[data-vorlage='Test: Vollmacht anfordern']");
   const vl = () => JSON.parse(fs.readFileSync(path.join(daten, "vorlagen.json"), "utf8"));
@@ -197,6 +208,15 @@ try {
   await seite.waitForSelector("[role=alert]", { timeout: 20000 });
   pruefe((await seite.getAttribute("[data-verbindung]", "data-verbindung")) === "aus", "Fehlerbild bei toter Adresse");
   await app.close();
+
+  // ---- 12b. Server verlangt Windows-Anmeldung → App meldet sich mit dem Windows-Konto an (nur bei diesem Server) ----
+  const mitAnmeldung = await starteFake(PORT + 1, true);
+  try {
+    ({ app, seite } = await starteApp(daten, { ...basis, datevconnect: `http://localhost:${PORT + 1}/datev/api/master-data/v1/clients?select=number,name` }));
+    await seite.waitForSelector("tr[data-nummer]", { timeout: 20000 });
+    pruefe((await seite.getAttribute("[data-verbindung]", "data-verbindung")) === "ok", "Windows-Anmeldung: Server mit Anmeldung liefert Daten");
+    await app.close();
+  } finally { mitAnmeldung.kill(); }
 
   // ---- 13. Dunkel ----
   ({ app, seite } = await starteApp(daten, { ...basis, design: "dunkel" }));

